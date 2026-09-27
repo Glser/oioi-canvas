@@ -431,7 +431,7 @@ function InfiniteCanvasPage() {
         setProjectLoaded(false);
         const project = openProject(projectId);
         if (!project) {
-            navigate("/canvas", { replace: true });
+            navigate("/", { replace: true });
             return;
         }
 
@@ -1176,7 +1176,7 @@ function InfiniteCanvasPage() {
     const deleteCurrentProject = useCallback(() => {
         deleteProjects([projectId]);
         cleanupAssetImages();
-        navigate("/canvas");
+        navigate("/");
     }, [cleanupAssetImages, deleteProjects, navigate, projectId]);
 
     const exportCurrentProject = useCallback(async () => {
@@ -3121,7 +3121,7 @@ function InfiniteCanvasPage() {
                     canUndo={historyState.canUndo}
                     canRedo={historyState.canRedo}
                     onHome={() => navigate("/")}
-                    onProjects={() => navigate("/canvas")}
+                    onProjects={() => navigate("/")}
                     onCreateProject={createAndOpenProject}
                     onDeleteProject={deleteCurrentProject}
                     onExportProject={exportCurrentProject}
