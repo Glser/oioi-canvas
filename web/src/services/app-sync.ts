@@ -25,7 +25,7 @@ type AppSyncFile = {
 };
 
 type DomainManifest<T> = {
-    app: "infinite-canvas";
+    app: "oioi-canvas";
     version: 1;
     domain: DomainKey;
     exportedAt: string;
@@ -76,8 +76,8 @@ export type AppSyncProgressEvent = {
 export type AppSyncProgress = (event: AppSyncProgressEvent) => void;
 
 const FILE_CONCURRENCY = 3;
-const imageLogStore = localforage.createInstance({ name: "infinite-canvas", storeName: "image_generation_logs" });
-const videoLogStore = localforage.createInstance({ name: "infinite-canvas", storeName: "video_generation_logs" });
+const imageLogStore = localforage.createInstance({ name: "oioi-canvas", storeName: "image_generation_logs" });
+const videoLogStore = localforage.createInstance({ name: "oioi-canvas", storeName: "video_generation_logs" });
 type LogStore = typeof imageLogStore;
 const storageKeyPattern = /^(image|video|audio|file|video-reference|audio-reference):/;
 
@@ -156,7 +156,7 @@ async function syncDomain<T>(config: WebdavSyncConfig, onProgress: AppSyncProgre
 
         emitProgress(onProgress, { domain: options.key, label: options.label, stage: "上传新增媒体", status: "active" });
         const uploaded = await uploadChangedFiles(config, options.key, mergedData, remoteManifest?.files || [], onProgress);
-        const manifest: DomainManifest<T> = { app: "infinite-canvas", version: 1, domain: options.key, exportedAt: new Date().toISOString(), data: mergedData, files: uploaded.files };
+        const manifest: DomainManifest<T> = { app: "oioi-canvas", version: 1, domain: options.key, exportedAt: new Date().toISOString(), data: mergedData, files: uploaded.files };
         const manifestFile = new Blob([JSON.stringify(manifest, null, 2)], { type: "application/json" });
         emitProgress(onProgress, { domain: options.key, label: options.label, stage: `上传清单 ${formatBytes(manifestFile.size)}`, status: "active" });
         await uploadWebdavFile(config, domainPath(options.key, WEBDAV_MANIFEST_FILE_NAME), manifestFile, "application/json");
@@ -180,9 +180,9 @@ async function readDomainManifest<T>(config: WebdavSyncConfig, domain: DomainKey
     const file = await downloadWebdavFile(config, domainPath(domain, WEBDAV_MANIFEST_FILE_NAME));
     if (!file) return null;
     const data = JSON.parse(await file.text()) as DomainManifest<T>;
-    if (data.app !== "infinite-canvas" || data.domain !== domain) throw new Error(i18n.t("config.webdav.errors.invalidManifest", { domain }));
+    if (data.app !== "oioi-canvas" || data.domain !== domain) throw new Error(i18n.t("config.webdav.errors.invalidManifest", { domain }));
     return {
-        app: "infinite-canvas",
+        app: "oioi-canvas",
         version: 1,
         domain,
         exportedAt: data.exportedAt || new Date().toISOString(),

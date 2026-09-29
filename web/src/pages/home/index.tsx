@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect, useTransition } from "react";
 import { App, Button, Dropdown, Input, Tabs, Tooltip, Modal, Upload } from "antd";
 import type { MenuProps } from "antd";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Bot,
     ArrowUp,
@@ -36,10 +36,13 @@ import { CanvasNodeType, type CanvasNodeData } from "@/types/canvas";
 import { useAgentStore } from "@/stores/use-agent-store";
 import { fetchPrompts } from "@/services/api/prompts";
 
+let homeModeBootstrapped = false;
+
 export default function IndexPage() {
     const { message } = App.useApp();
     const { t } = useTranslation();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
 
     const hydrated = useCanvasStore((state) => state.hydrated);
     const projects = useCanvasStore((state) => state.projects);
@@ -81,6 +84,28 @@ export default function IndexPage() {
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    useEffect(() => {
+        if (!hydrated || homeModeBootstrapped) return;
+        const mode = searchParams.get("mode") || "";
+        if (!["new", "recent", "choose"].includes(mode)) return;
+        homeModeBootstrapped = true;
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete("mode");
+        const search = nextParams.toString() ? `?${nextParams.toString()}` : "";
+        const hash = window.location.hash;
+        if (mode === "choose") {
+            navigate({ pathname: "/", search, hash }, { replace: true });
+            return;
+        }
+        const recent = [...projects].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+        if (mode === "recent" && recent) {
+            navigate({ pathname: `/canvas/${recent.id}`, search, hash }, { replace: true });
+            return;
+        }
+        const id = createProject(t("canvas.defaultTitle", { count: projects.length + 1 }));
+        navigate({ pathname: `/canvas/${id}`, search, hash }, { replace: true });
+    }, [createProject, hydrated, navigate, projects, searchParams, t]);
+
     // 新建并进入画布
     const handleCreateProject = () => {
         const id = createProject(t("canvas.defaultTitle", { count: projects.length + 1 }));
@@ -116,9 +141,6 @@ export default function IndexPage() {
             updateProject(newId, {
                 nodes: [initialTextNode],
             });
-
-            // 如果连上了本地 Agent，则将 prompt 传递到 agentStore
-            useAgentStore.getState().setAgentState({ prompt });
 
             navigate(`/canvas/${newId}`);
         } catch {

@@ -1,0 +1,13 @@
+{
+  "name": "oioi-canvas-local",
+  "version": 1,
+  "description": "Local marketplace for the oioi Canvas plugin.",
+  "plugins": [
+    {
+      "name": "oioi-canvas",
+      "version": "0.1.0",
+      "description": "Use Codex to open and operate oioi Canvas through the local Canvas Agent.",
+      "source": "."
+    }
+  ]
+}

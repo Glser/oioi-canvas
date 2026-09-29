@@ -1,0 +1,22 @@
+{
+  "name": "oioi-canvas",
+  "version": "0.1.0",
+  "description": "Connect ZCode to oioi Canvas through the local Canvas Agent.",
+  "author": {
+    "name": "Glser",
+    "url": "https://github.com/Glser/oioi-canvas"
+  },
+  "homepage": "https://github.com/Glser/oioi-canvas",
+  "repository": "https://github.com/Glser/oioi-canvas",
+  "license": "MIT",
+  "keywords": ["oioi-canvas", "canvas", "mcp", "agent"],
+  "skills": "skills",
+  "mcpServers": {
+    "oioi-canvas": {
+      "command": "npx",
+      "args": ["-y", "@basketikun/canvas-agent@latest", "mcp"],
+      "startup_timeout_sec": 60,
+      "tool_timeout_sec": 90
+    }
+  }
+}

@@ -1,51 +1,42 @@
 ---
 title: Codex App Plugin
-description: Install and use the Infinite Canvas plugin in Codex App
+description: Install and use the oioi Canvas plugin in Codex App
 ---
 
 # Codex App Plugin
 
-The plugin connects Codex to a local Canvas Agent, allowing Codex to open Infinite Canvas, read and create nodes, connect nodes, and start generation workflows. Its source is in `plugins/infinite-canvas/`.
+The plugin connects Codex to a local Canvas Agent so Codex can open oioi Canvas, read and create nodes, and start generation workflows. Source: `plugins/oioi-canvas/`.
 
-## Ask Codex to install it
+## Install from this repository
 
-Send this request to Codex:
-
-```text
-Install the Infinite Canvas Codex plugin from https://github.com/basketikun/infinite-canvas.git.
-Clone it to ~/plugins/infinite-canvas, verify plugins/infinite-canvas/.codex-plugin/plugin.json,
-add the repository to my personal marketplace with `codex plugin marketplace add ~`,
-then install `infinite-canvas@personal`. Validate the installation and tell me whether a new
-conversation is required to load the Skill and MCP tools.
+```powershell
+codex plugin marketplace add "$PWD"
+codex plugin add oioi-canvas@oioi-canvas-local
 ```
 
-## Manual installation
+macOS / Linux:
 
 ```bash
-mkdir -p ~/plugins
-git clone https://github.com/basketikun/infinite-canvas.git ~/plugins/infinite-canvas
-codex plugin marketplace add ~
-codex plugin add infinite-canvas@personal
-```
-
-The personal marketplace entry must point to `./plugins/infinite-canvas/plugins/infinite-canvas`. Start a new Codex conversation after installation so the Skill and MCP tools load completely.
-
-For development from this repository:
-
-```bash
-cd /path/to/infinite-canvas
 codex plugin marketplace add "$(pwd)"
-codex plugin add infinite-canvas@infinite-canvas-local
+codex plugin add oioi-canvas@oioi-canvas-local
 ```
+
+The repo marketplace at `.agents/plugins/marketplace.json` already points to `./plugins/oioi-canvas`. Start a new Codex conversation after installation so the Skill and MCP tools load completely.
 
 ## Usage
 
-In a new Codex conversation, ask it to open Infinite Canvas, create a canvas, and connect Codex. The plugin starts Canvas Agent, reads its connection URL and token, opens `https://canvas.best/`, and creates and connects a canvas. It starts a local frontend only when explicitly requested.
+In a new Codex conversation, say:
+
+```text
+打开无限画布
+```
+
+The plugin starts Canvas Agent, reads the connection URL and token, and opens `http://localhost:3100/?mode=new` to create and connect a canvas.
 
 You can then ask Codex to summarize the current canvas, create prompts from selected nodes, or organize nodes into a generation workflow.
 
-Reinstall or refresh the plugin after changing its manifest, MCP configuration, Skills, exposed MCP tools, app, or entry scripts. The agent's default MCP command is:
+Reinstall or refresh the plugin after changing its manifest, MCP configuration, or Skills.
 
 ```bash
-npx -y @basketikun/canvas-agent@latest mcp
+codex plugin remove oioi-canvas
 ```

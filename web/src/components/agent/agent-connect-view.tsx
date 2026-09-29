@@ -34,52 +34,47 @@ export function AgentConnectView({
     const { t } = useTranslation();
     const { message } = App.useApp();
     const steps = [
-        { 
-            title: "对于部署在远端的画板 (需要公网访问)", 
-            text: "如果画板部署在云端服务器并被他人访问，你需要通过在本地电脑运行 Codex Client 搭配 MCP 配置来将本地大模型能力代理暴露出去，然后在此处填写内网穿透后的公网 Local URL 和 Token 即可进行远程直连！" 
-        }, 
-        { 
-            title: "对于本地开发启动的画板 (localhost)", 
-            text: "如果画板是运行在你本机的开发环境，你只需要在本地终端运行下方命令启动 Agent 服务，画板将默认自动寻找 localhost:6030 建立直连即可使用。", 
-            command: "npx -y @basketikun/canvas-agent@latest" 
-        }
+        { title: t("agent.connect.pluginTitle"), text: t("agent.connect.pluginText") },
+        { title: t("agent.connect.directTitle"), text: t("agent.connect.directText"), command: AGENT_START_COMMAND },
     ];
-    const statusText = connectError ? "连接失败" : connected ? activity : enabled ? "连接中" : "未连接";
+    const statusText = connectError || activity;
     const statusColor = connectError ? "#dc2626" : connected ? "#16a34a" : enabled ? "#d97706" : theme.node.muted;
     const copyCommand = (command: string) => {
-        copyToClipboard(command);
-        message.success(t("agent.connect.commandCopied"));
+        if (copyToClipboard(command)) message.success(t("agent.connect.commandCopied"));
     };
-    
+
     return (
-        <div className="thin-scrollbar min-h-0 flex-1 overflow-y-auto p-4">
-            <div className="space-y-4">
-                <div>
-                    <div className="text-base font-semibold leading-6">连接本地 Agent</div>
-                    <div className="mt-1 text-xs leading-5" style={{ color: theme.node.muted }}>
-                        按使用场景选择一种连接方式。
-                    </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            <div className="grid gap-4">
+                <div className="text-xs leading-5" style={{ color: theme.node.muted }}>
+                    {t("agent.connect.description")}
                 </div>
-                <div className="space-y-2">
+                <div className="grid gap-3">
                     {steps.map((step, index) => {
                         const command = "command" in step ? step.command : "";
                         return (
                             <Fragment key={step.title}>
-                                <div className="rounded-lg px-3 py-2.5">
-                                    <div className="text-sm font-medium leading-5">{step.title}</div>
-                                    <div className="mt-1 text-xs leading-5" style={{ color: theme.node.muted }}>
-                                        {step.text}
-                                    </div>
-                                    {command ? (
-                                        <div className="mt-2 flex items-center gap-2 rounded-md border bg-transparent px-2 py-1.5" style={{ borderColor: theme.node.stroke, color: theme.node.text }}>
-                                            <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap text-[11px] leading-5">{command}</code>
-                                            <Tooltip title={t("agent.connect.copyCommand")}>
-                                                <Button size="small" type="text" className="!h-6 !w-6 !min-w-6" icon={<Copy className="size-3.5" />} onClick={() => copyCommand(command)} />
-                                            </Tooltip>
+                                <div className="rounded-lg border p-3" style={{ borderColor: theme.node.stroke }}>
+                                    <div className="flex items-start gap-2">
+                                        <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full text-[11px] font-medium" style={{ background: theme.node.stroke, color: theme.node.text }}>
+                                            {index + 1}
+                                        </span>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="text-sm font-medium leading-5">{step.title}</div>
+                                            <div className="mt-1 text-xs leading-5" style={{ color: theme.node.muted }}>
+                                                {step.text}
+                                            </div>
+                                            {command ? (
+                                                <div className="mt-2 flex items-center gap-2 rounded-md border bg-transparent px-2 py-1.5" style={{ borderColor: theme.node.stroke, color: theme.node.text }}>
+                                                    <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap text-[11px] leading-5">{command}</code>
+                                                    <Tooltip title={t("agent.connect.copyCommand")}>
+                                                        <Button size="small" type="text" className="!h-6 !w-6 !min-w-6" icon={<Copy className="size-3.5" />} onClick={() => copyCommand(command)} />
+                                                    </Tooltip>
+                                                </div>
+                                            ) : null}
                                         </div>
-                                    ) : null}
+                                    </div>
                                 </div>
-                                
                             </Fragment>
                         );
                     })}
@@ -88,7 +83,7 @@ export function AgentConnectView({
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                             <div className="flex min-w-0 items-center gap-2">
-                                <span className="shrink-0 text-sm font-medium leading-5">网页连接设置</span>
+                                <span className="shrink-0 text-sm font-medium leading-5">{t("agent.connect.webConnection")}</span>
                                 <span
                                     className="inline-flex min-w-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] leading-4"
                                     style={{ borderColor: connected || enabled || connectError ? statusColor : theme.node.stroke, color: statusColor }}
@@ -98,26 +93,26 @@ export function AgentConnectView({
                                 </span>
                             </div>
                             <div className="mt-1 text-xs leading-5" style={{ color: theme.node.muted }}>
-                                连接成功后即可进行自动化工作
+                                {t("agent.connect.autoDiscover")}
                             </div>
                         </div>
                         <Button className="!h-8 !px-3" type={enabled ? "default" : "primary"} icon={<PlugZap className="size-4" />} onClick={onToggleEnabled}>
-                            {enabled ? "断开连接" : "连接并保存"}
+                            {enabled ? t("agent.connect.disconnect") : t("agent.connect.connect")}
                         </Button>
                     </div>
                     <div className="mt-3 grid gap-2.5">
                         <label className="grid gap-1.5">
                             <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: theme.node.muted }}>
                                 <Link2 className="size-3.5" />
-                                本地 Agent 地址
+                                {t("agent.connect.localAddress")}
                                 <span className="font-normal opacity-70">Local URL</span>
                             </span>
-                            <Input size="large" prefix={<Link2 className="mr-1 size-4" style={{ color: theme.node.faint }} />} value={url} onChange={(event) => onUrlChange(event.target.value)} placeholder="如：http://127.0.0.1:6030" />
+                            <Input size="large" prefix={<Link2 className="mr-1 size-4" style={{ color: theme.node.faint }} />} value={url} onChange={(event) => onUrlChange(event.target.value)} placeholder={t("agent.connect.urlPlaceholder")} />
                         </label>
                         <label className="grid gap-1.5">
                             <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: theme.node.muted }}>
                                 <KeyRound className="size-3.5" />
-                                鉴权 Token
+                                {t("agent.connect.token")}
                                 <span className="font-normal opacity-70">Connect token</span>
                             </span>
                             <Input.Password
@@ -125,7 +120,7 @@ export function AgentConnectView({
                                 prefix={<KeyRound className="mr-1 size-4" style={{ color: theme.node.faint }} />}
                                 value={token}
                                 onChange={(event) => onTokenChange(event.target.value)}
-                                placeholder="留空即不使用 Token (本地环境推荐留空)"
+                                placeholder={t("agent.connect.tokenPlaceholder")}
                             />
                         </label>
                         {connectError ? (

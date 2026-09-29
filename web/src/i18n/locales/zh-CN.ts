@@ -250,7 +250,7 @@ export default {
         agentConnecting: "Codex {{activity}}",
         agentDisconnected: "Codex 未连接",
         connecting: "连接中",
-        openAgent: "打开本地 Codex 面板",
+        openAgent: "打开 Agent 连接",
         nodeTypes: { image: "图片", text: "文本", config: "生成配置", video: "视频", audio: "音频", group: "组" },
         toolbar: {
             select: "选择", pan: "移动", text: "文本", image: "图片", video: "视频", audio: "音频", config: "生成配置", group: "组", extensions: "扩展节点", upload: "上传资产", appearance: "画布外观", clear: "清空画布",
@@ -395,7 +395,7 @@ export default {
         },
         localStorage: {
             title: "IndexedDB 存储使用情况",
-            description: "查看 Infinite Canvas 在浏览器中保存的数据量，并按对象仓库统计内容体积。",
+            description: "查看 oioi-canvas 在浏览器中保存的数据量，并按对象仓库统计内容体积。",
             indexedDbUsage: "IndexedDB 占用",
             siteUsage: "站点总占用",
             quota: "可用配额",
@@ -403,11 +403,11 @@ export default {
             siteUsageHint: "包含 IndexedDB 等站点数据",
             quotaHint: "由浏览器动态分配",
             quotaProgress: "站点配额使用率",
-            mainDatabase: "Infinite Canvas 主数据",
+            mainDatabase: "oioi-canvas 主数据",
             records: "{{count}} 条",
             refresh: "刷新统计",
             readFailed: "读取本地存储失败",
-            stores: { appState: "应用状态", images: "图片文件", imagePreviews: "图片缩略图", media: "音视频文件", imageLogs: "生图记录", videoLogs: "视频记录", agentMessages: "Agent 消息", promptCache: "提示词缓存" },
+            stores: { appState: "应用状态", images: "图片文件", imagePreviews: "图片缩略图", media: "音视频文件", imageLogs: "生图记录", videoLogs: "视频记录", promptCache: "提示词缓存" },
         },
         promptSources: {
             add: "新增来源",
@@ -627,7 +627,7 @@ export default {
         status: { failed: "连接失败", connected: "已连接", connecting: "连接中", disconnected: "未连接" },
         state: { ready: "就绪", connectionRequired: "请填写 Local URL 和 Connect token", invalidUrl: "Local URL 格式不正确", offline: "离线", skillReadFailed: "读取 Skill 失败", skillParseFailed: "Skill 解析失败", requestFailed: "本地 Agent 请求失败" },
         siteTools: { canvasList: "画布列表", generationStatus: "生成任务状态", imageConfig: "生图配置", imageGenerate: "生图工作台生成", videoConfig: "视频配置", videoGenerate: "视频创作台生成", promptSearch: "搜索提示词", assetList: "资产列表", assetAdd: "添加资产", unknownTool: "未知工具：{{name}}", canvasLoading: "画布还在加载中，请稍后重试", canvasHint: "用 site_navigate 跳转 /canvas/{id} 打开对应画布", assetsLoading: "资产还在加载中，请稍后重试", assetTitleRequired: "请提供资产标题 title", textContentRequired: "kind=text 时需要提供 content 文本内容", imageUrlRequired: "kind=image 时需要提供 imageUrl（图片地址或 dataURL）", imageReadFailed: "无法读取该图片地址，请改用 dataURL 或可跨域访问的图片链接", assetKindUnsupported: "assets_add 仅支持 kind=text 或 kind=image", imageGenerationStarted: "已跳转生图工作台并触发生成，可用 generation_get_status 查询任务", imageConfigApplied: "已跳转生图工作台并填入参数，未触发生成", videoGenerationStarted: "已跳转视频创作台并触发生成，可用 generation_get_status 查询任务", videoConfigApplied: "已跳转视频创作台并填入参数，未触发生成" },
-        connect: { pluginTitle: "方式一：在 Codex 中使用插件", pluginText: "在 Codex app 安装 Infinite Canvas 插件后，通过插件启动画布，插件会自动启动本地 Agent 并带上连接信息。", directTitle: "方式二：直接运行 Agent", directText: "不使用 Codex 插件时，在终端运行下面命令，再回到网页里连接或手动填入 Local URL 和 Connect token。", commandCopied: "命令已复制", pluginReminder: "Codex 插件提醒", pluginReminderText: "只有安装 Codex 插件或手动添加 MCP 后，工具列表才会进入 Codex 上下文并增加 token 消耗；仅运行 npx -y @basketikun/canvas-agent@latest 启动本地 Agent 不会安装 MCP。", removePlugin: "移除插件", removeMcp: "移除手动 MCP", copyCommand: "复制命令", title: "连接本地 Agent", description: "按使用场景选择一种连接方式。", webConnection: "网页连接", autoDiscover: "默认自动读取 Local URL 和 Connect token，失败时再手动填写。", disconnect: "断开", connect: "连接", localAddress: "本地地址", urlPlaceholder: "例如 http://127.0.0.1:17371", token: "连接 Token", tokenPlaceholder: "自动发现，或手动填入 Connect token" },
+        connect: { pluginTitle: "安装 oioi-canvas 插件", pluginText: "在 Codex 安装 oioi-canvas 插件。之后用你自己的 Codex 对话操作画布，网页不再记录对话、技能或日志。", directTitle: "本机启动 Canvas Agent", directText: "在本机运行下面命令。云端打开的画布也是连你电脑上的 127.0.0.1，不需要内网穿透。", commandCopied: "命令已复制", pluginReminder: "Codex 插件提醒", pluginReminderText: "只有安装 Codex 插件或手动添加 MCP 后，工具列表才会进入 Codex 上下文并增加 token 消耗；仅运行 npx -y @basketikun/canvas-agent@latest 启动本地 Agent 不会安装 MCP。", removePlugin: "移除插件", removeMcp: "移除手动 MCP", copyCommand: "复制命令", title: "如何连接", description: "画布只负责接到你的 Codex。对话、技能和日志都在 Codex 里完成。", webConnection: "网页连接", autoDiscover: "默认自动读取本机 Local URL 和 Token，失败时再手动填写。", disconnect: "断开", connect: "连接", localAddress: "本地地址", urlPlaceholder: "例如 http://127.0.0.1:17371", token: "连接 Token", tokenPlaceholder: "自动发现，或手动填入 Connect token" },
         history: { workspace: "工作空间", defaultWorkspace: "默认画布目录", selected: "已选 {{count}} 条", count: "{{count}} 条历史", empty: "暂无历史", deleteCount: "删除 {{count}} 条", refresh: "刷新", newThread: "新对话", selectThread: "选择{{name}}", untitled: "未命名对话", current: "当前", noWorkspaceThreads: "当前工作空间还没有对话记录", connectHint: "连接本地 Agent 后显示历史记录" },
         skills: { selectLocal: "选择本地 Skill", search: "搜索 Skill", loading: "正在读取 Skill…", noMatch: "没有匹配的已启用 Skill", none: "还没有可用的 Skill", select: "选择 Skill", connectHint: "连接 Agent 后使用 Skill" },
         skillManager: {
@@ -636,7 +636,7 @@ export default {
             identifier: "Skill 标识", identifierExtra: "用于文件夹名和 $skill-name 调用。", identifierRequired: "请输入 Skill 标识", identifierMax: "Skill 标识不能超过 64 个字符", identifierPattern: "仅支持小写字母、数字和连字符，连字符不能连续或位于首尾", identifierPlaceholder: "例如 product-grid", displayName: "显示名称", displayNameMax: "显示名称不能超过 64 个字符", displayNamePlaceholder: "例如 产品九宫格生成", whenToUse: "何时使用", whenToUseExtra: "说明这个 Skill 的能力和适用场景，Codex 会据此判断是否调用。", whenToUseRequired: "请输入使用场景", whenToUseMax: "使用场景不能超过 1024 个字符", noAngleBrackets: "使用场景不能包含尖括号", whenToUsePlaceholder: "例如：当用户需要基于商品信息规划并生成一组产品图时使用", instructions: "执行说明", instructionsExtra: "按实际执行顺序写清步骤、约束和输出要求。", instructionsRequired: "请输入执行说明", instructionsPlaceholder: "写清楚执行步骤、必要检查和最终输出", advanced: "高级设置", shortDescription: "卡片短说明", shortDescriptionExtra: "填写时控制在 25–64 个字符，便于快速浏览。", shortDescriptionMin: "卡片短说明不能少于 25 个字符", shortDescriptionMax: "卡片短说明不能超过 64 个字符", shortDescriptionPlaceholder: "可选，用于列表展示", defaultPrompt: "默认提示词", defaultPromptExtra: "填写时必须准确包含 $skill-name，例如 $product-grid。", defaultPromptMax: "默认提示词不能超过 1024 个字符", defaultPromptPlaceholder: "可选，选择 Skill 时预填到输入框",
         },
         composer: { removeImage: "移除图片", removeSkill: "移除 Skill", uploadImage: "上传图片", stop: "停止", send: "发送", model: "模型：{{model}}", selectModel: "选择 Codex 模型，当前为 {{model}}", reasoning: "思考程度：{{effort}}", selectReasoning: "选择思考程度，当前为 {{effort}}", permissionLabel: "权限：{{mode}}", selectPermission: "选择 Codex 权限模式，当前为 {{mode}}", effort: { minimal: "最低", low: "轻度", medium: "中", high: "高", xhigh: "极高", max: "最高", ultra: "Ultra" }, permission: { request: "请求批准", requestDescription: "编辑工作区外文件或联网时始终询问", automatic: "自动审查", automaticDescription: "由 Codex 审查风险操作，必要时再询问", full: "完全访问权限", fullShort: "完全访问", fullDescription: "不受限制地访问网络和本机文件" }, tools: { label: "工具确认：{{mode}}", manual: "手动确认", manualDescription: "Agent 执行画布写入前会请求确认", automatic: "自动确认", automaticDescription: "Agent 会自动执行画布写入操作", select: "选择工具确认模式，当前为 {{mode}}" }, mentions: { selectSkill: "选择 Skill", selectResource: "引用画布素材", loadingSkills: "正在读取 Skill…", noSkills: "没有匹配的已启用 Skill", noResources: "当前画布没有匹配的可引用素材", previewUnavailable: "当前无法预览该素材", referenceLabel: "引用{{kind}}：{{title}}", resourceMissing: "画布素材“{{title}}”已不存在", imageReadFailed: "无法读取画布图片“{{title}}”", kind: { image: "图片", video: "视频", audio: "音频", text: "文本" } } },
-        panel: { connectionSettings: "连接设置 · {{status}}", connectionSettingsLabel: "连接设置，当前{{status}}", chat: "对话", history: "历史", skills: "技能", logs: "日志", collapse: "收起对话", collapseLabel: "收起 Agent 面板", resize: "调整右侧面板宽度", content: "Agent 内容", mcpInitializing: "MCP 初始化中，完成后即可发送", initFailed: "Codex 对话初始化失败，请新建或恢复对话", placeholder: "询问 Codex，输入 / 使用技能，@ 引用画布素材" },
+        panel: { connectionSettings: "连接设置 · {{status}}", connectionSettingsLabel: "连接设置，当前{{status}}", chat: "对话", history: "历史", skills: "技能", logs: "日志", collapse: "收起", collapseLabel: "收起 Agent 面板", resize: "调整右侧面板宽度", content: "Agent 内容", mcpInitializing: "MCP 初始化中，完成后即可发送", initFailed: "Codex 对话初始化失败，请新建或恢复对话", placeholder: "询问 Codex，输入 / 使用技能，@ 引用画布素材" },
         chat: { latestMessages: "查看最新消息", latestCall: "最新调用", input: "输入", cached: "缓存", output: "输出" },
         logs: { copied: "日志已复制", selectedManual: "已选中日志，请手动复制", copyFailed: "复制失败，请切换到原始 JSON 后手动复制", title: "运行日志", diagnostics: "排查日志", rawJson: "原始 JSON", messages: "{{count}} 条消息", tool: "工具：{{tool}}", noPendingTool: "无待处理工具", all: "全部 {{count}}", errors: "错误 {{count}}", warnings: "警告 {{count}}", info: "信息 {{count}}", list: "排查日志列表", noFiltered: "当前筛选下没有日志", empty: "暂无事件日志", new: "{{count}} 条新日志", newLabel: "{{count}} 条新日志，查看最新日志", latest: "查看最新日志", fullData: "完整诊断数据 · {{count}} 条", copyAll: "复制全部日志", copyLastError: "复制最近错误", lastErrorCopied: "最近错误已复制", clear: "清空日志", repeated: "重复 {{count}} 次", details: "详细信息", skillLoading: "技能加载", plugin: "插件", terminal: "终端", conversationStorage: "会话存储" },
         message: { close: "关闭", copied: "已复制", copyCode: "复制代码", copyLink: "复制链接", externalWarning: "即将打开以下外部链接，请确认链接可信。", openExternal: "打开外部链接？", continueOpen: "继续打开", revealed: "已在文件管理器中定位", openLocalFailed: "无法打开本地文件", openLocal: "打开本地文件？", localDescription: "将在本机文件管理器中定位该路径，不会通过浏览器打开。", externalDescription: "即将打开以下外部链接，请确认链接可信。", pathCopied: "路径已复制", linkCopied: "链接已复制", copyPath: "复制路径", showInFolder: "在文件管理器中显示", toolCall: "工具调用", awaitingConfirmation: "等待确认", reject: "拒绝执行", approve: "批准执行", networkApproval: "请求网络访问", fileApproval: "请求编辑文件", permissionApproval: "请求扩展权限", commandApproval: "请求执行命令", decline: "拒绝", allowOnce: "允许一次", allowSession: "本会话允许", thinking: "正在思考", commandsRunning: "正在执行 {{count}} 条命令", commandRunning: "正在执行命令", commandsCompleted: "已执行 {{count}} 条命令{{failed}}", commandsFailed: " · {{count}} 条失败", failed: "执行失败", running: "进行中", completed: "已完成", command: "命令", slowResponse: "响应时间较长，但任务仍在运行。可以继续等待，或点击输入框右侧的停止按钮结束本轮。", waitingSeconds: "已等待 {{seconds}} 秒", waitingMinutes: "已等待 {{minutes}} 分 {{seconds}} 秒", files: "涉及文件", errorInfo: "错误信息", output: "运行输出", viewLarge: "点击查看大图", attachmentPreview: "图片附件预览", noEffect: "未生效", canceled: "已取消", recorded: "已记录", stopped: "已停止", finished: "已结束", pending: "待处理" },
@@ -655,3 +655,4 @@ export default {
         enUS: "English",
     },
 };
+

@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
+import { createBrowserRouter, Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { AnalyticsTracker } from "@/components/layout/analytics-tracker";
 import UserLayout from "@/layouts/user-layout";
@@ -10,6 +10,11 @@ import ImagePage from "@/pages/image";
 import NotFound from "@/pages/not-found";
 import PromptsPage from "@/pages/prompts";
 import VideoPage from "@/pages/video";
+
+function RedirectCanvasIndex() {
+    const location = useLocation();
+    return <Navigate to={{ pathname: "/", search: location.search, hash: location.hash }} replace />;
+}
 
 export const router = createBrowserRouter([
     {
@@ -25,7 +30,7 @@ export const router = createBrowserRouter([
             { path: "/video", element: <VideoPage /> },
             { path: "/assets", element: <AssetsPage /> },
             { path: "/prompts", element: <PromptsPage /> },
-            { path: "/canvas", element: <Navigate to="/" replace /> },
+            { path: "/canvas", element: <RedirectCanvasIndex /> },
             { path: "/canvas/:id", element: <CanvasProjectPage /> },
             { path: "/config", element: <ConfigPage /> },
         ],

@@ -70,7 +70,7 @@ export type ChannelCredentialsImportResult = {
     channelName?: string;
 };
 
-export const CONFIG_STORE_KEY = "infinite-canvas:ai_config_store";
+export const CONFIG_STORE_KEY = "oioi-canvas:ai_config_store";
 const CHANNEL_MODEL_SEPARATOR = "::";
 const OPENAI_BASE_URL = "https://api.openai.com";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com";
@@ -127,7 +127,7 @@ export const defaultWebdavSyncConfig: WebdavSyncConfig = {
     url: "",
     username: "",
     password: "",
-    directory: "infinite-canvas",
+    directory: "oioi-canvas",
     lastSyncedAt: "",
 };
 
