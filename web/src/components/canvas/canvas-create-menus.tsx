@@ -25,26 +25,26 @@ export function ConnectionCreateMenu({
     const { t } = useTranslation();
     return (
         <div
-            className="absolute z-[120] w-[300px] rounded-[18px] border p-3 shadow-2xl backdrop-blur"
+            className="absolute z-[120] w-[218px] rounded-2xl border p-1.5 shadow-[0_12px_32px_rgba(0,0,0,0.28)] backdrop-blur-xl animate-in fade-in zoom-in-95 duration-150"
             data-connection-create-menu
             style={{ left: pending.position.x, top: pending.position.y, background: theme.node.panel, borderColor: theme.node.stroke, color: theme.node.text }}
             onMouseDown={(event) => event.stopPropagation()}
             onPointerDown={(event) => event.stopPropagation()}
         >
-            <div className="mb-2 flex items-center justify-between px-1">
-                <span className="text-sm font-medium" style={{ color: theme.node.muted }}>
+            <div className="mb-1 flex items-center justify-between px-2 py-0.5">
+                <span className="text-[11px] font-medium tracking-wide opacity-50">
                     {t("canvas.createMenu.fromNode")}
                 </span>
-                <button type="button" className="grid size-7 place-items-center rounded-lg text-base opacity-55 transition hover:bg-white/10 hover:opacity-100" onClick={onClose} aria-label={t("canvas.createMenu.close")}>
-                    ×
+                <button type="button" className="grid size-5 place-items-center rounded-md text-xs opacity-40 transition hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10" onClick={onClose} aria-label={t("canvas.createMenu.close")}>
+                    <X className="size-3" />
                 </button>
             </div>
-            <div className="grid gap-1">
-                <ConnectionCreateOption theme={theme} icon={<List className="size-5" />} title={t("canvas.createMenu.text")} description={t("canvas.createMenu.textDescription")} onClick={() => onCreate(CanvasNodeType.Text)} />
-                <ConnectionCreateOption theme={theme} icon={<ImageIcon className="size-5" />} title={t("canvas.createMenu.image")} onClick={() => onCreate(CanvasNodeType.Image)} />
-                <ConnectionCreateOption theme={theme} icon={<Video className="size-5" />} title={t("canvas.createMenu.video")} onClick={() => onCreate(CanvasNodeType.Video)} />
-                <ConnectionCreateOption theme={theme} icon={<Music2 className="size-5" />} title={t("canvas.createMenu.audio")} onClick={() => onCreate(CanvasNodeType.Audio)} />
-                <ConnectionCreateOption theme={theme} icon={<Settings2 className="size-5" />} title={t("canvas.createMenu.config")} description={t("canvas.createMenu.configDescription")} onClick={() => onCreate(CanvasNodeType.Config)} />
+            <div className="flex flex-col gap-0.5">
+                <ConnectionCreateOption theme={theme} icon={<List className="size-3.5" />} title={t("canvas.createMenu.text")} onClick={() => onCreate(CanvasNodeType.Text)} />
+                <ConnectionCreateOption theme={theme} icon={<ImageIcon className="size-3.5" />} title={t("canvas.createMenu.image")} onClick={() => onCreate(CanvasNodeType.Image)} />
+                <ConnectionCreateOption theme={theme} icon={<Video className="size-3.5" />} title={t("canvas.createMenu.video")} onClick={() => onCreate(CanvasNodeType.Video)} />
+                <ConnectionCreateOption theme={theme} icon={<Music2 className="size-3.5" />} title={t("canvas.createMenu.audio")} onClick={() => onCreate(CanvasNodeType.Audio)} />
+                <ConnectionCreateOption theme={theme} icon={<Settings2 className="size-3.5" />} title={t("canvas.createMenu.config")} onClick={() => onCreate(CanvasNodeType.Config)} />
             </div>
         </div>
     );
@@ -54,22 +54,18 @@ export function ConnectionCreateOption({ theme, icon, title, description, onClic
     return (
         <button
             type="button"
-            className="flex h-16 w-full cursor-pointer items-center gap-3 rounded-2xl px-3 text-left transition"
+            className="group flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-xl px-2 text-left transition-colors duration-150 hover:bg-black/5 dark:hover:bg-white/10"
             style={{ color: theme.node.text }}
             onClick={onClick}
-            onMouseEnter={(event) => (event.currentTarget.style.background = theme.node.fill)}
-            onMouseLeave={(event) => (event.currentTarget.style.background = "transparent")}
         >
-            <span className="grid size-11 shrink-0 place-items-center rounded-xl" style={{ background: theme.node.fill, color: theme.node.muted }}>
+            <span
+                className="grid size-6 shrink-0 place-items-center rounded-lg opacity-70 transition-transform duration-150 group-hover:scale-110 group-hover:opacity-100"
+                style={{ background: theme.node.fill, color: theme.node.text }}
+            >
                 {icon}
             </span>
-            <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2 text-base font-semibold leading-5">{title}</span>
-                {description ? (
-                    <span className="mt-1 block truncate text-sm" style={{ color: theme.node.muted }}>
-                        {description}
-                    </span>
-                ) : null}
+            <span className="min-w-0 flex-1 truncate text-xs font-medium">
+                {title}
             </span>
         </button>
     );
@@ -92,22 +88,28 @@ export function NodeCreateMenu({ position, onCreate, onClose }: { position: Posi
     return (
         <div
             ref={menuRef}
-            className="absolute z-[120] max-h-[70vh] w-[300px] overflow-y-auto rounded-[18px] border p-3 shadow-2xl backdrop-blur thin-scrollbar"
+            className="absolute z-[120] max-h-[70vh] w-[218px] overflow-y-auto rounded-2xl border p-1.5 shadow-[0_16px_36px_rgba(0,0,0,0.32)] backdrop-blur-xl thin-scrollbar animate-in fade-in zoom-in-95 duration-150"
             data-canvas-no-zoom
             style={{ left: position.x, top: position.y, background: theme.node.panel, borderColor: theme.node.stroke, color: theme.node.text }}
             onPointerDown={(event) => event.stopPropagation()}
         >
-            <div className="mb-2 flex items-center justify-between px-1">
-                <span className="text-sm font-medium" style={{ color: theme.node.muted }}>
+            <div className="mb-1 flex items-center justify-between px-2 py-0.5">
+                <span className="text-[11px] font-medium tracking-wide opacity-50">
                     {t("canvas.createMenu.select")}
                 </span>
-                <button type="button" className="grid size-7 place-items-center rounded-lg opacity-55 transition hover:opacity-100" onClick={onClose} aria-label={t("canvas.createMenu.close")}>
-                    <X className="size-4" />
+                <button type="button" className="grid size-5 place-items-center rounded-md text-xs opacity-40 transition hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10" onClick={onClose} aria-label={t("canvas.createMenu.close")}>
+                    <X className="size-3" />
                 </button>
             </div>
-            <div className="grid gap-1">
+            <div className="flex flex-col gap-0.5">
                 {definitions.map((def) => (
-                    <ConnectionCreateOption key={def.type} theme={theme} icon={def.icon} title={def.title} description={def.description} onClick={() => onCreate(def.type)} />
+                    <ConnectionCreateOption
+                        key={def.type}
+                        theme={theme}
+                        icon={def.icon ? <span className="[&_svg]:size-3.5">{def.icon}</span> : null}
+                        title={def.title}
+                        onClick={() => onCreate(def.type)}
+                    />
                 ))}
             </div>
         </div>

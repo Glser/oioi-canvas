@@ -5,6 +5,7 @@ description: Implemented changes that still need manual verification
 
 # Pending Tests
 
+- 主页画布卡片样式升级：主页「最近作品」卡片重构为类似小云雀/Liblib的视觉风格，自动提取画布中最新生成的图片或视频作为封面展示（无媒体内容时显示极简质感占位），移除节点数/连线数等杂乱信息，仅展示作品名称和最近更新时间，右上角整合悬浮快捷操作菜单（重命名、导出、删除），左上角提供选中态复选框；无作品空页面改用项目 Logo 质感卡片替代生硬图标展示。
 - Agent side panel: opening it should only show how to connect (install the oioi-canvas plugin, start Canvas Agent locally, and the Local URL / token). Chat, skills, logs, history, a composer, and write confirmation must not appear. Canvas writes should run automatically.
 - Canvas Agent: starting it should only expose the web connection and canvas tool bridge. It must not create or resume Codex conversations, and must not provide chat, skills, thread, or log APIs.
 - Identifiers: browser storage, export, and sync use the `oioi-canvas` app name; Canvas Agent config lives in `~/.oioi-canvas`; the MCP name is `oioi-canvas`.
@@ -80,3 +81,5 @@ The Chinese version contains the complete item-by-item acceptance checklist.
 - 所有 4K 预设提交时均不应触发本地总像素或最长边限制；生成和编辑请求、调用脚本应收到所选像素尺寸。
 - 分辨率为自动时保留比例选择，比例为自动时禁用 W/H；手动输入 W/H 后，对齐开关仍应按原有方式工作。
 - Gemini 在质量为自动时，应将表中尺寸识别为对应的 1K / 2K / 4K；显式选择质量时维持原有优先级。视频尺寸设置应保持原有行为。
+
+

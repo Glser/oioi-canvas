@@ -18,7 +18,7 @@ type InfiniteCanvasProps = {
     children: React.ReactNode;
 };
 
-export function InfiniteCanvas({ containerRef, viewport, tool, backgroundMode = "lines", onViewportChange, onCanvasMouseDown, onCanvasDeselect, onCanvasDoubleClick, onContextMenu, onDrop, children }: InfiniteCanvasProps) {
+export function InfiniteCanvas({ containerRef, viewport, tool, backgroundMode = "dots", onViewportChange, onCanvasMouseDown, onCanvasDeselect, onCanvasDoubleClick, onContextMenu, onDrop, children }: InfiniteCanvasProps) {
     const theme = canvasThemes[useThemeStore((state) => state.theme)];
     const panState = useRef({
         isPanning: false,
@@ -35,6 +35,8 @@ export function InfiniteCanvas({ containerRef, viewport, tool, backgroundMode = 
     const [isSpacePressed, setIsSpacePressed] = useState(false);
     const [isControlPressed, setIsControlPressed] = useState(false);
     const [isPanning, setIsPanning] = useState(false);
+    const [pointer, setPointer] = useState({ x: -999, y: -999, active: false });
+    const pointerTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         scaleRef.current = viewport.k;
@@ -213,13 +215,26 @@ export function InfiniteCanvas({ containerRef, viewport, tool, backgroundMode = 
             className="relative h-full w-full select-none overflow-hidden"
             style={{ background: theme.canvas.background, cursor }}
             onPointerDown={handlePointerDown}
+            onPointerMove={(e) => {
+                const rect = containerRef.current?.getBoundingClientRect();
+                if (!rect) return;
+                setPointer({ x: e.clientX - rect.left, y: e.clientY - rect.top, active: true });
+                if (pointerTimeoutRef.current) clearTimeout(pointerTimeoutRef.current);
+                pointerTimeoutRef.current = setTimeout(() => {
+                    setPointer((prev) => ({ ...prev, active: false }));
+                }, 2000);
+            }}
+            onPointerLeave={() => {
+                if (pointerTimeoutRef.current) clearTimeout(pointerTimeoutRef.current);
+                setPointer((prev) => ({ ...prev, active: false }));
+            }}
             onDoubleClick={handleDoubleClick}
             onWheel={handleWheel}
             onContextMenu={onContextMenu}
             onDragOver={(event) => event.preventDefault()}
             onDrop={onDrop}
         >
-            <CanvasGrid viewport={viewport} mode={backgroundMode} />
+            <CanvasGrid viewport={viewport} mode={backgroundMode} pointer={pointer} />
             <div
                 className="absolute origin-top-left"
                 style={{
@@ -232,25 +247,60 @@ export function InfiniteCanvas({ containerRef, viewport, tool, backgroundMode = 
     );
 }
 
-function CanvasGrid({ viewport, mode }: { viewport: ViewportTransform; mode: CanvasBackgroundMode }) {
-    const theme = canvasThemes[useThemeStore((state) => state.theme)];
+function CanvasGrid({ viewport, mode, pointer }: { viewport: ViewportTransform; mode: CanvasBackgroundMode; pointer: { x: number; y: number; active: boolean } }) {
+    const isDark = useThemeStore((state) => state.theme === "dark");
+    const theme = canvasThemes[isDark ? "dark" : "light"];
     if (mode === "blank") return null;
 
-    const gridSize = 48 * viewport.k;
+    // 与创境 AI 画布一致的 21.6 步长和 0.72px 微粒
+    const baseGridSize = mode === "dots" ? 21.6 : 48;
+    const gridSize = baseGridSize * viewport.k;
     const x = viewport.x % gridSize;
     const y = viewport.y % gridSize;
-    const dotSize = viewport.k < 0.12 ? 0.8 : 1.15;
-    const backgroundImage =
-        mode === "dots" ? `radial-gradient(circle, ${theme.canvas.dot} ${dotSize}px, transparent ${dotSize + 0.2}px)` : `linear-gradient(${theme.canvas.line} 1px, transparent 1px), linear-gradient(90deg, ${theme.canvas.line} 1px, transparent 1px)`;
+
+    // 当缩放比例过低（< 0.35）时平滑淡出点阵，避免过密产生视觉噪点
+    const zoomFade = mode === "dots" ? Math.min(1, Math.max(0, (viewport.k - 0.32) / (0.55 - 0.32))) : 1;
+    if (zoomFade <= 0.01) return null;
+
+    const dotSize = 0.72;
+    const baseDotColor = isDark ? "rgba(244, 244, 244, 0.19)" : "rgba(40, 40, 40, 0.18)";
+    const spotlightDotColor = isDark ? "rgba(255, 255, 255, 0.72)" : "rgba(10, 10, 10, 0.55)";
+
+    const baseBackground =
+        mode === "dots"
+            ? `radial-gradient(circle, ${baseDotColor} ${dotSize}px, transparent ${dotSize + 0.15}px)`
+            : `linear-gradient(${theme.canvas.line} 1px, transparent 1px), linear-gradient(90deg, ${theme.canvas.line} 1px, transparent 1px)`;
+
+    const spotlightBackground =
+        mode === "dots"
+            ? `radial-gradient(circle, ${spotlightDotColor} ${dotSize}px, transparent ${dotSize + 0.15}px)`
+            : baseBackground;
 
     return (
-        <div
-            className="pointer-events-none absolute inset-0 opacity-40"
-            style={{
-                backgroundImage,
-                backgroundSize: `${gridSize}px ${gridSize}px`,
-                backgroundPosition: `${x}px ${y}px`,
-            }}
-        />
+        <div className="pointer-events-none absolute inset-0 select-none overflow-hidden" style={{ opacity: zoomFade }}>
+            {/* 底层基础点阵 */}
+            <div
+                className="absolute inset-0"
+                style={{
+                    backgroundImage: baseBackground,
+                    backgroundSize: `${gridSize}px ${gridSize}px`,
+                    backgroundPosition: `${x}px ${y}px`,
+                }}
+            />
+            {/* 顶层鼠标探照高亮光斑 (Spotlight Layer) */}
+            {mode === "dots" && (
+                <div
+                    className="absolute inset-0 transition-opacity duration-300 ease-out"
+                    style={{
+                        backgroundImage: spotlightBackground,
+                        backgroundSize: `${gridSize}px ${gridSize}px`,
+                        backgroundPosition: `${x}px ${y}px`,
+                        opacity: pointer.active ? 1 : 0,
+                        WebkitMaskImage: `radial-gradient(circle 120px at ${pointer.x}px ${pointer.y}px, #000 0%, rgba(0,0,0,0.85) 26%, rgba(0,0,0,0.32) 64%, transparent 100%)`,
+                        maskImage: `radial-gradient(circle 120px at ${pointer.x}px ${pointer.y}px, #000 0%, rgba(0,0,0,0.85) 26%, rgba(0,0,0,0.32) 64%, transparent 100%)`,
+                    }}
+                />
+            )}
+        </div>
     );
 }

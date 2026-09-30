@@ -231,10 +231,10 @@ export default function IndexPage() {
             `}</style>
             {/* 低调柔和的点状粒子网格背景 (28px 间隔，1px 细腻低亮粒子，不喧宾夺主) */}
             <div
-                className="pointer-events-none absolute inset-0 z-0 text-stone-950/[0.12] dark:text-stone-300/[0.2]"
+                className="pointer-events-none absolute inset-0 z-0 text-stone-900/[0.18] dark:text-[#f4f4f4]/[0.19]"
                 style={{
-                    backgroundImage: "radial-gradient(circle, currentColor 1px, transparent 1px)",
-                    backgroundSize: "28px 28px",
+                    backgroundImage: "radial-gradient(circle, currentColor 0.72px, transparent 0.87px)",
+                    backgroundSize: "21.6px 21.6px",
                 }}
             />
             {/* 顶部英雄区 & AI 创作交互对话框 (小云雀 / Liblib 融合风格) */}
@@ -408,14 +408,17 @@ export default function IndexPage() {
                         {t("canvas.loading")}
                     </div>
                 ) : filteredProjects.length > 0 ? (
-                    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    <div className="grid gap-3.5 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                         {filteredProjects.map((project) => (
                             <CanvasProjectCard key={project.id} project={project} />
                         ))}
                     </div>
                 ) : (
                     <div className="flex min-h-[260px] flex-col items-center justify-center rounded-2xl border border-dashed border-stone-200 py-12 text-center dark:border-stone-800">
-                        <LayoutGrid className="size-10 text-stone-300 dark:text-stone-600 mb-3" />
+                        <div className="mb-3.5 flex size-12 items-center justify-center rounded-2xl border border-stone-200/70 bg-white shadow-xs dark:border-stone-800/80 dark:bg-stone-800/70">
+                            <img src="/logo.png" alt="Logo" className="size-6.5 object-contain opacity-80 block dark:hidden" />
+                            <img src="/logo-dark.png" alt="Logo" className="hidden size-6.5 object-contain opacity-80 dark:block" />
+                        </div>
                         <h3 className="text-base font-medium text-stone-800 dark:text-stone-200">
                             {searchKeyword ? "未找到符合条件的画布" : t("canvas.empty")}
                         </h3>
@@ -480,3 +483,5 @@ export default function IndexPage() {
         </main>
     );
 }
+
+

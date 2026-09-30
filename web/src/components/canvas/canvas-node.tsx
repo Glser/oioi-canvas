@@ -226,8 +226,8 @@ export const CanvasNode = React.memo(function CanvasNode({
 
             const dx = (event.clientX - resizeRef.current.startX) / scale;
             const dy = (event.clientY - resizeRef.current.startY) / scale;
-            const minWidth = 220;
-            const minHeight = 160;
+            const minWidth = 120;
+            const minHeight = 70;
             const startRight = resizeRef.current.startLeft + resizeRef.current.startWidth;
             const startBottom = resizeRef.current.startTop + resizeRef.current.startHeight;
             const fromLeft = resizeRef.current.corner.includes("left");
@@ -359,7 +359,7 @@ export const CanvasNode = React.memo(function CanvasNode({
             )}
 
             <div
-                className="relative h-full w-full overflow-visible rounded-3xl border-2"
+                className="relative h-full w-full overflow-visible rounded-2xl border"
                 style={{
                     background: isGroup ? "transparent" : hasImageContent || hasVideoContent || transparentBg ? "transparent" : theme.node.fill,
                     borderColor: isGroup ? (isGroupDropTarget || isActive ? selectionBlue : theme.node.stroke) : hasImageContent ? imageBorderColor : isActive ? selectionBlue : isRelated ? theme.node.muted : transparentBg ? "transparent" : theme.node.stroke,
@@ -690,11 +690,11 @@ function ImageNodeContent(props: NodeContentRendererProps) {
 function EmptyImageContent({ theme }: NodeContentRendererProps) {
     const { t } = useTranslation();
     return (
-        <div className="flex h-full w-full flex-col items-center justify-center gap-3" style={{ color: theme.node.placeholder }}>
-            <div className="flex size-14 items-center justify-center rounded-2xl" style={{ background: theme.toolbar.activeBg }}>
-                <ImageIcon className="size-6 opacity-30" />
+        <div className="flex h-full w-full flex-col items-center justify-center gap-2" style={{ color: theme.node.placeholder }}>
+            <div className="flex size-8 items-center justify-center rounded-xl" style={{ background: theme.toolbar.activeBg }}>
+                <ImageIcon className="size-4 opacity-40" />
             </div>
-            <span className="text-[10px] tracking-[0.18em] opacity-50">{t("canvas.node.emptyImage")}</span>
+            <span className="text-[10px] tracking-wide opacity-50">{t("canvas.node.emptyImage")}</span>
         </div>
     );
 }
@@ -703,9 +703,11 @@ function VideoNodeContent({ node, theme }: NodeContentRendererProps) {
     const { t } = useTranslation();
     if (!node.metadata?.content)
         return (
-            <div className="flex h-full w-full flex-col items-center justify-center gap-3" style={{ color: theme.node.placeholder }}>
-                <Video className="size-7 opacity-35" />
-                <span className="text-sm">{t("canvas.node.emptyVideo")}</span>
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2" style={{ color: theme.node.placeholder }}>
+                <div className="flex size-8 items-center justify-center rounded-xl" style={{ background: theme.toolbar.activeBg }}>
+                    <Video className="size-4 opacity-40" />
+                </div>
+                <span className="text-[10px] tracking-wide opacity-50">{t("canvas.node.emptyVideo")}</span>
             </div>
         );
     return <video src={node.metadata.content} controls className="h-full w-full rounded-[18px] bg-black object-contain" data-canvas-video={node.id} data-canvas-no-zoom />;
@@ -716,8 +718,10 @@ function AudioNodeContent({ node, theme }: NodeContentRendererProps) {
     if (!node.metadata?.content)
         return (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2" style={{ color: theme.node.placeholder }}>
-                <Music2 className="size-7 opacity-35" />
-                <span className="text-sm">{t("canvas.node.emptyAudio")}</span>
+                <div className="flex size-8 items-center justify-center rounded-xl" style={{ background: theme.toolbar.activeBg }}>
+                    <Music2 className="size-4 opacity-40" />
+                </div>
+                <span className="text-[10px] tracking-wide opacity-50">{t("canvas.node.emptyAudio")}</span>
             </div>
         );
     return (
@@ -986,7 +990,7 @@ function ConnectionHandleDot({ side, visible, onMouseDown }: { side: "left" | "r
             } ${visible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}
             onMouseDown={onMouseDown}
         >
-            <div className="size-3 rounded-full border-2 transition-all hover:scale-125" style={{ background: theme.node.panel, borderColor: theme.node.muted }} />
+            <div className="size-2.5 rounded-full border border-stone-400/60 bg-white shadow-xs transition-all hover:scale-125 dark:border-stone-400/80 dark:bg-stone-100 dark:shadow-[0_0_5px_rgba(255,255,255,0.4)]" />
         </div>
     );
 }
