@@ -920,6 +920,13 @@ function InfiniteCanvasPage() {
         setContextMenu((current) => (current?.type === "connection" && current.connectionId === connectionId ? null : current));
     }, []);
 
+    const connectNodeReference = useCallback((fromNodeId: string, toNodeId: string) => {
+        setConnections((prev) => {
+            if (prev.some((conn) => conn.fromNodeId === fromNodeId && conn.toNodeId === toNodeId)) return prev;
+            return [...prev, { id: nanoid(), fromNodeId, toNodeId }];
+        });
+    }, []);
+
     const disconnectNodeReference = useCallback((fromNodeId: string, toNodeId: string) => {
         setConnections((prev) => prev.filter((connection) => connection.fromNodeId !== fromNodeId || connection.toNodeId !== toNodeId));
     }, []);
@@ -3047,6 +3054,57 @@ function InfiniteCanvasPage() {
         setContextMenu({ type: "node", x: event.clientX, y: event.clientY, nodeId });
     }, []);
 
+    const handlePromptPanelUploadReference = useCallback(async (targetNodeId: string, file: File) => {
+        const targetNode = nodesRef.current.find((n) => n.id === targetNodeId);
+        if (!targetNode) return;
+        const pos = { x: targetNode.position.x - 260, y: targetNode.position.y };
+        let newId = "";
+        if (isAudioFile(file)) {
+            const audio = await uploadMediaFile(file, "audio");
+            const spec = NODE_DEFAULT_SIZE[CanvasNodeType.Audio];
+            newId = `audio-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            const newNode: CanvasNodeData = {
+                id: newId,
+                type: CanvasNodeType.Audio,
+                title: file.name,
+                position: { x: pos.x - spec.width / 2, y: pos.y - spec.height / 2 },
+                width: spec.width,
+                height: spec.height,
+                metadata: audioMetadata(audio),
+            };
+            setNodes((prev) => [...prev, newNode]);
+        } else if (file.type.startsWith("video/")) {
+            const video = await uploadMediaFile(file, "video");
+            const size = fitNodeSize(video.width || 1280, video.height || 720, VIDEO_NODE_MAX_WIDTH, VIDEO_NODE_MAX_HEIGHT);
+            newId = `video-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            const newNode: CanvasNodeData = {
+                id: newId,
+                type: CanvasNodeType.Video,
+                title: file.name,
+                position: { x: pos.x - size.width / 2, y: pos.y - size.height / 2 },
+                width: size.width,
+                height: size.height,
+                metadata: videoMetadata(video),
+            };
+            setNodes((prev) => [...prev, newNode]);
+        } else {
+            const image = await uploadImage(file);
+            const size = fitNodeSize(image.width, image.height);
+            newId = `image-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            const newNode: CanvasNodeData = {
+                id: newId,
+                type: CanvasNodeType.Image,
+                title: file.name,
+                position: { x: pos.x - size.width / 2, y: pos.y - size.height / 2 },
+                width: size.width,
+                height: size.height,
+                metadata: imageMetadata(image),
+            };
+            setNodes((prev) => [...prev, newNode]);
+        }
+        setConnections((prev) => [...prev, { id: nanoid(), fromNodeId: newId, toNodeId: targetNodeId }]);
+    }, []);
+
     const renderNodePanel = useCallback(
         (panelNode: CanvasNodeData) =>
             getNodeDefinition(panelNode.type)?.Panel ? (
@@ -3074,8 +3132,9 @@ function InfiniteCanvasPage() {
                     onConfigChange={handleConfigNodeChange}
                     onGenerate={handleGenerateNode}
                     onStop={confirmStopGeneration}
+                    onConnectReference={connectNodeReference}
                     onDisconnectReference={disconnectNodeReference}
-                    onStartReferenceSelection={startNodeReferenceSelection}
+                    onUploadReference={(file) => void handlePromptPanelUploadReference(panelNode.id, file)}
                     modeOverride={getNodeDefinition(panelNode.type)?.useBuiltinPanel?.mode}
                     onImageSettingsOpenChange={(open) => {
                         setNodeImageSettingsOpen(open);
@@ -3083,7 +3142,7 @@ function InfiniteCanvasPage() {
                     }}
                 />
             ),
-        [configInputsById, confirmStopGeneration, connectedNodesByNodeId, disconnectNodeReference, handleConfigNodeChange, handleGenerateNode, handleNodePromptChange, mentionReferencesByNodeId, nodes, renderPluginPanel, runningNodeId, startNodeReferenceSelection],
+        [configInputsById, confirmStopGeneration, connectedNodesByNodeId, connectNodeReference, disconnectNodeReference, handleConfigNodeChange, handleGenerateNode, handleNodePromptChange, handlePromptPanelUploadReference, mentionReferencesByNodeId, nodes, renderPluginPanel, runningNodeId, startNodeReferenceSelection],
     );
 
     const renderNodeContentPanel = useCallback(

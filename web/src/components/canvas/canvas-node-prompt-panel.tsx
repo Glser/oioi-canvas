@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
-import { ArrowUp, LoaderCircle, Maximize2, Square } from "lucide-react";
-import { Button, Modal, Tooltip } from "antd";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AtSign, LoaderCircle, Maximize2, Sparkles, Square, Upload } from "lucide-react";
+import { Button, Modal, Popover, Tooltip } from "antd";
 import { useTranslation } from "react-i18next";
 
 import { ModelPicker } from "@/components/model-picker";
@@ -9,13 +9,14 @@ import { canvasThemes } from "@/lib/canvas-theme";
 import { useThemeStore } from "@/stores/use-theme-store";
 import { CanvasImageSettingsPopover } from "./canvas-image-settings-popover";
 import { CanvasPromptLibrary } from "./canvas-prompt-library";
-import { CanvasAudioSettingsPopover, type CanvasAudioSettingKey } from "./canvas-audio-settings-popover";
+import { CanvasAudioSettingsPopover } from "./canvas-audio-settings-popover";
 import { CanvasPromptChipInput } from "./canvas-prompt-chip-input";
 import { CanvasVideoSettingsPopover } from "./canvas-video-settings-popover";
 import { CanvasTextSettingsPopover } from "./canvas-text-settings-popover";
 import { CanvasNodeType, type CanvasGenerationMode, type CanvasNodeData } from "@/types/canvas";
 import type { CanvasResourceReference } from "@/lib/canvas/canvas-resource-references";
 import { CanvasNodeReferenceBar } from "./canvas-node-reference-bar";
+import { CanvasReferencePickerPopover } from "./canvas-reference-picker-popover";
 
 export type CanvasNodeGenerationMode = CanvasGenerationMode;
 
@@ -29,13 +30,30 @@ type CanvasNodePromptPanelProps = {
     mentionReferences?: CanvasResourceReference[];
     nodes: CanvasNodeData[];
     connectedNodes?: CanvasNodeData[];
+    onConnectReference?: (fromNodeId: string, toNodeId: string) => void;
     onDisconnectReference?: (fromNodeId: string, toNodeId: string) => void;
-    onStartReferenceSelection?: (nodeId: string) => void;
+    onUploadReference?: (file: File) => void;
     onImageSettingsOpenChange?: (open: boolean) => void;
     modeOverride?: CanvasNodeGenerationMode; // Plugin nodes set their generation type through useBuiltinPanel.mode.
 };
 
-export function CanvasNodePromptPanel({ node, nodes, isRunning, onPromptChange, onConfigChange, onGenerate, onStop, mentionReferences = [], connectedNodes = [], onDisconnectReference, onStartReferenceSelection, onImageSettingsOpenChange, modeOverride }: CanvasNodePromptPanelProps) {
+export function CanvasNodePromptPanel({
+    node,
+    nodes,
+    isRunning,
+    onPromptChange,
+    onConfigChange,
+    onGenerate,
+    onStop,
+    mentionReferences = [],
+    connectedNodes = [],
+    onConnectReference,
+    onDisconnectReference,
+    onUploadReference,
+    onImageSettingsOpenChange,
+    modeOverride,
+}: CanvasNodePromptPanelProps) {
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const { t } = useTranslation();
     const globalConfig = useEffectiveConfig();
     const openConfigDialog = useConfigStore((state) => state.openConfigDialog);
@@ -47,6 +65,12 @@ export function CanvasNodePromptPanel({ node, nodes, isRunning, onPromptChange, 
     const isEditingExistingContent = hasTextContent || hasImageContent;
     const [prompt, setPrompt] = useState(node.metadata?.composerContent ?? node.metadata?.prompt ?? "");
     const [expanded, setExpanded] = useState(false);
+    const [pickerOpen, setPickerOpen] = useState(false);
+
+    // Connected source node IDs for quick lookup
+    const connectedNodeIds = useMemo(() => {
+        return new Set(connectedNodes.map((n) => n.id));
+    }, [connectedNodes]);
 
     // Restore prompts only when switching nodes; preserve the current input after generation on the same node.
     useEffect(() => {
@@ -70,6 +94,14 @@ export function CanvasNodePromptPanel({ node, nodes, isRunning, onPromptChange, 
         setExpanded(true);
     };
 
+    const handleToggleReference = (sourceNodeId: string) => {
+        if (connectedNodeIds.has(sourceNodeId)) {
+            onDisconnectReference?.(sourceNodeId, node.id);
+        } else {
+            onConnectReference?.(sourceNodeId, node.id);
+        }
+    };
+
     return (
         <div
             data-canvas-no-zoom
@@ -79,22 +111,105 @@ export function CanvasNodePromptPanel({ node, nodes, isRunning, onPromptChange, 
             onPointerDown={(event) => event.stopPropagation()}
             onWheel={(event) => event.stopPropagation()}
         >
-            <CanvasNodeReferenceBar nodeId={node.id} nodes={nodes} connectedNodes={connectedNodes} onDisconnect={onDisconnectReference} onStartSelection={onStartReferenceSelection} />
-            <CanvasPromptChipInput
-                value={prompt}
-                references={mentionReferences}
-                onChange={updatePrompt}
-                onSubmit={submit}
-                className="thin-scrollbar h-40 w-full cursor-text resize-none rounded-xl px-3 py-2 text-sm leading-5 outline-none"
-                style={{ background: "transparent", color: theme.node.text }}
-                placeholder={t(`canvas.promptPanel.${mode === "image" && hasImageContent ? "editImage" : mode === "text" && hasTextContent ? "editText" : mode}`)}
+            <div className="flex flex-col gap-1.5 w-full">
+                {/* Top Action Row: @ and Upload together, Expand on right */}
+                <div className="flex items-center justify-between px-0.5">
+                    <div className="flex items-center gap-1">
+                        <Popover
+                            trigger="click"
+                            open={pickerOpen}
+                            onOpenChange={setPickerOpen}
+                            placement="bottomLeft"
+                            arrow={false}
+                            overlayClassName="canvas-reference-picker-overlay"
+                            overlayInnerStyle={{ background: "transparent", padding: 0, boxShadow: "none" }}
+                            content={
+                                <CanvasReferencePickerPopover
+                                    targetNodeId={node.id}
+                                    nodes={nodes}
+                                    connectedNodeIds={connectedNodeIds}
+                                    onToggleReference={handleToggleReference}
+                                />
+                            }
+                        >
+                            <Tooltip title={t("canvas.references.select")} open={pickerOpen ? false : undefined}>
+                                <Button
+                                    type="text"
+                                    className={`!h-7 !w-7 !min-w-7 !rounded-lg !p-0 transition-colors ${
+                                        pickerOpen ? "!bg-black/10 dark:!bg-white/15 opacity-100" : "opacity-60 hover:opacity-100 hover:!bg-black/5 dark:hover:!bg-white/10 !bg-transparent"
+                                    }`}
+                                    style={{ color: theme.node.text }}
+                                    icon={<AtSign className="size-4" />}
+                                    aria-label={t("canvas.references.select")}
+                                />
+                            </Tooltip>
+                        </Popover>
+                        <Tooltip title={t("canvas.toolbar.upload")}>
+                            <Button
+                                type="text"
+                                className="!h-7 !w-7 !min-w-7 !rounded-lg !bg-transparent !p-0 opacity-60 hover:opacity-100 hover:!bg-black/5 dark:hover:!bg-white/10 transition-colors"
+                                style={{ color: theme.node.text }}
+                                icon={<Upload className="size-4" />}
+                                onClick={() => fileInputRef.current?.click()}
+                                aria-label={t("canvas.toolbar.upload")}
+                            />
+                        </Tooltip>
+                    </div>
+
+                    {/* Top Right Expand Button */}
+                    <Tooltip title={t("canvas.promptPanel.expandEditor")}>
+                        <Button
+                            type="text"
+                            className="!h-7 !w-7 !min-w-7 !rounded-lg !bg-transparent !p-0 opacity-60 hover:opacity-100 hover:!bg-black/5 dark:hover:!bg-white/10 transition-colors"
+                            style={{ color: theme.node.text }}
+                            icon={<Maximize2 className="size-3.5" />}
+                            onClick={openExpandedEditor}
+                            aria-label={t("canvas.promptPanel.expandEditor")}
+                        />
+                    </Tooltip>
+                </div>
+
+                {/* Prompt Text Input Row */}
+                <CanvasPromptChipInput
+                    value={prompt}
+                    references={mentionReferences}
+                    onChange={updatePrompt}
+                    onSubmit={submit}
+                    className="thin-scrollbar h-20 min-h-[72px] w-full cursor-text resize-none rounded-xl px-2.5 py-1.5 text-sm leading-5 outline-none"
+                    style={{ background: "transparent", color: theme.node.text }}
+                    placeholder={t(`canvas.promptPanel.${mode === "image" && hasImageContent ? "editImage" : mode === "text" && hasTextContent ? "editText" : mode}`)}
+                />
+            </div>
+
+            {/* Reference Items Bar below input if there are connected nodes */}
+            {connectedNodes.length > 0 && (
+                <div className="mt-2 pt-2 border-t" style={{ borderColor: theme.toolbar.border }}>
+                    <CanvasNodeReferenceBar
+                        nodeId={node.id}
+                        nodes={nodes}
+                        connectedNodes={connectedNodes}
+                        onDisconnect={onDisconnectReference}
+                        onAddClick={() => setPickerOpen(true)}
+                    />
+                </div>
+            )}
+
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/*,audio/*"
+                className="hidden"
+                onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                        onUploadReference?.(file);
+                    }
+                    e.target.value = "";
+                }}
             />
 
             <div className="mt-2 flex min-w-0 items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2">
-                    <Tooltip title={t("canvas.promptPanel.expandEditor")}>
-                        <Button type="text" className="!h-8 !w-8 !min-w-8 shrink-0 !rounded-full !bg-transparent !p-0" style={{ color: theme.node.text }} icon={<Maximize2 className="size-3.5" />} onClick={openExpandedEditor} aria-label={t("canvas.promptPanel.expandEditor")} />
-                    </Tooltip>
                     <CanvasPromptLibrary onSelect={updatePrompt} />
                     {mode === "image" ? (
                         <>
@@ -126,9 +241,11 @@ export function CanvasNodePromptPanel({ node, nodes, isRunning, onPromptChange, 
                     )}
                 </div>
                 <Button
-                    type="primary"
-                    className="!h-10 !min-w-16 shrink-0 !rounded-full !px-3"
-                    danger={isRunning}
+                    className="group relative !h-9 !min-w-14 shrink-0 !rounded-full !border-0 !px-3.5 shadow-sm transition hover:opacity-90 active:scale-95 disabled:opacity-40"
+                    style={{
+                        background: isRunning ? "#ef4444" : "#f5f5f0",
+                        color: isRunning ? "#ffffff" : "#1c1917",
+                    }}
                     disabled={!isRunning && !prompt.trim()}
                     onClick={() => (isRunning ? onStop(node.id) : submit())}
                     aria-label={t(isRunning ? "canvas.promptPanel.stopGeneration" : "canvas.promptPanel.generate")}
@@ -141,14 +258,26 @@ export function CanvasNodePromptPanel({ node, nodes, isRunning, onPromptChange, 
                                 <span className="text-xs font-medium">{t("canvas.promptPanel.stop")}</span>
                             </>
                         ) : (
-                            <ArrowUp className="size-4" />
+                            <>
+                                <Sparkles className="size-3.5 transition-transform duration-200 group-hover:rotate-12 group-hover:scale-110" />
+                                <span className="text-xs font-semibold">{t("canvas.promptPanel.generate")}</span>
+                            </>
                         )}
                     </span>
                 </Button>
             </div>
             <Modal title={t("canvas.promptPanel.editorTitle")} open={expanded} centered width={760} footer={null} onCancel={() => setExpanded(false)} destroyOnHidden>
                 <div data-canvas-no-zoom className="pt-2" onWheelCapture={(event) => event.stopPropagation()}>
-                    <CanvasNodeReferenceBar nodeId={node.id} nodes={nodes} connectedNodes={connectedNodes} onDisconnect={onDisconnectReference} onStartSelection={(nodeId) => { setExpanded(false); onStartReferenceSelection?.(nodeId); }} />
+                    {connectedNodes.length > 0 && (
+                        <div className="mb-3">
+                            <CanvasNodeReferenceBar
+                                nodeId={node.id}
+                                nodes={nodes}
+                                connectedNodes={connectedNodes}
+                                onDisconnect={onDisconnectReference}
+                            />
+                        </div>
+                    )}
                     <CanvasPromptChipInput
                         value={prompt}
                         references={mentionReferences}
@@ -190,15 +319,16 @@ function buildNodeConfig(globalConfig: AiConfig, node: CanvasNodeData, mode: Can
 
 function videoConfigPatch(key: keyof AiConfig, value: string) {
     if (key === "videoSeconds") return { seconds: value };
-    if (key === "videoGenerateAudio") return { generateAudio: value };
-    if (key === "videoWatermark") return { watermark: value };
     if (key === "videoMode") return { videoMode: value };
+    if (key === "videoGenerateAudio") return { generateAudio: value === "true" };
+    if (key === "videoWatermark") return { watermark: value === "true" };
     return { [key]: value };
 }
 
-function audioConfigPatch(key: CanvasAudioSettingKey, value: string) {
+function audioConfigPatch(key: keyof AiConfig, value: string) {
     if (key === "audioVoice") return { audioVoice: value };
     if (key === "audioFormat") return { audioFormat: value };
     if (key === "audioSpeed") return { audioSpeed: value };
-    return { audioInstructions: value };
+    if (key === "audioInstructions") return { audioInstructions: value };
+    return { [key]: value };
 }

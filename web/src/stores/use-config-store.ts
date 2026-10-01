@@ -115,7 +115,7 @@ export const defaultConfig: AiConfig = {
     reasoningEffort: "auto",
     models: ["default::gpt-image-2", "default::grok-imagine-video", "default::gpt-5.5", "default::gpt-4o-mini-tts"],
     quality: "auto",
-    size: "1:1",
+    size: "4:3",
     background: "",
     count: "1",
     canvasImageCount: "3",
