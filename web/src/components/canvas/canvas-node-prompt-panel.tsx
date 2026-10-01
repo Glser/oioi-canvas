@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AtSign, LoaderCircle, Maximize2, Sparkles, Square, Upload } from "lucide-react";
+import { AtSign, LoaderCircle, Maximize2, Plus, Sparkles, Square, X } from "lucide-react";
 import { Button, Modal, Popover, Tooltip } from "antd";
 import { useTranslation } from "react-i18next";
 
@@ -16,6 +16,9 @@ import { CanvasTextSettingsPopover } from "./canvas-text-settings-popover";
 import { CanvasNodeType, type CanvasGenerationMode, type CanvasNodeData } from "@/types/canvas";
 import type { CanvasResourceReference } from "@/lib/canvas/canvas-resource-references";
 import { CanvasNodeReferenceBar } from "./canvas-node-reference-bar";
+import { getNodeDefinition } from "@/lib/canvas/node-registry";
+import { previewUrlFor, subscribeImagePreviews, getImagePreviewRevision } from "@/services/image-storage";
+import { useSyncExternalStore } from "react";
 import { CanvasReferencePickerPopover } from "./canvas-reference-picker-popover";
 
 export type CanvasNodeGenerationMode = CanvasGenerationMode;
@@ -67,10 +70,56 @@ export function CanvasNodePromptPanel({
     const [expanded, setExpanded] = useState(false);
     const [pickerOpen, setPickerOpen] = useState(false);
 
+    useSyncExternalStore(subscribeImagePreviews, getImagePreviewRevision);
+
     // Connected source node IDs for quick lookup
     const connectedNodeIds = useMemo(() => {
         return new Set(connectedNodes.map((n) => n.id));
     }, [connectedNodes]);
+
+    // Direct reference node IDs from node.metadata
+    const directReferenceIds = useMemo(() => {
+        return (node.metadata?.referenceNodeIds || []).filter((id) => id !== node.id);
+    }, [node.id, node.metadata?.referenceNodeIds]);
+
+    const directReferenceNodeIdsSet = useMemo(() => {
+        return new Set(directReferenceIds);
+    }, [directReferenceIds]);
+
+    // All reference items for display in top-left bar
+    const allDisplayReferences = useMemo(() => {
+        const list: Array<{ id: string; node: CanvasNodeData; isDirect: boolean; sourceNodeId: string }> = [];
+        // Connected references
+        connectedNodes.forEach((srcNode) => {
+            list.push({ id: `connected:${srcNode.id}`, node: srcNode, isDirect: false, sourceNodeId: srcNode.id });
+        });
+        // Direct references
+        directReferenceIds.forEach((refId) => {
+            const foundNode = nodes.find((n) => n.id === refId);
+            if (foundNode && !connectedNodeIds.has(refId)) {
+                list.push({ id: `direct:${refId}`, node: foundNode, isDirect: true, sourceNodeId: refId });
+            }
+        });
+        return list;
+    }, [connectedNodes, connectedNodeIds, directReferenceIds, nodes]);
+
+    const handleToggleDirectReference = (sourceNodeId: string) => {
+        const current = new Set(directReferenceIds);
+        if (current.has(sourceNodeId)) {
+            current.delete(sourceNodeId);
+        } else {
+            current.add(sourceNodeId);
+        }
+        onConfigChange(node.id, { referenceNodeIds: Array.from(current) });
+    };
+
+    const handleRemoveReference = (refItem: { node: CanvasNodeData; isDirect: boolean; sourceNodeId: string }) => {
+        if (refItem.isDirect) {
+            handleToggleDirectReference(refItem.sourceNodeId);
+        } else {
+            onDisconnectReference?.(refItem.sourceNodeId, node.id);
+        }
+    };
 
     // Restore prompts only when switching nodes; preserve the current input after generation on the same node.
     useEffect(() => {
@@ -114,7 +163,17 @@ export function CanvasNodePromptPanel({
             <div className="flex flex-col gap-1.5 w-full">
                 {/* Top Action Row: @ and Upload together, Expand on right */}
                 <div className="flex items-center justify-between px-0.5">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                        {/* Reference items thumbnails aligned at top left */}
+                        {allDisplayReferences.map((item) => (
+                            <CompactReferenceThumb
+                                key={item.id}
+                                node={item.node}
+                                theme={theme}
+                                onRemove={() => handleRemoveReference(item)}
+                            />
+                        ))}
+
                         <Popover
                             trigger="click"
                             open={pickerOpen}
@@ -128,7 +187,9 @@ export function CanvasNodePromptPanel({
                                     targetNodeId={node.id}
                                     nodes={nodes}
                                     connectedNodeIds={connectedNodeIds}
+                                    referenceNodeIds={directReferenceNodeIdsSet}
                                     onToggleReference={handleToggleReference}
+                                    onToggleDirectReference={handleToggleDirectReference}
                                 />
                             }
                         >
@@ -144,14 +205,14 @@ export function CanvasNodePromptPanel({
                                 />
                             </Tooltip>
                         </Popover>
-                        <Tooltip title={t("canvas.toolbar.upload")}>
+                        <Tooltip title="上传本地参考图">
                             <Button
                                 type="text"
                                 className="!h-7 !w-7 !min-w-7 !rounded-lg !bg-transparent !p-0 opacity-60 hover:opacity-100 hover:!bg-black/5 dark:hover:!bg-white/10 transition-colors"
                                 style={{ color: theme.node.text }}
-                                icon={<Upload className="size-4" />}
+                                icon={<Plus className="size-4" />}
                                 onClick={() => fileInputRef.current?.click()}
-                                aria-label={t("canvas.toolbar.upload")}
+                                aria-label="上传本地参考图"
                             />
                         </Tooltip>
                     </div>
@@ -160,7 +221,7 @@ export function CanvasNodePromptPanel({
                     <Tooltip title={t("canvas.promptPanel.expandEditor")}>
                         <Button
                             type="text"
-                            className="!h-7 !w-7 !min-w-7 !rounded-lg !bg-transparent !p-0 opacity-60 hover:opacity-100 hover:!bg-black/5 dark:hover:!bg-white/10 transition-colors"
+                            className="!h-7 !w-7 !min-w-7 !rounded-lg !bg-transparent !p-0 opacity-60 hover:opacity-100 hover:!bg-black/5 dark:hover:!bg-white/10 transition-colors shrink-0 self-start"
                             style={{ color: theme.node.text }}
                             icon={<Maximize2 className="size-3.5" />}
                             onClick={openExpandedEditor}
@@ -181,18 +242,7 @@ export function CanvasNodePromptPanel({
                 />
             </div>
 
-            {/* Reference Items Bar below input if there are connected nodes */}
-            {connectedNodes.length > 0 && (
-                <div className="mt-2 pt-2 border-t" style={{ borderColor: theme.toolbar.border }}>
-                    <CanvasNodeReferenceBar
-                        nodeId={node.id}
-                        nodes={nodes}
-                        connectedNodes={connectedNodes}
-                        onDisconnect={onDisconnectReference}
-                        onAddClick={() => setPickerOpen(true)}
-                    />
-                </div>
-            )}
+            
 
             <input
                 ref={fileInputRef}
@@ -331,4 +381,58 @@ function audioConfigPatch(key: keyof AiConfig, value: string) {
     if (key === "audioSpeed") return { audioSpeed: value };
     if (key === "audioInstructions") return { audioInstructions: value };
     return { [key]: value };
+}
+
+function CompactReferenceThumb({
+    node,
+    theme,
+    onRemove,
+}: {
+    node: CanvasNodeData;
+    theme: (typeof canvasThemes)[keyof typeof canvasThemes];
+    onRemove: () => void;
+}) {
+    const resource = getNodeDefinition(node.type)?.resource?.(node);
+    const content = node.metadata?.content || resource?.url;
+    const thumbnail = previewUrlFor(node.metadata?.storageKey) || content;
+    const kind = resource?.kind || (node.type === CanvasNodeType.Image ? "image" : node.type === CanvasNodeType.Video ? "video" : node.type === CanvasNodeType.Audio ? "audio" : "text");
+
+    return (
+        <Popover
+            placement="top"
+            mouseEnterDelay={0.2}
+            content={
+                <div className="max-w-xs text-xs p-1">
+                    {kind === "image" && thumbnail ? (
+                        <img src={thumbnail} alt="" className="max-h-48 max-w-full rounded object-contain mb-1" />
+                    ) : null}
+                    <div className="truncate font-medium">{node.title || "参考内容"}</div>
+                </div>
+            }
+        >
+            <div
+                className="group relative flex items-center justify-center size-7 rounded-lg border border-stone-200/60 dark:border-white/15 bg-black/5 dark:bg-white/10 overflow-hidden shrink-0 select-none cursor-pointer"
+            >
+                {kind === "image" && thumbnail ? (
+                    <img src={thumbnail} alt="" className="size-full object-cover" />
+                ) : (
+                    <span className="text-[10px] font-medium opacity-70 truncate px-0.5">
+                        {node.title ? node.title.slice(0, 2) : "Ref"}
+                    </span>
+                )}
+                {/* Remove button on hover */}
+                <button
+                    type="button"
+                    title="移除参考"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onRemove();
+                    }}
+                    className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                    <X className="size-3.5 stroke-[2.5]" />
+                </button>
+            </div>
+        </Popover>
+    );
 }

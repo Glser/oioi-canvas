@@ -68,10 +68,16 @@ export function getGenerationResourceNodes(nodeId: string, nodes: CanvasNodeData
 }
 
 function getContextInputNodes(nodeId: string, nodes: CanvasNodeData[], connections: CanvasConnection[]) {
-    return connections
+    const targetNode = nodes.find((node) => node.id === nodeId);
+    const directRefIds = new Set(targetNode?.metadata?.referenceNodeIds || []);
+    const connected = connections
         .filter((connection) => connection.toNodeId === nodeId)
-        .map((connection) => nodes.find((node) => node.id === connection.fromNodeId))
-        .filter((node): node is CanvasNodeData => Boolean(node && isCanvasReferenceNode(node, nodes)));
+        .map((connection) => nodes.find((node) => node.id === connection.fromNodeId));
+    const direct = Array.from(directRefIds)
+        .map((id) => nodes.find((node) => node.id === id));
+    const combined = [...connected, ...direct];
+    const unique = [...new Map(combined.filter((n): n is CanvasNodeData => Boolean(n)).map((n) => [n.id, n])).values()];
+    return unique.filter((node) => isCanvasReferenceNode(node, nodes));
 }
 
 function getConnectedConfigInputNodes(nodeId: string, nodes: CanvasNodeData[], connections: CanvasConnection[]) {
