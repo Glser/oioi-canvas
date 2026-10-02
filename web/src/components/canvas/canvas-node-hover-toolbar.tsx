@@ -185,7 +185,7 @@ export function CanvasNodeHoverToolbar({
     return (
         <>
             <div
-                className="absolute z-[70] flex h-12 -translate-x-1/2 -translate-y-full items-center overflow-visible rounded-[18px] border border-black/10 bg-white text-[15px] text-[#242529] shadow-[0_8px_28px_rgba(15,23,42,.12)]"
+                className="absolute z-[70] flex h-12 -translate-x-1/2 -translate-y-full items-center overflow-visible rounded-[18px] border border-black/10 bg-white text-[15px] text-[#242529] shadow-[0_8px_28px_rgba(15,23,42,.12)] dark:border-white/10 dark:bg-[#1e1e20] dark:text-[#f4f4f5] dark:shadow-[0_8px_28px_rgba(0,0,0,.45)]"
                 style={{ left, top }}
                 onMouseEnter={() => onKeep(node.id)}
                 onMouseLeave={() => {
@@ -288,11 +288,40 @@ export function CanvasNodeInfoModal({ node, open, onClose }: { node: CanvasNodeD
 }
 
 function ToolbarAction({ title, label, icon, onClick, showLabel, active = false, danger = false }: ToolbarTool & { showLabel: boolean }) {
+    const isDark = useThemeStore((state) => state.theme) === "dark";
     const hasText = showLabel && Boolean(label);
     return (
-        <Tooltip title={title} placement="top" mouseEnterDelay={0.2} color="#ffffff" styles={{ root: { color: "#242529", boxShadow: "0 8px 24px rgba(15,23,42,.16)", fontSize: 13, fontWeight: 500 } }}>
-            <button type="button" className={`group relative flex h-12 items-center whitespace-nowrap px-1.5 ${danger ? "text-[#ef4444]" : ""}`} onClick={onClick} aria-label={title}>
-                <span className={`flex h-9 items-center ${hasText ? "gap-2 px-2.5" : "justify-center px-2"} rounded-lg transition group-hover:bg-[#f0f0f1] ${active ? "bg-[#eeeeef]" : ""}`}>
+        <Tooltip
+            title={title}
+            placement="top"
+            mouseEnterDelay={0.2}
+            color={isDark ? "#27272a" : "#ffffff"}
+            styles={{
+                root: {
+                    color: isDark ? "#fafafa" : "#242529",
+                    boxShadow: isDark ? "0 8px 24px rgba(0,0,0,.36)" : "0 8px 24px rgba(15,23,42,.16)",
+                    fontSize: 13,
+                    fontWeight: 500,
+                },
+            }}
+        >
+            <button
+                type="button"
+                className={`group relative flex h-12 items-center whitespace-nowrap px-1.5 ${
+                    danger
+                        ? "text-[#ef4444]"
+                        : "text-[#242529] dark:text-[#f4f4f5]"
+                }`}
+                onClick={onClick}
+                aria-label={title}
+            >
+                <span
+                    className={`flex h-9 items-center ${
+                        hasText ? "gap-2 px-2.5" : "justify-center px-2"
+                    } rounded-lg transition group-hover:bg-[#f0f0f1] dark:group-hover:bg-white/10 ${
+                        active ? "bg-[#eeeeef] dark:bg-white/15" : ""
+                    }`}
+                >
                     {icon}
                     {hasText ? <span>{label}</span> : null}
                 </span>

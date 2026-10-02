@@ -164,16 +164,7 @@ export function CanvasNodePromptPanel({
                 {/* Top Action Row: @ and Upload together, Expand on right */}
                 <div className="flex items-center justify-between px-0.5">
                     <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                        {/* Reference items thumbnails aligned at top left */}
-                        {allDisplayReferences.map((item) => (
-                            <CompactReferenceThumb
-                                key={item.id}
-                                node={item.node}
-                                theme={theme}
-                                onRemove={() => handleRemoveReference(item)}
-                            />
-                        ))}
-
+                        {/* @ Button */}
                         <Popover
                             trigger="click"
                             open={pickerOpen}
@@ -205,6 +196,18 @@ export function CanvasNodePromptPanel({
                                 />
                             </Tooltip>
                         </Popover>
+
+                        {/* Reference items thumbnails aligned between @ and + */}
+                        {allDisplayReferences.map((item) => (
+                            <CompactReferenceThumb
+                                key={item.id}
+                                node={item.node}
+                                theme={theme}
+                                onRemove={() => handleRemoveReference(item)}
+                            />
+                        ))}
+
+                        {/* + Button */}
                         <Tooltip title="上传本地参考图">
                             <Button
                                 type="text"
@@ -260,7 +263,6 @@ export function CanvasNodePromptPanel({
 
             <div className="mt-2 flex min-w-0 items-center justify-between gap-2">
                 <div className="flex min-w-0 items-center gap-2">
-                    <CanvasPromptLibrary onSelect={updatePrompt} />
                     {mode === "image" ? (
                         <>
                             <ModelPicker config={config} value={config.model} onChange={(model) => onConfigChange(node.id, { model })} capability="image" onMissingConfig={() => openConfigDialog(true)} className="max-w-[190px]" />
@@ -290,16 +292,18 @@ export function CanvasNodePromptPanel({
                         </>
                     )}
                 </div>
-                <Button
-                    className="group relative !h-9 !min-w-14 shrink-0 !rounded-full !border-0 !px-3.5 shadow-sm transition hover:opacity-90 active:scale-95 disabled:opacity-40"
-                    style={{
-                        background: isRunning ? "#ef4444" : "#f5f5f0",
-                        color: isRunning ? "#ffffff" : "#1c1917",
-                    }}
-                    disabled={!isRunning && !prompt.trim()}
-                    onClick={() => (isRunning ? onStop(node.id) : submit())}
-                    aria-label={t(isRunning ? "canvas.promptPanel.stopGeneration" : "canvas.promptPanel.generate")}
-                >
+                <div className="flex items-center gap-1.5 shrink-0">
+                    <CanvasPromptLibrary onSelect={updatePrompt} />
+                    <Button
+                        className="group relative !h-9 !min-w-14 shrink-0 !rounded-full !border-0 !px-3.5 shadow-sm transition hover:opacity-90 active:scale-95 disabled:opacity-40"
+                        style={{
+                            background: isRunning ? "#ef4444" : "#f5f5f0",
+                            color: isRunning ? "#ffffff" : "#1c1917",
+                        }}
+                        disabled={!isRunning && !prompt.trim()}
+                        onClick={() => (isRunning ? onStop(node.id) : submit())}
+                        aria-label={t(isRunning ? "canvas.promptPanel.stopGeneration" : "canvas.promptPanel.generate")}
+                    >
                     <span className="flex items-center gap-1.5">
                         {isRunning ? (
                             <>
@@ -314,7 +318,8 @@ export function CanvasNodePromptPanel({
                             </>
                         )}
                     </span>
-                </Button>
+                    </Button>
+                </div>
             </div>
             <Modal title={t("canvas.promptPanel.editorTitle")} open={expanded} centered width={760} footer={null} onCancel={() => setExpanded(false)} destroyOnHidden>
                 <div data-canvas-no-zoom className="pt-2" onWheelCapture={(event) => event.stopPropagation()}>
@@ -400,26 +405,39 @@ function CompactReferenceThumb({
     return (
         <Popover
             placement="top"
-            mouseEnterDelay={0.2}
+            mouseEnterDelay={0.15}
+            arrow={false}
+            overlayInnerStyle={{ padding: 0, background: "transparent", boxShadow: "none" }}
             content={
-                <div className="max-w-xs text-xs p-1">
+                <div className="group/preview relative overflow-hidden rounded-xl shadow-2xl backdrop-blur-md transition-all animate-in fade-in zoom-in-95 duration-150 max-w-72 max-h-72">
                     {kind === "image" && thumbnail ? (
-                        <img src={thumbnail} alt="" className="max-h-48 max-w-full rounded object-contain mb-1" />
-                    ) : null}
-                    <div className="truncate font-medium">{node.title || "参考内容"}</div>
+                        <div className="relative overflow-hidden rounded-xl">
+                            <img src={thumbnail} alt="" className="max-h-64 max-w-72 rounded-xl object-contain block shadow-lg" />
+                            {/* Floating title at bottom-left: no black background, clean direct text on hover */}
+                            <div className="absolute bottom-1.5 left-2 right-2 text-white text-[11px] font-medium leading-tight truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] opacity-0 group-hover/preview:opacity-100 transition-opacity duration-200 pointer-events-none">
+                                {node.title || "参考内容"}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="px-3 py-2 rounded-xl bg-white/90 dark:bg-stone-900/90 text-stone-800 dark:text-stone-100 text-xs font-medium shadow-md">
+                            {node.title || "参考内容"}
+                        </div>
+                    )}
                 </div>
             }
         >
             <div
-                className="group relative flex items-center justify-center size-7 rounded-lg border border-stone-200/60 dark:border-white/15 bg-black/5 dark:bg-white/10 overflow-hidden shrink-0 select-none cursor-pointer"
+                className="group relative flex items-center justify-center size-7 rounded-lg bg-black/[0.04] dark:bg-white/[0.08] hover:ring-1 hover:ring-blue-500/50 overflow-hidden shrink-0 select-none cursor-pointer transition-all"
             >
                 {kind === "image" && thumbnail ? (
-                    <img src={thumbnail} alt="" className="size-full object-cover" />
+                    <img src={thumbnail} alt="" className="size-full object-cover transition-transform duration-200 group-hover:scale-105" />
                 ) : (
                     <span className="text-[10px] font-medium opacity-70 truncate px-0.5">
                         {node.title ? node.title.slice(0, 2) : "Ref"}
                     </span>
                 )}
+                {/* Subtle border overlay */}
+                <div className="absolute inset-0 rounded-lg ring-1 ring-inset ring-black/10 dark:ring-white/10 pointer-events-none" />
                 {/* Remove button on hover */}
                 <button
                     type="button"
@@ -428,9 +446,14 @@ function CompactReferenceThumb({
                         e.stopPropagation();
                         onRemove();
                     }}
-                    className="absolute inset-0 bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute inset-0 bg-black/50 text-red-500 hover:text-red-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer backdrop-blur-[1px]"
                 >
-                    <X className="size-3.5 stroke-[2.5]" />
+                    <X
+                        className="size-4 stroke-[2.8] text-red-500 hover:scale-115 transition-transform"
+                        style={{
+                            filter: "drop-shadow(0 0 1.5px rgba(0,0,0,0.95)) drop-shadow(0 1px 2px rgba(0,0,0,0.9))",
+                        }}
+                    />
                 </button>
             </div>
         </Popover>

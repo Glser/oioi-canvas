@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from "react";
-import { Check, FileText, Image as ImageIcon, LayoutGrid, Link2, Music2, Search, Video } from "lucide-react";
+import { createPortal } from "react-dom";
+import React, { useEffect, useMemo, useState } from "react";
+import { Check, Eye, FileText, Image as ImageIcon, LayoutGrid, Link2, Music2, Search, Video, X } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
 import { canvasThemes } from "@/lib/canvas-theme";
@@ -34,6 +35,19 @@ export function CanvasReferencePickerPopover({
 
     const [category, setCategory] = useState<CategoryKey>("all");
     const [searchQuery, setSearchQuery] = useState("");
+    const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
+    // Escape key listener for the preview lightbox
+    useEffect(() => {
+        if (!previewImageUrl) return;
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") {
+                setPreviewImageUrl(null);
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [previewImageUrl]);
 
     useSyncExternalStore(subscribeImagePreviews, getImagePreviewRevision);
 
@@ -75,11 +89,11 @@ export function CanvasReferencePickerPopover({
 
     return (
         <div
-            className="flex flex-col select-none rounded-2xl border shadow-2xl backdrop-blur-md transition-all overflow-hidden"
+            className="flex flex-col select-none rounded-2xl border shadow-2xl backdrop-blur-xl transition-all overflow-hidden"
             style={{
                 width: 460,
-                background: isDark ? "rgba(24, 24, 27, 0.98)" : theme.toolbar.panel,
-                borderColor: isDark ? "rgba(255, 255, 255, 0.12)" : theme.toolbar.border,
+                background: isDark ? "rgba(24, 24, 27, 0.96)" : theme.toolbar.panel,
+                borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : theme.toolbar.border,
                 color: theme.node.text,
             }}
             onClick={(e) => e.stopPropagation()}
@@ -90,7 +104,7 @@ export function CanvasReferencePickerPopover({
                 <div
                     className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl transition-colors"
                     style={{
-                        background: isDark ? "rgba(255, 255, 255, 0.08)" : theme.toolbar.itemHover,
+                        background: isDark ? "rgba(255, 255, 255, 0.06)" : theme.toolbar.itemHover,
                     }}
                 >
                     <Search className="size-3.5 shrink-0 opacity-45" />
@@ -151,6 +165,7 @@ export function CanvasReferencePickerPopover({
                                         isDark={isDark}
                                         theme={theme}
                                         onConnectToggle={() => onToggleReference(node.id)}
+                                        onPreviewImage={(url) => setPreviewImageUrl(url)}
                                         onClick={() => {
                                             if (onToggleDirectReference) {
                                                 onToggleDirectReference(node.id);
@@ -165,6 +180,45 @@ export function CanvasReferencePickerPopover({
                     )}
                 </div>
             </div>
+            {previewImageUrl && typeof document !== "undefined"
+                ? createPortal(
+                      <div
+                          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/80 backdrop-blur-md p-6 select-none animate-in fade-in duration-150"
+                          onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              setPreviewImageUrl(null);
+                          }}
+                          onMouseDown={(e) => e.stopPropagation()}
+                      >
+                          <div
+                              className="relative max-w-[90vw] max-h-[90vh] rounded-2xl overflow-hidden shadow-2xl bg-stone-950/80 border border-white/20 animate-in zoom-in-95 duration-150 flex items-center justify-center"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                          >
+                              <img
+                                  src={previewImageUrl}
+                                  alt=""
+                                  className="max-w-[90vw] max-h-[90vh] object-contain block select-none"
+                              />
+                              {/* Close button located tightly on the top-right corner of the image card */}
+                              <button
+                                  type="button"
+                                  title="关闭预览"
+                                  onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setPreviewImageUrl(null);
+                                  }}
+                                  className="absolute top-3 right-3 flex items-center justify-center size-8 rounded-full bg-stone-900/80 hover:bg-stone-900 text-white backdrop-blur-md border border-white/30 transition-all cursor-pointer shadow-xl hover:scale-110 active:scale-95 z-20"
+                              >
+                                  <X className="size-4 stroke-[2.5]" />
+                              </button>
+                          </div>
+                      </div>,
+                      document.body
+                  )
+                : null}
         </div>
     );
 }
@@ -176,6 +230,7 @@ function NodePickerCard({
     isDark,
     theme,
     onConnectToggle,
+    onPreviewImage,
     onClick,
 }: {
     node: CanvasNodeData;
@@ -184,11 +239,13 @@ function NodePickerCard({
     isDark: boolean;
     theme: (typeof canvasThemes)[keyof typeof canvasThemes];
     onConnectToggle: () => void;
+    onPreviewImage: (url: string) => void;
     onClick: () => void;
 }) {
     const resource = getNodeDefinition(node.type)?.resource?.(node);
     const content = node.metadata?.content || resource?.url;
     const thumbnail = previewUrlFor(node.metadata?.storageKey) || content;
+    const originalImage = content || thumbnail;
     const kind = resource?.kind || (node.type === CanvasNodeType.Image ? "image" : node.type === CanvasNodeType.Video ? "video" : node.type === CanvasNodeType.Audio ? "audio" : node.type === CanvasNodeType.Text ? "text" : "other");
 
     const Icon = kind === "image" ? ImageIcon : kind === "video" ? Video : kind === "audio" ? Music2 : FileText;
@@ -207,26 +264,76 @@ function NodePickerCard({
                     onClick();
                 }
             }}
-            className={`group relative flex flex-col justify-between h-24 rounded-xl p-2 text-left border cursor-pointer select-none transition-all duration-150 overflow-hidden ${
+            className={`group relative flex flex-col justify-between h-24 rounded-xl text-left cursor-pointer select-none transition-all duration-150 overflow-hidden ${
                 isDirectRef
-                    ? "ring-2 ring-blue-500 border-blue-500/80 bg-blue-500/10"
+                    ? "ring-2 ring-blue-500 shadow-sm"
                     : isConnected
-                    ? "border-blue-400/50 bg-blue-500/5"
-                    : isDark
-                    ? "bg-white/[0.05] hover:bg-white/[0.08] border-white/5"
-                    : "bg-black/[0.03] hover:bg-black/[0.06] border-stone-200/60"
+                    ? "ring-1.5 ring-blue-400/70"
+                    : "ring-1 ring-black/5 dark:ring-white/10 hover:ring-black/15 dark:hover:ring-white/20"
             }`}
+            style={{
+                background: isDark ? "rgba(255, 255, 255, 0.04)" : "rgba(0, 0, 0, 0.03)",
+            }}
         >
-            {/* Top Action Row: Pending badge on left, Connect Link button on right */}
-            <div className="flex items-center justify-between w-full h-4 z-10">
+            {/* Visual Media Background / Content */}
+            <div className="absolute inset-0 size-full overflow-hidden flex items-center justify-center pointer-events-none">
+                {kind === "image" && thumbnail ? (
+                    <img src={thumbnail} alt="" className="size-full object-cover transition-transform duration-200 group-hover:scale-105" />
+                ) : kind === "video" && content ? (
+                    <video src={content} className="size-full object-cover" muted />
+                ) : (
+                    <div className="flex flex-col items-center justify-center gap-1 opacity-60 group-hover:opacity-85 transition-opacity">
+                        <Icon className="size-6" style={{ color: theme.node.text }} />
+                    </div>
+                )}
+                {/* Subtle gradient overlay at bottom for title readability */}
+                <div className="absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-black/70 via-black/30 to-transparent pointer-events-none" />
+            </div>
+
+            {/* Top Overlay: Pending status & Eye Preview button floating directly on image */}
+            <div className="relative z-10 flex items-center justify-between p-1.5 w-full pointer-events-none">
                 <div>
                     {isPending ? (
-                        <span className="text-[9px] px-1 py-0.2 rounded bg-black/40 text-stone-300 font-normal leading-none">
+                        <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-black/60 text-white/90 font-normal backdrop-blur-sm">
                             待生成
+                        </span>
+                    ) : <span />}
+                </div>
+
+                {/* Eye Zoom Button floating directly on the top-right of the image */}
+                {kind === "image" && originalImage ? (
+                    <button
+                        type="button"
+                        title="放大查看"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            onPreviewImage(originalImage);
+                        }}
+                        className="pointer-events-auto flex items-center justify-center size-6 bg-transparent text-white opacity-0 group-hover:opacity-100 transition-all duration-150 hover:scale-125 active:scale-95 cursor-pointer"
+                        style={{
+                            filter: "drop-shadow(0 0 1.5px rgba(0,0,0,0.95)) drop-shadow(0 1px 3px rgba(0,0,0,0.95))",
+                        }}
+                    >
+                        <Eye className="size-3.5 stroke-[2.6] text-white" />
+                    </button>
+                ) : null}
+            </div>
+
+            {/* Bottom Overlay: Title & Direct Check on Left, Connect Link button floating on Right */}
+            <div className="relative z-10 flex items-center justify-between px-1.5 pb-1.5 w-full">
+                <div className="flex items-center gap-1 min-w-0 mr-1.5 pointer-events-none">
+                    <span className="truncate text-[10px] font-semibold leading-tight text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]">
+                        {title}
+                    </span>
+                    {isDirectRef ? (
+                        <span className="shrink-0 flex items-center justify-center size-3.5 rounded-full bg-blue-500 text-white shadow-sm ring-1 ring-white/50">
+                            <Check className="size-2 stroke-[3]" />
                         </span>
                     ) : null}
                 </div>
-                {/* Connect Link Button */}
+
+                {/* Connect Link Button floating directly on the card at bottom-right */}
                 <button
                     type="button"
                     title={isConnected ? "断开连线" : "连线到当前卡片"}
@@ -234,39 +341,17 @@ function NodePickerCard({
                         e.stopPropagation();
                         onConnectToggle();
                     }}
-                    className={`flex items-center justify-center size-5 rounded-full transition-all ${
+                    className={`flex items-center justify-center size-6 shrink-0 bg-transparent text-white cursor-pointer transition-all duration-150 hover:scale-125 active:scale-95 ${
                         isConnected
-                            ? "bg-blue-500 text-white shadow-sm hover:bg-blue-600 scale-105"
-                            : isDark
-                            ? "bg-white/10 hover:bg-white/25 text-stone-300 hover:text-white"
-                            : "bg-black/5 hover:bg-black/15 text-stone-500 hover:text-stone-800"
+                            ? "scale-110"
+                            : "opacity-90 hover:opacity-100"
                     }`}
+                    style={{
+                        filter: "drop-shadow(0 0 1.5px rgba(0,0,0,0.95)) drop-shadow(0 1px 3px rgba(0,0,0,0.95))",
+                    }}
                 >
-                    <Link2 className="size-2.5 stroke-[2.2]" />
+                    <Link2 className={`size-3.5 stroke-[2.6] text-white ${isConnected ? "stroke-[3]" : ""}`} />
                 </button>
-            </div>
-
-            {/* Center Visual / Icon / Thumbnail */}
-            <div className="flex-1 flex items-center justify-center my-0.5 overflow-hidden rounded-md pointer-events-none">
-                {kind === "image" && thumbnail ? (
-                    <img src={thumbnail} alt="" className="size-full object-cover rounded-md" />
-                ) : kind === "video" && content ? (
-                    <video src={content} className="size-full object-cover rounded-md" muted />
-                ) : (
-                    <Icon className="size-5 opacity-60 group-hover:opacity-85 transition-opacity" style={{ color: theme.node.text }} />
-                )}
-            </div>
-
-            {/* Bottom Title */}
-            <div className="flex items-center justify-between w-full mt-0.5 pointer-events-none">
-                <span className="truncate text-[10px] font-normal leading-tight opacity-80" style={{ color: theme.node.text }}>
-                    {title}
-                </span>
-                {isDirectRef ? (
-                    <span className="shrink-0 flex items-center justify-center size-3.5 rounded-full bg-blue-500 text-white ml-1">
-                        <Check className="size-2 stroke-[3]" />
-                    </span>
-                ) : null}
             </div>
         </div>
     );

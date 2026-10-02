@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, Sparkles } from "lucide-react";
+import { Check, ChevronDown, Gauge } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { AspectIcon } from "@/components/image-settings-panel";
@@ -130,7 +130,7 @@ export function CanvasImageSettingsPopover({
                 onClick={toggleScale}
                 title={t("settingsPanels.image.resolution")}
             >
-                <Sparkles className="size-3.5 text-amber-500" />
+                <Gauge className="size-3.5 opacity-75" />
                 <span className="font-medium">
                     {selectedScale === "auto" ? t("settingsPanels.common.auto") : selectedScale.toUpperCase()}
                 </span>
@@ -251,7 +251,7 @@ function DropdownMenuPortal({
                                 onClick={() => onSelectScale(value)}
                             >
                                 <span className="flex items-center gap-1.5">
-                                    <Sparkles className="size-3 text-amber-500 opacity-80" />
+                                    <Gauge className="size-3 opacity-60" />
                                     <span>{value === "auto" ? t("settingsPanels.common.auto") : value.toUpperCase()}</span>
                                 </span>
                                 {isSelected ? <Check className="size-3.5 text-indigo-500" /> : null}

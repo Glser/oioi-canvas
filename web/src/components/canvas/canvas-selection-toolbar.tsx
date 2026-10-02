@@ -58,7 +58,7 @@ export function CanvasSelectionToolbar({
             </svg>
             {showActions ? (
                 <div
-                    className="absolute z-[70] flex h-12 -translate-x-1/2 -translate-y-full items-center overflow-visible rounded-[18px] border border-black/10 bg-white text-[15px] text-[#242529] shadow-[0_8px_28px_rgba(15,23,42,.12)]"
+                    className="absolute z-[70] flex h-12 -translate-x-1/2 -translate-y-full items-center overflow-visible rounded-[18px] border border-black/10 bg-white text-[15px] text-[#242529] shadow-[0_8px_28px_rgba(15,23,42,.12)] dark:border-white/10 dark:bg-[#1e1e20] dark:text-[#f4f4f5] dark:shadow-[0_8px_28px_rgba(0,0,0,.45)]"
                     style={{ left: left + width / 2, top: top - 8 }}
                     onMouseDown={(event) => event.stopPropagation()}
                     onPointerDown={(event) => event.stopPropagation()}
@@ -72,10 +72,29 @@ export function CanvasSelectionToolbar({
 }
 
 function SelectionAction({ title, label, icon, onClick }: { title: string; label: string; icon: ReactNode; onClick: () => void }) {
+    const isDark = useThemeStore((state) => state.theme) === "dark";
     return (
-        <Tooltip title={title} placement="top" mouseEnterDelay={0.2} color="#ffffff" styles={{ root: { color: "#242529", boxShadow: "0 8px 24px rgba(15,23,42,.16)", fontSize: 13, fontWeight: 500 } }}>
-            <button type="button" className="group relative flex h-12 items-center whitespace-nowrap px-1.5" onClick={onClick} aria-label={title}>
-                <span className="flex h-9 items-center gap-2 rounded-lg px-2.5 transition group-hover:bg-[#f0f0f1]">
+        <Tooltip
+            title={title}
+            placement="top"
+            mouseEnterDelay={0.2}
+            color={isDark ? "#27272a" : "#ffffff"}
+            styles={{
+                root: {
+                    color: isDark ? "#fafafa" : "#242529",
+                    boxShadow: isDark ? "0 8px 24px rgba(0,0,0,.36)" : "0 8px 24px rgba(15,23,42,.16)",
+                    fontSize: 13,
+                    fontWeight: 500,
+                },
+            }}
+        >
+            <button
+                type="button"
+                className="group relative flex h-12 items-center whitespace-nowrap px-1.5 text-[#242529] dark:text-[#f4f4f5]"
+                onClick={onClick}
+                aria-label={title}
+            >
+                <span className="flex h-9 items-center gap-2 rounded-lg px-2.5 transition group-hover:bg-[#f0f0f1] dark:group-hover:bg-white/10">
                     {icon}
                     <span>{label}</span>
                 </span>
