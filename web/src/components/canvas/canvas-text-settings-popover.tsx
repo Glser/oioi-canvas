@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { Settings2 } from "lucide-react";
+import { Brain } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { canvasThemes } from "@/lib/canvas-theme";
@@ -11,20 +11,31 @@ import { reasoningEffortLabel } from "@/components/text-settings-panel";
 type CanvasTextSettingsPopoverProps = {
     config: AiConfig;
     onConfigChange: (key: "reasoningEffort", value: ReasoningEffort) => void;
-    count?: number;
-    onCountChange?: (count: number) => void;
     buttonClassName?: string;
     placement?: "topLeft" | "top" | "topRight" | "bottomLeft" | "bottom" | "bottomRight";
 };
 
-const reasoningEffortOptions: ReasoningEffort[] = ["auto", "low", "medium", "high", "xhigh"];
-const countPresets = [1, 2, 3, 4];
+const reasoningEffortLevels: ReasoningEffort[] = ["low", "medium", "high", "xhigh", "max", "ultra"];
+
+// 星尘粒子位置与大小
+const STARDUST_PARTICLES = [
+    { left: "8%", top: "42%", size: 2, opacity: 0.8 },
+    { left: "14%", top: "68%", size: 1.5, opacity: 0.7 },
+    { left: "20%", top: "32%", size: 2.5, opacity: 0.9 },
+    { left: "27%", top: "62%", size: 2, opacity: 0.75 },
+    { left: "36%", top: "28%", size: 2, opacity: 0.85 },
+    { left: "43%", top: "65%", size: 2.5, opacity: 0.9 },
+    { left: "52%", top: "45%", size: 3, opacity: 1 },
+    { left: "61%", top: "68%", size: 1.8, opacity: 0.7 },
+    { left: "70%", top: "35%", size: 2.2, opacity: 0.85 },
+    { left: "78%", top: "58%", size: 2, opacity: 0.8 },
+    { left: "86%", top: "42%", size: 2.8, opacity: 0.95 },
+    { left: "93%", top: "62%", size: 2, opacity: 0.75 },
+];
 
 export function CanvasTextSettingsPopover({
     config,
     onConfigChange,
-    count,
-    onCountChange,
     buttonClassName,
     placement = "topLeft",
 }: CanvasTextSettingsPopoverProps) {
@@ -54,6 +65,11 @@ export function CanvasTextSettingsPopover({
         };
     }, [open]);
 
+    const currentEffort: ReasoningEffort =
+        config.reasoningEffort && reasoningEffortLevels.includes(config.reasoningEffort)
+            ? config.reasoningEffort
+            : "medium";
+
     return (
         <div className="relative inline-flex min-w-0">
             <button
@@ -62,11 +78,11 @@ export function CanvasTextSettingsPopover({
                 className={`canvas-text-settings-trigger inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-input bg-transparent px-3 text-xs font-normal shadow-xs transition hover:bg-black/5 dark:hover:bg-white/10 ${buttonClassName || ""}`}
                 style={{ color: theme.node.text }}
                 onClick={() => setOpen((current) => !current)}
-                title={`${t("canvas.controls.reasoning")}: ${reasoningEffortLabel(config.reasoningEffort)}${onCountChange ? ` · ${t("canvas.controls.generations", { count })}` : ""}`}
+                title={`${t("canvas.controls.reasoning")}: ${reasoningEffortLabel(currentEffort)}`}
             >
-                <Settings2 className="size-3.5 shrink-0" />
+                <Brain className="size-3.5 shrink-0" />
                 <span className="truncate">
-                    {t("canvas.controls.reasoning")} · {reasoningEffortLabel(config.reasoningEffort)}{onCountChange ? ` · ${t("canvas.controls.generations", { count })}` : ""}
+                    {t("canvas.controls.reasoning")} · {reasoningEffortLabel(currentEffort)}
                 </span>
             </button>
             {open && buttonRect ? (
@@ -75,10 +91,8 @@ export function CanvasTextSettingsPopover({
                     panelRef={panelRef}
                     placement={placement}
                     theme={theme}
-                    config={config}
-                    count={count}
+                    currentEffort={currentEffort}
                     onConfigChange={onConfigChange}
-                    onCountChange={onCountChange}
                 />
             ) : null}
         </div>
@@ -90,22 +104,18 @@ function TextSettingsDropdown({
     panelRef,
     placement,
     theme,
-    config,
-    count,
+    currentEffort,
     onConfigChange,
-    onCountChange,
 }: {
     buttonRect: DOMRect;
     panelRef: RefObject<HTMLDivElement | null>;
     placement: CanvasTextSettingsPopoverProps["placement"];
     theme: (typeof canvasThemes)[keyof typeof canvasThemes];
-    config: AiConfig;
-    count?: number;
+    currentEffort: ReasoningEffort;
     onConfigChange: CanvasTextSettingsPopoverProps["onConfigChange"];
-    onCountChange?: (count: number) => void;
 }) {
     const { t } = useTranslation();
-    const width = 276;
+    const width = 300;
     const gap = 8;
     const margin = 12;
 
@@ -130,12 +140,53 @@ function TextSettingsDropdown({
         borderRadius: 16,
         boxShadow: "0 16px 40px rgba(0, 0, 0, 0.25)",
         border: `1px solid ${theme.node.stroke}`,
-        padding: "12px",
+        padding: "14px 16px",
         overflow: "hidden",
         color: theme.node.text,
     } as const;
 
-    const currentEffort = config.reasoningEffort || "auto";
+    const effortIndex = Math.max(0, reasoningEffortLevels.indexOf(currentEffort));
+    const totalSteps = reasoningEffortLevels.length - 1;
+    const trackRef = useRef<HTMLDivElement>(null);
+    const [isDragging, setIsDragging] = useState(false);
+
+    // 每一个刻度中心的百分比 (从 0% 到 100%)
+    const thumbPercentage = (effortIndex / totalSteps) * 100;
+
+    const updateEffortFromPointer = (clientX: number) => {
+        if (!trackRef.current) return;
+        const rect = trackRef.current.getBoundingClientRect();
+        if (rect.width <= 0) return;
+        // 刻度中心均匀分布在轨道左右中心之间
+        const relativeX = clientX - rect.left;
+        const fraction = Math.max(0, Math.min(1, relativeX / rect.width));
+        const index = Math.round(fraction * totalSteps);
+        const clampedIndex = Math.max(0, Math.min(totalSteps, index));
+        const nextEffort = reasoningEffortLevels[clampedIndex];
+        if (nextEffort && nextEffort !== currentEffort) {
+            onConfigChange("reasoningEffort", nextEffort);
+        }
+    };
+
+    const handlePointerDown = (e: React.PointerEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+        updateEffortFromPointer(e.clientX);
+
+        const handlePointerMove = (moveEvent: PointerEvent) => {
+            updateEffortFromPointer(moveEvent.clientX);
+        };
+
+        const handlePointerUp = () => {
+            setIsDragging(false);
+            window.removeEventListener("pointermove", handlePointerMove);
+            window.removeEventListener("pointerup", handlePointerUp);
+        };
+
+        window.addEventListener("pointermove", handlePointerMove);
+        window.addEventListener("pointerup", handlePointerUp);
+    };
 
     return createPortal(
         <div
@@ -146,65 +197,93 @@ function TextSettingsDropdown({
             onMouseDown={(event) => event.stopPropagation()}
             onClick={(event) => event.stopPropagation()}
         >
-            <div className="space-y-3">
-                {/* 1. 思考强度 */}
+            <div className="py-0.5">
                 <div>
-                    <div className="mb-2 flex items-center justify-between px-0.5 text-[11px] font-medium opacity-50">
-                        <span>{t("settingsPanels.text.reasoning")}</span>
-                        <span className="font-mono text-[10px] opacity-80">{reasoningEffortLabel(currentEffort)}</span>
-                    </div>
-                    <div className="grid grid-cols-5 gap-1 rounded-xl bg-black/[0.04] p-1 dark:bg-white/[0.06]">
-                        {reasoningEffortOptions.map((value) => {
-                            const isSelected = currentEffort === value;
-                            return (
-                                <button
-                                    key={value}
-                                    type="button"
-                                    onClick={() => onConfigChange("reasoningEffort", value)}
-                                    className={`flex h-7 cursor-pointer items-center justify-center rounded-lg text-xs transition-all ${
-                                        isSelected
-                                            ? "bg-white font-semibold text-stone-900 shadow-xs dark:bg-stone-800 dark:text-white"
-                                            : "font-normal text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200"
-                                    }`}
-                                >
-                                    {t(`settingsPanels.common.${value}`)}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
+                    {/* 滑块主轨道：带边距确保两端圆心与文字严格对齐 */}
+                    <div className="relative px-2.5">
+                        <div
+                            ref={trackRef}
+                            className="group relative flex h-7 w-full cursor-pointer touch-none items-center rounded-full select-none"
+                            onPointerDown={handlePointerDown}
+                        >
+                            {/* 1. 底层暗色轨道背景 (未覆盖区域) */}
+                            <div className="absolute inset-0 rounded-full bg-stone-200/70 dark:bg-stone-800/80 shadow-inner" />
 
-                {/* 2. 生成次数 (如果提供) */}
-                {onCountChange && (
-                    <>
-                        <div className="h-px w-full bg-stone-200/60 dark:bg-white/10" />
-                        <div>
-                            <div className="mb-2 flex items-center justify-between px-0.5 text-[11px] font-medium opacity-50">
-                                <span>{t("settingsPanels.text.count")}</span>
-                                <span className="font-mono text-[10px] opacity-80">{count || 1}</span>
+                            {/* 2. 覆盖激活区域 (从滑块左端到滑块当前位置，具备蓝色到紫色的丰富渐变与星尘光晕) */}
+                            <div
+                                className={`absolute left-0 top-0 bottom-0 rounded-full overflow-hidden shadow-[0_0_10px_rgba(99,102,241,0.3)] ${
+                                    isDragging ? "transition-none" : "transition-all duration-200 ease-out"
+                                }`}
+                                style={{
+                                    // 覆盖宽度刚好延伸到滑块圆球右侧边缘，确保完全填充圆球覆盖过的轨迹
+                                    width: effortIndex === 0 ? 0 : `calc(${thumbPercentage}% + 10px)`,
+                                    opacity: effortIndex === 0 ? 0 : 1,
+                                    background: "linear-gradient(90deg, #1d4ed8 0%, #2563eb 20%, #4f46e5 45%, #7c3aed 75%, #9333ea 100%)",
+                                }}
+                            >
+                                {/* 轨道内部璀璨星尘粒子 (精准还原参考图点缀星光) */}
+                                <div className="pointer-events-none absolute inset-0 w-[300px]">
+                                    {STARDUST_PARTICLES.map((particle, i) => (
+                                        <span
+                                            key={i}
+                                            className="absolute rounded-full bg-white blur-[0.2px]"
+                                            style={{
+                                                left: particle.left,
+                                                top: particle.top,
+                                                width: particle.size,
+                                                height: particle.size,
+                                                opacity: particle.opacity,
+                                                boxShadow: `0 0 2.5px rgba(255, 255, 255, ${particle.opacity})`,
+                                            }}
+                                        />
+                                    ))}
+                                </div>
                             </div>
-                            <div className="grid grid-cols-4 gap-1 rounded-xl bg-black/[0.04] p-1 dark:bg-white/[0.06]">
-                                {countPresets.map((val) => {
-                                    const isSelected = (count || 1) === val;
-                                    return (
+
+                            {/* 3. 纯白质感立体圆形滑块 Thumb (圆心中心严格对应在各刻度点上) */}
+                            <div
+                                className={`absolute top-1/2 -translate-y-1/2 size-5 rounded-full bg-white shadow-[0_2px_6px_rgba(0,0,0,0.3),0_0_2px_rgba(0,0,0,0.15)] ring-2 ring-white/70 ${
+                                    isDragging ? "scale-110 transition-none" : "transition-all duration-200 ease-out"
+                                }`}
+                                style={{
+                                    // 确保圆球中心精确停留在 thumbPercentage 处
+                                    left: `${thumbPercentage}%`,
+                                    marginLeft: "-10px",
+                                }}
+                            />
+                        </div>
+
+                        {/* 4. 底部 6 档刻度文字：每个文字宽度为 0 且 overflow-visible，居中对齐在各自刻度点百分比正下方 */}
+                        <div className="relative mt-2.5 h-4 w-full">
+                            {reasoningEffortLevels.map((lvl, idx) => {
+                                const isSelected = effortIndex === idx;
+                                const stepPercent = (idx / totalSteps) * 100;
+                                return (
+                                    <div
+                                        key={lvl}
+                                        className="absolute top-0 flex -translate-x-1/2 justify-center"
+                                        style={{ left: `${stepPercent}%` }}
+                                    >
                                         <button
-                                            key={val}
                                             type="button"
-                                            onClick={() => onCountChange(val)}
-                                            className={`flex h-7 cursor-pointer items-center justify-center rounded-lg text-xs transition-all ${
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onConfigChange("reasoningEffort", lvl);
+                                            }}
+                                            className={`cursor-pointer whitespace-nowrap text-[10px] transition-all ${
                                                 isSelected
-                                                    ? "bg-white font-semibold text-stone-900 shadow-xs dark:bg-stone-800 dark:text-white"
-                                                    : "font-normal text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200"
+                                                    ? "font-bold text-indigo-600 scale-105 dark:text-indigo-400"
+                                                    : "font-medium text-stone-400 hover:text-stone-700 dark:text-stone-500 dark:hover:text-stone-300"
                                             }`}
                                         >
-                                            {val}
+                                            {reasoningEffortLabel(lvl)}
                                         </button>
-                                    );
-                                })}
-                            </div>
+                                    </div>
+                                );
+                            })}
                         </div>
-                    </>
-                )}
+                    </div>
+                </div>
             </div>
         </div>,
         document.body,

@@ -1,4 +1,4 @@
-export type Position = {
+﻿export type Position = {
     x: number;
     y: number;
 };
@@ -54,7 +54,7 @@ export type CanvasNodeMetadata = {
     generationMode?: CanvasGenerationMode;
     generationType?: CanvasImageGenerationType;
     model?: string;
-    reasoningEffort?: "auto" | "low" | "medium" | "high" | "xhigh";
+    reasoningEffort?: "auto" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
     size?: string;
     quality?: string;
     background?: string;

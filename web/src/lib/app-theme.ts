@@ -45,6 +45,10 @@ export function getAntThemeConfig(dark: boolean): ThemeConfig {
             controlItemBgHover: color.itemHoverBg,
             controlItemBgActive: color.itemSelectedBg,
             controlItemBgActiveHover: color.itemSelectedHoverBg,
+            borderRadius: 12,
+            borderRadiusLG: 16,
+            borderRadiusSM: 8,
+            borderRadiusXS: 6,
         },
         components: {
             Button: {

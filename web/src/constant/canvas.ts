@@ -12,7 +12,7 @@ type CanvasNodeSpec = {
 
 export const NODE_DEFAULT_SIZE = {
     [CanvasNodeType.Image]: { width: 210, height: 158, get title() { return i18n.t("canvas.nodeTypes.image"); } },
-    [CanvasNodeType.Text]: { width: 210, height: 140, get title() { return i18n.t("canvas.nodeTypes.text"); } },
+    [CanvasNodeType.Text]: { width: 210, height: 240, get title() { return i18n.t("canvas.nodeTypes.text"); } },
     [CanvasNodeType.Config]: { width: 210, height: 140, get title() { return i18n.t("canvas.nodeTypes.config"); } },
     [CanvasNodeType.Video]: { width: 280, height: 158, get title() { return i18n.t("canvas.nodeTypes.video"); } },
     [CanvasNodeType.Audio]: { width: 240, height: 96, get title() { return i18n.t("canvas.nodeTypes.audio"); } },
@@ -25,7 +25,7 @@ export const NODE_SPECS = {
         metadata: { content: "", status: "idle" },
     },
     [CanvasNodeType.Text]: {
-        width: 210, height: 140, get title() { return NODE_DEFAULT_SIZE[CanvasNodeType.Text].title; },
+        width: 210, height: 240, get title() { return NODE_DEFAULT_SIZE[CanvasNodeType.Text].title; },
         metadata: { content: "", status: "idle", fontSize: 14 },
     },
     [CanvasNodeType.Config]: {

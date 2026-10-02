@@ -359,7 +359,7 @@ export const CanvasNode = React.memo(function CanvasNode({
             )}
 
             <div
-                className="relative h-full w-full overflow-visible rounded-2xl border"
+                className="relative h-full w-full overflow-visible rounded-[22px] border"
                 style={{
                     background: isGroup ? "transparent" : hasImageContent || hasVideoContent || transparentBg ? "transparent" : theme.node.fill,
                     borderColor: isGroup ? (isGroupDropTarget || isActive ? selectionBlue : theme.node.stroke) : hasImageContent ? imageBorderColor : isActive ? selectionBlue : isRelated ? theme.node.muted : transparentBg ? "transparent" : theme.node.stroke,
@@ -429,7 +429,7 @@ export const CanvasNode = React.memo(function CanvasNode({
 
                 {showImageInfo && hasImageContent ? <ImageInfoBar node={data} /> : null}
 
-                {!isGroup && !hasImageContent && !hasVideoContent && !hasAudioContent ? <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12" style={{ background: `linear-gradient(to top, ${theme.canvas.background}66, transparent)` }} /> : null}
+                {!isGroup && !hasImageContent && !hasVideoContent && !hasAudioContent && data.type !== CanvasNodeType.Text ? <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12" style={{ background: `linear-gradient(to top, ${theme.canvas.background}66, transparent)` }} /> : null}
 
                 {referenceSelectionState && (referenceSelectionState !== "available" || hovered) ? (
                     <div className="pointer-events-none absolute inset-0 z-[60] grid place-items-center rounded-[inherit]" style={{ background: `color-mix(in srgb, ${theme.canvas.background} ${referenceSelectionState === "target" ? 78 : referenceSelectionState === "disabled" ? 60 : 34}%, transparent)`, boxShadow: referenceSelectionState === "available" ? `inset 0 0 0 2px ${selectionBlue}` : undefined }}>
@@ -540,14 +540,20 @@ function MissingPluginContent({ theme, type }: Pick<NodeContentRendererProps, "t
 function TextContent({ node, theme, isEditingContent, textareaRef, mentionReferences, batchExpanded, onContentChange, onStopEditing, onToggleBatch, onSetBatchPrimary }: NodeContentRendererProps) {
     const { t } = useTranslation();
     const fontSize = node.metadata?.fontSize || 14;
-    const textStyle = { fontSize: `${fontSize}px`, lineHeight: `${Math.round(fontSize * 1.65)}px`, color: theme.node.text, boxSizing: "border-box" } as React.CSSProperties;
+    const textStyle = {
+        fontSize: `${fontSize}px`,
+        lineHeight: `${Math.round(fontSize * 1.6)}px`,
+        color: theme.node.text,
+        boxSizing: "border-box",
+        letterSpacing: "0.01em",
+    } as React.CSSProperties;
     const texts = node.metadata?.texts || [];
     const batchCount = texts.length;
     const isBatchRoot = batchCount > 1;
     const primaryTextId = node.metadata?.primaryTextId || texts[0]?.id;
     const primaryText = texts.find((text) => text.id === primaryTextId);
     const content = primaryText?.content || node.metadata?.content || "";
-    const paddingClass = isBatchRoot ? "px-4 pb-4 pt-14" : "p-4";
+    const paddingClass = isBatchRoot ? "px-4 pb-4 pt-14" : "p-4.5";
 
     return (
         <BatchFrame batchCount={batchCount} batchExpanded={batchExpanded}>
@@ -556,11 +562,16 @@ function TextContent({ node, theme, isEditingContent, textareaRef, mentionRefere
                       .filter((text) => text.id !== primaryTextId)
                       .map((text, index) => <ExpandedTextCard key={text.id} node={node} text={text} index={index} onSetPrimary={() => onSetBatchPrimary?.(text.id)} />)
                 : null}
-            <div className="flex h-full w-full flex-col overflow-hidden rounded-3xl">
+            <div
+                data-canvas-no-zoom
+                className="flex h-full w-full flex-col overflow-hidden rounded-3xl"
+                onWheelCapture={(event) => event.stopPropagation()}
+            >
                 {isEditingContent ? (
                     <CanvasResourceMentionTextarea
                         ref={textareaRef}
-                        className={`thin-scrollbar block h-full w-full resize-none overflow-y-auto whitespace-pre-wrap break-words border-none bg-transparent m-0 font-mono outline-none select-text appearance-none ${paddingClass}`}
+                        data-canvas-no-zoom
+                        className={`thin-scrollbar block h-full w-full resize-none overflow-y-auto whitespace-pre-wrap break-words border-none bg-transparent m-0 font-sans outline-none select-text appearance-none selection:bg-blue-500/20 antialiased ${paddingClass}`}
                         style={textStyle}
                         value={content}
                         references={mentionReferences}
@@ -575,13 +586,18 @@ function TextContent({ node, theme, isEditingContent, textareaRef, mentionRefere
                         onWheel={(event) => event.stopPropagation()}
                     />
                 ) : content ? (
-                    <div className={`thin-scrollbar block h-full w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent font-mono ${paddingClass}`} style={textStyle} onWheel={(event) => event.stopPropagation()}>
+                    <div
+                        data-canvas-no-zoom
+                        className={`thin-scrollbar block h-full w-full overflow-y-auto whitespace-pre-wrap break-words bg-transparent font-sans select-text selection:bg-blue-500/20 antialiased ${paddingClass}`}
+                        style={textStyle}
+                        onWheel={(event) => event.stopPropagation()}
+                    >
                         {content}
                     </div>
                 ) : primaryText ? (
                     <TextSlotStatus text={primaryText} />
                 ) : (
-                    <div className="p-4 font-mono" style={{ color: theme.node.placeholder }}>
+                    <div className="p-4.5 font-sans text-sm antialiased opacity-60" style={{ color: theme.node.placeholder }}>
                         {t("canvas.node.editText")}
                     </div>
                 )}
@@ -640,7 +656,7 @@ function ExpandedTextCard({ node, text, index, onSetPrimary }: { node: CanvasNod
         >
             {text.content ? (
                 <>
-                    <div className="thin-scrollbar h-full overflow-y-auto whitespace-pre-wrap break-words px-4 pb-4 pt-14 font-mono text-sm leading-6" style={{ color: theme.node.text }} onWheel={(event) => event.stopPropagation()}>
+                    <div data-canvas-no-zoom className="thin-scrollbar h-full overflow-y-auto whitespace-pre-wrap break-words px-4 pb-4 pt-14 font-sans text-sm leading-6 select-text selection:bg-blue-500/20 antialiased" style={{ color: theme.node.text }} onWheel={(event) => event.stopPropagation()}>
                         {text.content}
                     </div>
                     <button type="button" className="pointer-events-none absolute right-2.5 top-2.5 flex h-8 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium opacity-0 transition duration-150 hover:bg-black/5 group-hover/node:pointer-events-auto group-hover/node:opacity-100 dark:hover:bg-white/10" style={{ color: theme.node.text }} onClick={(event) => (event.stopPropagation(), onSetPrimary())}>
@@ -994,3 +1010,4 @@ function ConnectionHandleDot({ side, visible, onMouseDown }: { side: "left" | "r
         </div>
     );
 }
+

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+﻿import { useMemo } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { nanoid } from "nanoid";
@@ -7,7 +7,7 @@ import i18n from "@/i18n";
 
 export type ApiCallFormat = "openai" | "gemini";
 export type ModelCapability = "image" | "video" | "text" | "audio";
-export type ReasoningEffort = "auto" | "low" | "medium" | "high" | "xhigh";
+export type ReasoningEffort = "auto" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
 
 export type ChannelModel = {
     name: string;
@@ -112,7 +112,7 @@ export const defaultConfig: AiConfig = {
     videoWatermark: "false",
     videoMode: "frames",
     systemPrompt: "",
-    reasoningEffort: "auto",
+    reasoningEffort: "medium",
     models: ["default::gpt-image-2", "default::grok-imagine-video", "default::gpt-5.5", "default::gpt-4o-mini-tts"],
     quality: "auto",
     size: "4:3",
@@ -264,7 +264,7 @@ export const useConfigStore = create<ConfigStore>()(
                         audioFormat: config.audioFormat || defaultConfig.audioFormat,
                         audioSpeed: config.audioSpeed || defaultConfig.audioSpeed,
                         audioInstructions: config.audioInstructions || "",
-                        reasoningEffort: config.reasoningEffort || "auto",
+                        reasoningEffort: config.reasoningEffort || "medium",
                         videoSeconds: config.videoSeconds || "6",
                         vquality: config.vquality || "720",
                         videoGenerateAudio: config.videoGenerateAudio || "true",

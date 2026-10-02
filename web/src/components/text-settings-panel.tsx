@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+﻿import { type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import i18n from "@/i18n";
@@ -6,7 +6,7 @@ import { ImageSettingsTheme } from "@/components/image-settings-panel";
 import { type CanvasTheme } from "@/lib/canvas-theme";
 import type { AiConfig, ReasoningEffort } from "@/stores/use-config-store";
 
-const reasoningEffortOptions: ReasoningEffort[] = ["auto", "low", "medium", "high", "xhigh"];
+const reasoningEffortOptions: ReasoningEffort[] = ["auto", "low", "medium", "high", "xhigh", "max", "ultra"];
 
 type TextSettingsPanelProps = {
     config: AiConfig;
