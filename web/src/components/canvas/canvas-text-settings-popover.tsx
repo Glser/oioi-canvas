@@ -1,13 +1,12 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Settings2 } from "lucide-react";
-import { InputNumber } from "antd";
 import { useTranslation } from "react-i18next";
 
-import { reasoningEffortLabel, TextSettingsPanel } from "@/components/text-settings-panel";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { useThemeStore } from "@/stores/use-theme-store";
 import type { AiConfig, ReasoningEffort } from "@/stores/use-config-store";
+import { reasoningEffortLabel } from "@/components/text-settings-panel";
 
 type CanvasTextSettingsPopoverProps = {
     config: AiConfig;
@@ -18,7 +17,17 @@ type CanvasTextSettingsPopoverProps = {
     placement?: "topLeft" | "top" | "topRight" | "bottomLeft" | "bottom" | "bottomRight";
 };
 
-export function CanvasTextSettingsPopover({ config, onConfigChange, count, onCountChange, buttonClassName, placement = "topLeft" }: CanvasTextSettingsPopoverProps) {
+const reasoningEffortOptions: ReasoningEffort[] = ["auto", "low", "medium", "high", "xhigh"];
+const countPresets = [1, 2, 3, 4];
+
+export function CanvasTextSettingsPopover({
+    config,
+    onConfigChange,
+    count,
+    onCountChange,
+    buttonClassName,
+    placement = "topLeft",
+}: CanvasTextSettingsPopoverProps) {
     const { t } = useTranslation();
     const theme = canvasThemes[useThemeStore((state) => state.theme)];
     const buttonRef = useRef<HTMLButtonElement>(null);
@@ -45,8 +54,6 @@ export function CanvasTextSettingsPopover({ config, onConfigChange, count, onCou
         };
     }, [open]);
 
-    const panel = open && buttonRect ? <TextSettingsPortal buttonRect={buttonRect} panelRef={panelRef} placement={placement} theme={theme} config={config} count={count} onConfigChange={onConfigChange} onCountChange={onCountChange} /> : null;
-
     return (
         <div className="relative inline-flex min-w-0">
             <button
@@ -62,12 +69,32 @@ export function CanvasTextSettingsPopover({ config, onConfigChange, count, onCou
                     {t("canvas.controls.reasoning")} · {reasoningEffortLabel(config.reasoningEffort)}{onCountChange ? ` · ${t("canvas.controls.generations", { count })}` : ""}
                 </span>
             </button>
-            {panel}
+            {open && buttonRect ? (
+                <TextSettingsDropdown
+                    buttonRect={buttonRect}
+                    panelRef={panelRef}
+                    placement={placement}
+                    theme={theme}
+                    config={config}
+                    count={count}
+                    onConfigChange={onConfigChange}
+                    onCountChange={onCountChange}
+                />
+            ) : null}
         </div>
     );
 }
 
-function TextSettingsPortal({ buttonRect, panelRef, placement, theme, config, count, onConfigChange, onCountChange }: {
+function TextSettingsDropdown({
+    buttonRect,
+    panelRef,
+    placement,
+    theme,
+    config,
+    count,
+    onConfigChange,
+    onCountChange,
+}: {
     buttonRect: DOMRect;
     panelRef: RefObject<HTMLDivElement | null>;
     placement: CanvasTextSettingsPopoverProps["placement"];
@@ -78,35 +105,107 @@ function TextSettingsPortal({ buttonRect, panelRef, placement, theme, config, co
     onCountChange?: (count: number) => void;
 }) {
     const { t } = useTranslation();
-    const width = 356;
+    const width = 276;
     const gap = 8;
     const margin = 12;
-    const alignRight = placement?.endsWith("Right");
-    const alignCenter = placement === "top" || placement === "bottom";
-    const left = alignCenter ? buttonRect.left + buttonRect.width / 2 - width / 2 : alignRight ? buttonRect.right - width : buttonRect.left;
+
+    const alignRight = placement?.includes("Right");
     const topPlacement = placement?.startsWith("top");
+
+    const left = alignRight
+        ? Math.max(margin, buttonRect.right - width)
+        : buttonRect.left + width > window.innerWidth - margin
+        ? window.innerWidth - width - margin
+        : Math.max(margin, Math.min(window.innerWidth - width - margin, buttonRect.left));
+
     const style = {
         position: "fixed",
         zIndex: 1200,
         width,
-        left: Math.max(margin, Math.min(window.innerWidth - width - margin, left)),
-        ...(topPlacement ? { bottom: window.innerHeight - buttonRect.top + gap } : { top: buttonRect.bottom + gap }),
+        left,
+        ...(topPlacement
+            ? { bottom: window.innerHeight - buttonRect.top + gap }
+            : { top: buttonRect.bottom + gap }),
         background: theme.toolbar.panel,
-        borderRadius: 18,
-        boxShadow: "0 18px 54px rgba(28, 25, 23, 0.16)",
-        padding: 18,
+        borderRadius: 16,
+        boxShadow: "0 16px 40px rgba(0, 0, 0, 0.25)",
+        border: `1px solid ${theme.node.stroke}`,
+        padding: "12px",
+        overflow: "hidden",
         color: theme.node.text,
     } as const;
 
+    const currentEffort = config.reasoningEffort || "auto";
+
     return createPortal(
-        <div ref={panelRef} style={style} onPointerDown={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()} onClick={(event) => event.stopPropagation()}>
-            <TextSettingsPanel config={config} onConfigChange={onConfigChange} theme={theme} />
-            {onCountChange ? (
-                <div className="mt-4 space-y-2.5">
-                    <div className="text-xs font-medium" style={{ color: theme.node.muted }}>{t("settingsPanels.text.count")}</div>
-                    <InputNumber className="w-full" min={1} max={15} precision={0} value={count} onChange={(value) => onCountChange(value || 1)} />
+        <div
+            ref={panelRef}
+            className="canvas-text-dropdown-menu text-xs select-none backdrop-blur-md animate-in fade-in zoom-in-95 duration-150"
+            style={style}
+            onPointerDown={(event) => event.stopPropagation()}
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={(event) => event.stopPropagation()}
+        >
+            <div className="space-y-3">
+                {/* 1. 思考强度 */}
+                <div>
+                    <div className="mb-2 flex items-center justify-between px-0.5 text-[11px] font-medium opacity-50">
+                        <span>{t("settingsPanels.text.reasoning")}</span>
+                        <span className="font-mono text-[10px] opacity-80">{reasoningEffortLabel(currentEffort)}</span>
+                    </div>
+                    <div className="grid grid-cols-5 gap-1 rounded-xl bg-black/[0.04] p-1 dark:bg-white/[0.06]">
+                        {reasoningEffortOptions.map((value) => {
+                            const isSelected = currentEffort === value;
+                            return (
+                                <button
+                                    key={value}
+                                    type="button"
+                                    onClick={() => onConfigChange("reasoningEffort", value)}
+                                    className={`flex h-7 cursor-pointer items-center justify-center rounded-lg text-xs transition-all ${
+                                        isSelected
+                                            ? "bg-white font-semibold text-stone-900 shadow-xs dark:bg-stone-800 dark:text-white"
+                                            : "font-normal text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200"
+                                    }`}
+                                >
+                                    {t(`settingsPanels.common.${value}`)}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
-            ) : null}
+
+                {/* 2. 生成次数 (如果提供) */}
+                {onCountChange && (
+                    <>
+                        <div className="h-px w-full bg-stone-200/60 dark:bg-white/10" />
+                        <div>
+                            <div className="mb-2 flex items-center justify-between px-0.5 text-[11px] font-medium opacity-50">
+                                <span>{t("settingsPanels.text.count")}</span>
+                                <span className="font-mono text-[10px] opacity-80">{count || 1}</span>
+                            </div>
+                            <div className="grid grid-cols-4 gap-1 rounded-xl bg-black/[0.04] p-1 dark:bg-white/[0.06]">
+                                {countPresets.map((val) => {
+                                    const isSelected = (count || 1) === val;
+                                    return (
+                                        <button
+                                            key={val}
+                                            type="button"
+                                            onClick={() => onCountChange(val)}
+                                            className={`flex h-7 cursor-pointer items-center justify-center rounded-lg text-xs transition-all ${
+                                                isSelected
+                                                    ? "bg-white font-semibold text-stone-900 shadow-xs dark:bg-stone-800 dark:text-white"
+                                                    : "font-normal text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200"
+                                            }`}
+                                        >
+                                            {val}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </>
+                )}
+            </div>
         </div>,
         document.body,
     );
