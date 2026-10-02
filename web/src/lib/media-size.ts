@@ -1,4 +1,4 @@
-export const mediaScaleOptions = ["1k", "2k", "4k", "auto"] as const;
+export const mediaScaleOptions = ["720p", "1080p", "2k", "4k"] as const;
 export const mediaRatioOptions = [
     { value: "1:1", width: 1, height: 1 },
     { value: "2:3", width: 2, height: 3 },
@@ -9,10 +9,11 @@ export const mediaRatioOptions = [
     { value: "9:16", width: 9, height: 16 },
     { value: "21:9", width: 21, height: 9 },
     { value: "9:21", width: 9, height: 21 },
-    { value: "auto", width: 0, height: 0 },
-] as const;
+    ] as const;
 
 export const imageSizePresets: Record<string, Record<string, string>> = {
+    "720p": { "1:1": "720x720", "2:3": "720x1080", "3:2": "1080x720", "4:3": "960x720", "3:4": "720x960", "16:9": "1280x720", "9:16": "720x1280", "21:9": "1680x720", "9:21": "720x1680" },
+    "1080p": { "1:1": "1080x1080", "2:3": "1080x1620", "3:2": "1620x1080", "4:3": "1440x1080", "3:4": "1080x1440", "16:9": "1920x1080", "9:16": "1080x1920", "21:9": "2520x1080", "9:21": "1080x2520" },
     "1k": { "1:1": "1024x1024", "2:3": "1024x1536", "3:2": "1536x1024", "4:3": "1024x768", "3:4": "768x1024", "16:9": "1536x864", "9:16": "864x1536", "21:9": "2016x864", "9:21": "864x2016" },
     "2k": { "1:1": "2048x2048", "2:3": "1360x2048", "3:2": "2048x1360", "4:3": "2048x1536", "3:4": "1536x2048", "16:9": "2048x1152", "9:16": "1152x2048", "21:9": "2688x1152", "9:21": "1152x2688" },
     "4k": { "1:1": "2880x2880", "2:3": "2336x3520", "3:2": "3520x2336", "4:3": "3312x2480", "3:4": "2480x3312", "16:9": "3840x2160", "9:16": "2160x3840", "21:9": "3840x1648", "9:21": "1648x3840" },
@@ -40,8 +41,7 @@ export const videoRatioOptions = [
     { value: "16:9", width: 16, height: 9 },
     { value: "9:16", width: 9, height: 16 },
     { value: "21:9", width: 21, height: 9 },
-    { value: "auto", width: 0, height: 0 },
-] as const;
+    ] as const;
 
 export const VIDEO_SECONDS_MIN = 4;
 export const VIDEO_SECONDS_MAX = 30;
@@ -52,7 +52,7 @@ export function normalizeMediaScale(value: string | undefined) {
     if (scale === "4k" || scale === "3840") return "4k";
     if (scale === "auto") return "auto";
     if (mediaScaleOptions.includes(scale as (typeof mediaScaleOptions)[number])) return scale;
-    return "1k";
+    return "1080p";
 }
 
 export function inferMediaScale(size: string, storedScale?: string) {
@@ -66,17 +66,18 @@ export function inferMediaScale(size: string, storedScale?: string) {
     const longSide = Math.max(pixels.width, pixels.height);
     if (longSide >= 3072) return "4k";
     if (longSide >= 1536) return "2k";
-    return "1k";
+    return "1080p";
 }
 
 export function inferMediaRatio(size: string, fallback = "1:1") {
-    if (!size || size === "auto") return "auto";
+    if (!size) return fallback;
     if (mediaRatioOptions.some((item) => item.value === size)) return size;
-    const pixels = parsePixelSize(size) || parseAspectRatio(size);
+    const aspect = parseAspectRatio(size);
+    if (aspect) return `${aspect.width}:${aspect.height}`;
+    const pixels = parsePixelSize(size);
     if (!pixels) return fallback;
     const target = pixels.width / pixels.height;
     return mediaRatioOptions
-        .filter((item) => item.value !== "auto")
         .reduce((best, item) => {
             const current = item.width / item.height;
             const bestOption = mediaRatioOptions.find((option) => option.value === best);
@@ -85,17 +86,34 @@ export function inferMediaRatio(size: string, fallback = "1:1") {
         }, fallback);
 }
 
+const SCALE_BASE_SHORT_SIDE: Record<string, number> = {
+    "720p": 720,
+    "1080p": 1080,
+    "2k": 1440,
+    "4k": 2160,
+};
+
 export function computeMediaSize(scale: string, ratio: string) {
-    if (ratio === "auto" || !ratio) return "auto";
+    if (!ratio) return "1080x1080";
     const normalizedScale = normalizeMediaScale(scale);
-    if (normalizedScale === "auto") return ratio;
-    return imageSizePresets[normalizedScale][ratio];
+    const preset = imageSizePresets[normalizedScale]?.[ratio];
+    if (preset) return preset;
+    const parsed = parseAspectRatio(ratio);
+    if (!parsed) return "1080x1080";
+    const base = SCALE_BASE_SHORT_SIDE[normalizedScale] || 1080;
+    const isLandscape = parsed.width >= parsed.height;
+    const longRatio = isLandscape ? parsed.width / parsed.height : parsed.height / parsed.width;
+    const shortSide = base;
+    const longSide = Math.round((shortSide * longRatio) / 16) * 16;
+    const width = isLandscape ? longSide : shortSide;
+    const height = isLandscape ? shortSide : longSide;
+    return `${width}x${height}`;
 }
 
 export function readMediaDimensions(size: string, scale: string, ratio: string) {
     const pixels = parsePixelSize(size);
     if (pixels) return pixels;
-    const computed = computeMediaSize(scale === "auto" ? "1k" : scale, ratio === "auto" ? "1:1" : ratio);
+    const computed = computeMediaSize(scale === "auto" ? "1080p" : scale, ratio === "auto" ? "1:1" : ratio);
     return parsePixelSize(computed) || { width: 0, height: 0 };
 }
 

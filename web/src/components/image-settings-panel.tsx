@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { type CanvasTheme } from "@/lib/canvas-theme";
 import { computeMediaSize, inferMediaRatio, inferMediaScale, mediaRatioOptions, mediaScaleOptions, readMediaDimensions } from "@/lib/media-size";
+import { formatScaleLabel } from "@/components/canvas/canvas-image-settings-popover";
 import type { AiConfig } from "@/stores/use-config-store";
 
 const qualityOptions = [
@@ -18,7 +19,7 @@ const DIMENSION_STEP = 16;
 
 export const imageQualityOptions = qualityOptions.map((item) => ({ value: item.value, get label() { return i18n.t(`settingsPanels.common.${item.labelKey}`); } }));
 export const imageAspectOptions = mediaRatioOptions.map((item) => ({ value: item.value, label: item.value === "auto" ? i18n.t("settingsPanels.common.auto") : item.value }));
-export const imageScaleOptions = mediaScaleOptions.map((value) => ({ value, label: value === "auto" ? i18n.t("settingsPanels.common.auto") : value }));
+export const imageScaleOptions = mediaScaleOptions.map((value) => ({ value, label: formatScaleLabel(value) }));
 
 type ImageSettingsPanelProps = {
     config: AiConfig;
@@ -70,7 +71,7 @@ export function ImageSettingsPanel({
             onConfigChange("size", "auto");
             return;
         }
-        applySize(selectedScale === "auto" ? "1k" : selectedScale, ratio);
+        applySize(selectedScale === "auto" ? "1080p" : selectedScale, ratio);
     };
     const updateDimension = (key: "width" | "height", value: number | null) => {
         const next = Math.max(1, Math.floor(value || dimensions[key] || 1024));
@@ -135,7 +136,7 @@ export function ImageSettingsPanel({
                                     style={{ borderColor: theme.node.stroke, background: theme.node.fill, color: theme.node.text }}
                                     onClick={() => setOpenSelect(openSelect === "scale" ? null : "scale")}
                                 >
-                                    <span className="font-medium">{selectedScale === "auto" ? t("settingsPanels.common.auto") : selectedScale}</span>
+                                    <span className="font-medium">{formatScaleLabel(selectedScale)}</span>
                                     <ChevronDown className={`size-3.5 opacity-60 transition-transform ${openSelect === "scale" ? "rotate-180" : ""}`} />
                                 </button>
                                 {openSelect === "scale" ? (
@@ -156,7 +157,7 @@ export function ImageSettingsPanel({
                                                         setOpenSelect(null);
                                                     }}
                                                 >
-                                                    <span>{value === "auto" ? t("settingsPanels.common.auto") : value}</span>
+                                                    <span>{formatScaleLabel(value)}</span>
                                                     {isSelected ? <Check className="size-3.5 text-indigo-500" /> : null}
                                                 </button>
                                             );
@@ -223,7 +224,7 @@ export function ImageSettingsPanel({
                             <div className="grid grid-cols-4 gap-2">
                                 {mediaScaleOptions.map((value) => (
                                     <OptionPill key={value} selected={selectedScale === value} theme={theme} onClick={() => selectScale(value)}>
-                                        {value === "auto" ? t("settingsPanels.common.auto") : value}
+                                        {formatScaleLabel(value)}
                                     </OptionPill>
                                 ))}
                             </div>

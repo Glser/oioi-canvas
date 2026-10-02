@@ -1,6 +1,13 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+export function formatScaleLabel(value: string) {
+    if (value === "720p") return "720P";
+    if (value === "1080p") return "1080P";
+    if (value === "2k") return "2K";
+    if (value === "4k") return "4K";
+    return value.toUpperCase();
+}
+
+import { useEffect, useRef, useState, type RefObject, type ChangeEvent } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, Gauge } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { AspectIcon } from "@/components/image-settings-panel";
@@ -13,6 +20,7 @@ import {
     inferMediaScale,
     mediaRatioOptions,
     mediaScaleOptions,
+    parseAspectRatio,
 } from "@/lib/media-size";
 
 type CanvasImageSettingsPopoverProps = {
@@ -36,16 +44,15 @@ export function CanvasImageSettingsPopover({
     const { t } = useTranslation();
     const theme = canvasThemes[useThemeStore((state) => state.theme)];
 
-    const scaleButtonRef = useRef<HTMLButtonElement>(null);
-    const ratioButtonRef = useRef<HTMLButtonElement>(null);
-    const scaleMenuRef = useRef<HTMLDivElement>(null);
-    const ratioMenuRef = useRef<HTMLDivElement>(null);
+    const buttonRef = useRef<HTMLButtonElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
 
-    const [openDropdown, setOpenDropdown] = useState<"scale" | "ratio" | null>(null);
+    const [isOpen, setIsOpen] = useState(false);
     const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
 
-    const activeSize = config.size || "auto";
-    const selectedScale = inferMediaScale(activeSize);
+    const activeSize = config.size || "1080p";
+    const rawScale = inferMediaScale(activeSize);
+    const selectedScale = rawScale === "auto" ? "1080p" : rawScale;
     const selectedRatio = inferMediaRatio(activeSize);
 
     const applySize = (scale: string, ratio: string) => {
@@ -53,57 +60,37 @@ export function CanvasImageSettingsPopover({
     };
 
     const handleSelectScale = (scale: string) => {
-        if (scale === "auto") {
-            onConfigChange("size", selectedRatio === "auto" ? "auto" : selectedRatio);
-        } else {
-            applySize(scale, selectedRatio === "auto" ? "1:1" : selectedRatio);
-        }
-        setOpenDropdown(null);
+        applySize(scale, selectedRatio);
     };
 
     const handleSelectRatio = (ratio: string) => {
-        if (ratio === "auto") {
-            onConfigChange("size", "auto");
-        } else {
-            applySize(selectedScale === "auto" ? "1k" : selectedScale, ratio);
-        }
-        setOpenDropdown(null);
+        applySize(selectedScale, ratio);
     };
 
-    const toggleScale = () => {
-        if (openDropdown === "scale") {
-            setOpenDropdown(null);
+    const toggleOpen = () => {
+        if (isOpen) {
+            setIsOpen(false);
         } else {
-            setAnchorRect(scaleButtonRef.current?.getBoundingClientRect() || null);
-            setOpenDropdown("scale");
-        }
-    };
-
-    const toggleRatio = () => {
-        if (openDropdown === "ratio") {
-            setOpenDropdown(null);
-        } else {
-            setAnchorRect(ratioButtonRef.current?.getBoundingClientRect() || null);
-            setOpenDropdown("ratio");
+            setAnchorRect(buttonRef.current?.getBoundingClientRect() || null);
+            setIsOpen(true);
         }
     };
 
     useEffect(() => {
-        onOpenChange?.(openDropdown !== null);
-    }, [openDropdown, onOpenChange]);
+        onOpenChange?.(isOpen);
+    }, [isOpen, onOpenChange]);
 
     useEffect(() => {
-        if (!openDropdown) return;
+        if (!isOpen) return;
         const syncPosition = () => {
-            const btn = openDropdown === "scale" ? scaleButtonRef.current : ratioButtonRef.current;
-            setAnchorRect(btn?.getBoundingClientRect() || null);
+            setAnchorRect(buttonRef.current?.getBoundingClientRect() || null);
         };
         const closeOnOutsidePointer = (event: PointerEvent) => {
             const target = event.target;
             if (!(target instanceof Node)) return;
-            if (scaleButtonRef.current?.contains(target) || ratioButtonRef.current?.contains(target)) return;
-            if (scaleMenuRef.current?.contains(target) || ratioMenuRef.current?.contains(target)) return;
-            setOpenDropdown(null);
+            if (buttonRef.current?.contains(target)) return;
+            if (menuRef.current?.contains(target)) return;
+            setIsOpen(false);
         };
 
         syncPosition();
@@ -115,54 +102,45 @@ export function CanvasImageSettingsPopover({
             window.removeEventListener("scroll", syncPosition, true);
             window.removeEventListener("pointerdown", closeOnOutsidePointer, true);
         };
-    }, [openDropdown]);
+    }, [isOpen]);
 
-    const currentRatioOption = mediaRatioOptions.find((o) => o.value === selectedRatio);
+    const parsedCurrentRatio = parseAspectRatio(selectedRatio);
+    const triggerRatioWidth = parsedCurrentRatio?.width || 1;
+    const triggerRatioHeight = parsedCurrentRatio?.height || 1;
 
     return (
-        <div className="flex items-center gap-1.5">
-            {/* 分辨率选择按钮 */}
+        <div className="relative inline-flex">
+            {/* 宽高比与分辨率一体化按钮 */}
             <button
-                ref={scaleButtonRef}
+                ref={buttonRef}
                 type="button"
-                className={`inline-flex cursor-pointer items-center justify-between gap-1.5 rounded-lg px-2 text-xs font-medium transition hover:opacity-85 active:scale-95 ${buttonClassName || "!h-8"}`}
-                style={{ background: theme.node.fill, color: theme.node.text }}
-                onClick={toggleScale}
-                title={t("settingsPanels.image.resolution")}
+                className={`canvas-image-settings-trigger inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-input bg-transparent px-3 text-xs font-normal shadow-xs transition hover:bg-black/5 dark:hover:bg-white/10 ${buttonClassName || ""}`}
+                style={{ color: theme.node.text }}
+                onClick={toggleOpen}
+                title={`${t("settingsPanels.image.aspectRatio")}: ${selectedRatio} · ${t("settingsPanels.image.resolution")}: ${formatScaleLabel(selectedScale)}`}
             >
-                <Gauge className="size-3.5 opacity-75" />
-                <span className="font-medium">
-                    {selectedScale === "auto" ? t("settingsPanels.common.auto") : selectedScale.toUpperCase()}
+                <div className="flex items-center gap-1.5">
+                    <AspectIcon
+                        width={triggerRatioWidth}
+                        height={triggerRatioHeight}
+                        color="currentColor"
+                        size={16}
+                    />
+                    <span className="font-medium">{selectedRatio}</span>
+                </div>
+                <span className="opacity-35">·</span>
+                <span className="font-medium opacity-80">
+                    {formatScaleLabel(selectedScale)}
                 </span>
-                <ChevronDown className={`size-3.5 opacity-60 transition-transform ${openDropdown === "scale" ? "rotate-180" : ""}`} />
             </button>
 
-            {/* 宽高比选择按钮 */}
-            <button
-                ref={ratioButtonRef}
-                type="button"
-                className={`inline-flex cursor-pointer items-center justify-between gap-1.5 rounded-lg px-2 text-xs font-medium transition hover:opacity-85 active:scale-95 ${buttonClassName || "!h-8"}`}
-                style={{ background: theme.node.fill, color: theme.node.text }}
-                onClick={toggleRatio}
-                title={t("settingsPanels.image.aspectRatio")}
-            >
-                {currentRatioOption ? (
-                    <AspectIcon width={currentRatioOption.width} height={currentRatioOption.height} color={theme.node.text} size={15} />
-                ) : null}
-                <span className="font-medium">
-                    {selectedRatio === "auto" ? t("settingsPanels.common.auto") : selectedRatio}
-                </span>
-                <ChevronDown className={`size-3.5 opacity-60 transition-transform ${openDropdown === "ratio" ? "rotate-180" : ""}`} />
-            </button>
-
-            {/* 下拉浮层 */}
-            {openDropdown && anchorRect ? (
-                <DropdownMenuPortal
-                    type={openDropdown}
+            {/* 下拉面板 */}
+            {isOpen && anchorRect ? (
+                <CombinedImageSettingsDropdown
+                    menuRef={menuRef}
                     anchorRect={anchorRect}
-                    menuRef={openDropdown === "scale" ? scaleMenuRef : ratioMenuRef}
-                    placement={placement}
                     theme={theme}
+                    placement={placement}
                     selectedScale={selectedScale}
                     selectedRatio={selectedRatio}
                     onSelectScale={handleSelectScale}
@@ -173,37 +151,81 @@ export function CanvasImageSettingsPopover({
     );
 }
 
-function DropdownMenuPortal({
-    type,
-    anchorRect,
+function CombinedImageSettingsDropdown({
     menuRef,
-    placement,
+    anchorRect,
     theme,
+    placement,
     selectedScale,
     selectedRatio,
     onSelectScale,
     onSelectRatio,
 }: {
-    type: "scale" | "ratio";
-    anchorRect: DOMRect;
     menuRef: RefObject<HTMLDivElement | null>;
-    placement: CanvasImageSettingsPopoverProps["placement"];
+    anchorRect: DOMRect;
     theme: (typeof canvasThemes)[keyof typeof canvasThemes];
+    placement: CanvasImageSettingsPopoverProps["placement"];
     selectedScale: string;
     selectedRatio: string;
     onSelectScale: (scale: string) => void;
     onSelectRatio: (ratio: string) => void;
 }) {
     const { t } = useTranslation();
-    const isRatio = type === "ratio";
-    const width = isRatio ? 248 : 136;
-    const gap = 6;
+    const width = 276;
+    const gap = 8;
     const margin = 12;
-    const alignRight = placement?.endsWith("Right");
+
+    const isPresetRatio = mediaRatioOptions.some((o) => o.value === selectedRatio);
+    const [customInput, setCustomInput] = useState(() => (isPresetRatio ? "" : selectedRatio));
+
+    useEffect(() => {
+        if (!isPresetRatio) {
+            setCustomInput(selectedRatio);
+        }
+    }, [selectedRatio, isPresetRatio]);
+
+    const handleCustomInputChange = (e: ChangeEvent<HTMLInputElement>) => {
+        // 仅允许数字和英文冒号
+        const val = e.target.value.replace(/[^0-9:]/g, "");
+        // 限制最多只有一个冒号
+        const parts = val.split(":");
+        if (parts.length > 2) return;
+        setCustomInput(val);
+
+        if (parts.length === 2 && parts[0] && parts[1]) {
+            const w = parseInt(parts[0], 10);
+            const h = parseInt(parts[1], 10);
+            if (w > 0 && h > 0) {
+                onSelectRatio(`${w}:${h}`);
+            }
+        }
+    };
+
+    const handleCustomInputBlur = () => {
+        if (!customInput) return;
+        const match = customInput.match(/^(\d+):(\d+)$/);
+        if (match) {
+            const w = parseInt(match[1], 10);
+            const h = parseInt(match[2], 10);
+            if (w > 0 && h > 0) {
+                onSelectRatio(`${w}:${h}`);
+                return;
+            }
+        }
+        if (!isPresetRatio) {
+            setCustomInput(selectedRatio);
+        } else {
+            setCustomInput("");
+        }
+    };
+
+    const alignRight = placement?.includes("Right");
     const topPlacement = placement?.startsWith("top");
 
     const left = alignRight
-        ? anchorRect.right - width
+        ? Math.max(margin, anchorRect.right - width)
+        : anchorRect.left + width > window.innerWidth - margin
+        ? window.innerWidth - width - margin
         : Math.max(margin, Math.min(window.innerWidth - width - margin, anchorRect.left));
 
     const style = {
@@ -215,10 +237,10 @@ function DropdownMenuPortal({
             ? { bottom: window.innerHeight - anchorRect.top + gap }
             : { top: anchorRect.bottom + gap }),
         background: theme.toolbar.panel,
-        borderRadius: 14,
-        boxShadow: "0 14px 40px rgba(0, 0, 0, 0.22)",
+        borderRadius: 16,
+        boxShadow: "0 16px 40px rgba(0, 0, 0, 0.25)",
         border: `1px solid ${theme.node.stroke}`,
-        padding: "8px",
+        padding: "12px",
         overflow: "hidden",
         color: theme.node.text,
     } as const;
@@ -226,76 +248,105 @@ function DropdownMenuPortal({
     return createPortal(
         <div
             ref={menuRef}
-            className="canvas-image-dropdown-menu text-xs select-none"
+            className="canvas-image-dropdown-menu text-xs select-none backdrop-blur-md animate-in fade-in zoom-in-95 duration-150"
             style={style}
             onPointerDown={(event) => event.stopPropagation()}
             onMouseDown={(event) => event.stopPropagation()}
             onClick={(event) => event.stopPropagation()}
         >
-            {type === "scale" ? (
-                <div className="space-y-0.5">
-                    <div className="px-2 py-1 text-[11px] font-medium opacity-45">
-                        {t("settingsPanels.image.resolution")}
+            <div className="space-y-3">
+                {/* 1. 上面是宽高比选项 */}
+                <div>
+                    <div className="mb-2 flex items-center justify-between px-0.5 text-[11px] font-medium opacity-50">
+                        <span>{t("settingsPanels.image.aspectRatio")}</span>
+                        <span className="font-mono text-[10px] opacity-80">{selectedRatio}</span>
                     </div>
-                    {mediaScaleOptions.map((value) => {
-                        const isSelected = selectedScale === value;
-                        return (
-                            <button
-                                key={value}
-                                type="button"
-                                className="flex h-7.5 w-full cursor-pointer items-center justify-between rounded-md px-2 text-xs transition hover:bg-black/5 dark:hover:bg-white/10"
-                                style={{
-                                    color: isSelected ? theme.node.text : theme.node.muted,
-                                    fontWeight: isSelected ? 600 : 400,
-                                }}
-                                onClick={() => onSelectScale(value)}
-                            >
-                                <span className="flex items-center gap-1.5">
-                                    <Gauge className="size-3 opacity-60" />
-                                    <span>{value === "auto" ? t("settingsPanels.common.auto") : value.toUpperCase()}</span>
-                                </span>
-                                {isSelected ? <Check className="size-3.5 text-indigo-500" /> : null}
-                            </button>
-                        );
-                    })}
-                </div>
-            ) : (
-                <div className="space-y-1.5">
-                    <div className="px-1 text-[11px] font-medium opacity-45">
-                        {t("settingsPanels.image.aspectRatio")}
-                    </div>
-                    <div className="grid grid-cols-2 gap-1">
+                    <div className="grid grid-cols-3 gap-1.5">
                         {mediaRatioOptions.map((item) => {
                             const isSelected = selectedRatio === item.value;
                             return (
                                 <button
                                     key={item.value}
                                     type="button"
-                                    className="flex h-8 w-full cursor-pointer items-center justify-between rounded-lg border px-2 text-xs transition hover:bg-black/5 dark:hover:bg-white/10"
-                                    style={{
-                                        borderColor: isSelected ? theme.node.text : "transparent",
-                                        background: isSelected ? "rgba(125, 125, 125, 0.08)" : "transparent",
-                                        color: isSelected ? theme.node.text : theme.node.muted,
-                                        fontWeight: isSelected ? 600 : 400,
-                                    }}
+                                    className={`group flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg border text-xs font-medium transition-all ${
+                                        isSelected
+                                            ? "border-stone-400/80 bg-black/5 text-stone-900 shadow-xs dark:border-white/30 dark:bg-white/10 dark:text-white"
+                                            : "border-transparent bg-black/[0.02] text-stone-600 hover:bg-black/5 dark:bg-white/[0.04] dark:text-stone-300 dark:hover:bg-white/8"
+                                    }`}
                                     onClick={() => onSelectRatio(item.value)}
                                 >
-                                    <div className="flex items-center gap-2">
-                                        <AspectIcon
-                                            width={item.width}
-                                            height={item.height}
-                                            color={isSelected ? theme.node.text : theme.node.muted}
-                                            size={14}
-                                        />
-                                        <span>{item.value === "auto" ? t("settingsPanels.common.auto") : item.value}</span>
-                                    </div>
-                                    {isSelected ? <Check className="size-3 text-indigo-500 shrink-0" /> : null}
+                                    <AspectIcon
+                                        width={item.width}
+                                        height={item.height}
+                                        color="currentColor"
+                                        size={16}
+                                    />
+                                    <span>{item.value}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* 自定义比例输入 */}
+                    <div className="mt-2 flex items-center gap-2 rounded-lg bg-black/[0.03] px-2.5 py-1.5 dark:bg-white/[0.04]">
+                        <span className="shrink-0 text-[11px] font-medium opacity-60">自定义</span>
+                        <input
+                            type="text"
+                            inputMode="text"
+                            placeholder="如 16:10、4:5"
+                            value={customInput}
+                            onChange={handleCustomInputChange}
+                            onBlur={handleCustomInputBlur}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    handleCustomInputBlur();
+                                    (e.target as HTMLInputElement).blur();
+                                }
+                            }}
+                            className={`h-6 min-w-0 flex-1 rounded border bg-transparent px-2 font-mono text-xs outline-none transition-all placeholder:text-[11px] placeholder:opacity-40 ${
+                                !isPresetRatio && customInput === selectedRatio
+                                    ? "border-stone-400/80 text-stone-900 dark:border-white/30 dark:text-white"
+                                    : "border-transparent focus:border-stone-300 dark:focus:border-white/20"
+                            }`}
+                        />
+                        {!isPresetRatio && (
+                            <span className="shrink-0 rounded-full bg-stone-900/10 px-1.5 py-0.5 text-[10px] font-medium text-stone-700 dark:bg-white/10 dark:text-stone-300">
+                                已生效
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                {/* 细分割线 */}
+                <div className="h-px w-full bg-stone-200/60 dark:bg-white/10" />
+
+                {/* 2. 下面是分辨率/画质选择 */}
+                <div>
+                    <div className="mb-2 flex items-center justify-between px-0.5 text-[11px] font-medium opacity-50">
+                        <span>{t("settingsPanels.image.resolution")}</span>
+                        <span className="font-mono text-[10px] opacity-80">{formatScaleLabel(selectedScale)}</span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1 rounded-xl bg-black/[0.04] p-1 dark:bg-white/[0.06]">
+                        {mediaScaleOptions.map((scale) => {
+                            const isSelected = selectedScale === scale;
+                            return (
+                                <button
+                                    key={scale}
+                                    type="button"
+                                    onClick={() => onSelectScale(scale)}
+                                    className={`flex h-7 cursor-pointer items-center justify-center rounded-lg text-xs transition-all ${
+                                        isSelected
+                                            ? "bg-white font-semibold text-stone-900 shadow-xs dark:bg-stone-800 dark:text-white"
+                                            : "font-normal text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200"
+                                    }`}
+                                >
+                                    {formatScaleLabel(scale)}
                                 </button>
                             );
                         })}
                     </div>
                 </div>
-            )}
+            </div>
         </div>,
         document.body,
     );
