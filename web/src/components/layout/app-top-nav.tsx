@@ -27,21 +27,27 @@ export function AppTopNav() {
     const slug = pathname.split("/").filter(Boolean)[0];
     const activeToolSlug = navigationTools.some((tool) => tool.slug === slug) ? (slug as NavigationToolSlug) : undefined;
 
-    // 监听全局捕获滚动事件：当页面容器向下滚动超过 24px 时平滑收缩成纯图标模式，滑回顶部时恢复
+    // 全局捕获滚动事件，阈值设定带滞后区间（Hysteresis），防止边界抖动，过渡更加沉稳丝滑
     useEffect(() => {
+        let ticking = false;
         const handleScroll = (event: Event) => {
-            const target = event.target as HTMLElement | Document;
-            let top = 0;
-            if (target === document) {
-                top = window.scrollY || document.documentElement.scrollTop;
-            } else if (target && "scrollTop" in target) {
-                top = (target as HTMLElement).scrollTop;
-            }
-            if (top > 24) {
-                setIsScrolled(true);
-            } else if (top < 10) {
-                setIsScrolled(false);
-            }
+            if (ticking) return;
+            ticking = true;
+            requestAnimationFrame(() => {
+                const target = event.target as HTMLElement | Document;
+                let top = 0;
+                if (target === document) {
+                    top = window.scrollY || document.documentElement.scrollTop;
+                } else if (target && "scrollTop" in target) {
+                    top = (target as HTMLElement).scrollTop;
+                }
+                if (top > 32) {
+                    setIsScrolled(true);
+                } else if (top < 12) {
+                    setIsScrolled(false);
+                }
+                ticking = false;
+            });
         };
 
         window.addEventListener("scroll", handleScroll, true);
@@ -64,7 +70,7 @@ export function AppTopNav() {
     return (
         <>
             {!hideHeader ? (
-                <header className="absolute inset-x-0 top-0 z-20 flex h-16 items-center justify-center px-4 pointer-events-none transition-all duration-300">
+                <header className="absolute inset-x-0 top-0 z-20 flex h-16 items-center justify-center px-4 pointer-events-none transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]">
                     {/* 移动端菜单与徽标 (窄屏展示) */}
                     <div className="flex md:hidden w-full items-center justify-between pointer-events-auto">
                         <button
@@ -87,17 +93,17 @@ export function AppTopNav() {
                         </Link>
                     </div>
 
-                    {/* 桌面端：一体化毛玻璃悬浮岛屿，支持下滑极度丝滑收缩为纯图标 */}
+                    {/* 桌面端：一体化毛玻璃悬浮岛屿 (基于 CSS Grid 0fr->1fr 物理级平滑伸缩) */}
                     <div
                         className={cn(
-                            "hidden md:flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-white/80 p-1.5 shadow-[0_4px_24px_rgba(0,0,0,0.06)] backdrop-blur-xl transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-auto dark:border-white/[0.12] dark:bg-stone-900/75 dark:shadow-[0_4px_28px_rgba(0,0,0,0.45)]",
-                            isCompact ? "scale-[0.98] shadow-[0_8px_30px_rgba(0,0,0,0.12)]" : ""
+                            "hidden md:flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-white/80 p-1.5 shadow-[0_4px_24px_rgba(0,0,0,0.06)] backdrop-blur-xl pointer-events-auto transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform dark:border-white/[0.12] dark:bg-stone-900/75 dark:shadow-[0_4px_28px_rgba(0,0,0,0.45)]",
+                            isCompact ? "scale-[0.98] shadow-[0_8px_32px_rgba(0,0,0,0.12)]" : ""
                         )}
                     >
                         {/* 1. 项目 Logo */}
                         <Link
                             to="/"
-                            className="flex size-8 shrink-0 items-center justify-center rounded-full transition-transform duration-200 hover:scale-105"
+                            className="flex size-8 shrink-0 items-center justify-center rounded-full transition-transform duration-300 hover:scale-105 active:scale-95"
                             aria-label="OiOi Canvas"
                             title="OiOi Canvas"
                         >
@@ -118,7 +124,7 @@ export function AppTopNav() {
                                         <Link
                                             to={`/${tool.slug}`}
                                             className={cn(
-                                                "relative flex h-8.5 items-center justify-center rounded-full text-[13px] font-medium transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] select-none",
+                                                "relative flex h-8.5 items-center justify-center rounded-full text-[13px] font-medium select-none transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
                                                 isCompact ? "w-8.5 px-0" : "px-3.5",
                                                 active
                                                     ? "bg-white text-stone-950 shadow-[0_2px_8px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] dark:bg-stone-800 dark:text-stone-50 dark:shadow-[0_2px_12px_rgba(0,0,0,0.35)]"
@@ -126,17 +132,18 @@ export function AppTopNav() {
                                             )}
                                             aria-label={titleText}
                                         >
-                                            <Icon className={cn("size-4 shrink-0 transition-transform duration-200", active ? "scale-105" : "opacity-75")} />
-                                            <span
+                                            <Icon className={cn("size-4 shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]", active ? "scale-105" : "opacity-75")} />
+                                            {/* 使用 Grid 0fr <-> 1fr 实现真正丝滑、零抖动、零溢出的文字展开/收拢 */}
+                                            <div
                                                 className={cn(
-                                                    "overflow-hidden whitespace-nowrap transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-                                                    isCompact
-                                                        ? "max-w-0 opacity-0 -translate-x-1 ml-0 pointer-events-none"
-                                                        : "max-w-28 opacity-100 translate-x-0 ml-2"
+                                                    "grid transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                                                    isCompact ? "grid-cols-[0fr] opacity-0" : "grid-cols-[1fr] opacity-100 ml-2"
                                                 )}
                                             >
-                                                {titleText}
-                                            </span>
+                                                <span className="overflow-hidden whitespace-nowrap min-w-0 pointer-events-none">
+                                                    {titleText}
+                                                </span>
+                                            </div>
                                         </Link>
                                     </Tooltip>
                                 );
@@ -151,7 +158,7 @@ export function AppTopNav() {
                                 type="button"
                                 onClick={togglePanel}
                                 className={cn(
-                                    "group flex h-8.5 items-center justify-center rounded-full text-[13px] font-medium transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                                    "group flex h-8.5 items-center justify-center rounded-full text-[13px] font-medium transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
                                     isCompact ? "w-8.5 px-0" : "px-3",
                                     panelOpen
                                         ? "bg-purple-500/15 text-purple-600 dark:bg-purple-500/25 dark:text-purple-300 font-semibold"
@@ -159,17 +166,17 @@ export function AppTopNav() {
                                 )}
                                 aria-label={t(panelOpen ? "topNav.closeAgent" : "topNav.openAgent")}
                             >
-                                <Bot className="size-4 shrink-0 transition-transform duration-200 group-hover:scale-110" />
-                                <span
+                                <Bot className="size-4 shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-110" />
+                                <div
                                     className={cn(
-                                        "overflow-hidden whitespace-nowrap transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
-                                        isCompact
-                                            ? "max-w-0 opacity-0 -translate-x-1 ml-0 pointer-events-none"
-                                            : "max-w-20 opacity-100 translate-x-0 ml-1.5"
+                                        "grid transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                                        isCompact ? "grid-cols-[0fr] opacity-0" : "grid-cols-[1fr] opacity-100 ml-1.5"
                                     )}
                                 >
-                                    Agent
-                                </span>
+                                    <span className="overflow-hidden whitespace-nowrap min-w-0 pointer-events-none">
+                                        Agent
+                                    </span>
+                                </div>
                             </button>
                         </Tooltip>
 
