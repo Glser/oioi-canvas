@@ -27,7 +27,7 @@ export function AudioSettingsPanel({ config, onConfigChange, theme, showTitle = 
     return (
         <ImageSettingsTheme theme={theme}>
             <div className={className} style={{ color: theme.node.text }} onMouseDown={(event) => event.stopPropagation()}>
-                {showTitle ? <div className="text-lg font-semibold">{t("settingsPanels.audio.title")}</div> : null}
+                {showTitle ? <div className="text-sm font-semibold">{t("settingsPanels.audio.title")}</div> : null}
                 <SettingGroup title={t("settingsPanels.audio.voice")} color={theme.node.muted}>
                     <div className="grid grid-cols-3 gap-2.5">
                         {audioVoiceOptions.map((item) => (
@@ -59,7 +59,7 @@ export function AudioSettingsPanel({ config, onConfigChange, theme, showTitle = 
                         min={0.25}
                         max={4}
                         step={0.05}
-                        className="h-9 w-full rounded-full border bg-transparent px-3 text-center text-sm outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        className="h-7.5 w-full rounded-full border bg-transparent px-3 text-center text-xs outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         style={{ borderColor: theme.node.stroke, color: theme.node.text, WebkitTextFillColor: theme.node.text }}
                         value={config.audioSpeed || "1"}
                         onChange={(event) => onConfigChange("audioSpeed", event.target.value)}
@@ -71,7 +71,7 @@ export function AudioSettingsPanel({ config, onConfigChange, theme, showTitle = 
                     <textarea
                         value={config.audioInstructions || ""}
                         placeholder={t("settingsPanels.audio.instructionsPlaceholder")}
-                        className="thin-scrollbar h-20 w-full resize-none rounded-xl border bg-transparent px-3 py-2 text-sm leading-5 outline-none"
+                        className="thin-scrollbar h-20 w-full resize-none rounded-xl border bg-transparent px-3 py-2 text-xs leading-5 outline-none"
                         style={{ borderColor: theme.node.stroke, color: theme.node.text }}
                         onChange={(event) => onConfigChange("audioInstructions", event.target.value)}
                         onMouseDown={(event) => event.stopPropagation()}
