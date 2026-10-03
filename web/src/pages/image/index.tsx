@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowRight, BookOpen, CheckSquare, Download, FolderPlus, History, ImagePlus, LoaderCircle, PenLine, Plus, Sparkles, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, BookOpen, CheckSquare, Download, FolderPlus, History, ImagePlus, LoaderCircle, PenLine, Plus, Trash2, Wand2, X } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { App, Button, Checkbox, Drawer, Empty, Image, Input, Modal, Tag, Tooltip, Typography } from "antd";
 import localforage from "localforage";
@@ -384,11 +384,9 @@ export default function ImagePage() {
                 <section className="thin-scrollbar flex w-full shrink-0 flex-col rounded-2xl border border-black/[0.06] bg-white/85 p-4 sm:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] backdrop-blur-md dark:border-white/[0.08] dark:bg-stone-900/70 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] lg:h-full lg:w-[420px] lg:overflow-hidden">
                     {/* Header */}
                     <div className="flex items-center justify-between gap-3 pb-3 border-b border-stone-100 dark:border-stone-800">
-                        <div className="flex items-center gap-2.5">
-                            <div className="flex size-8 items-center justify-center rounded-xl bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300">
-                                <ImagePlus className="size-4" />
-                            </div>
-                            <h1 className="text-sm font-semibold leading-none text-stone-950 dark:text-stone-100">{t("imageWorkbench.title")}</h1>
+                        <div className="flex items-center gap-2">
+                            <ImagePlus className="size-4 shrink-0 text-stone-700 dark:text-stone-300" />
+                            <h1 className="text-sm font-semibold leading-none text-stone-950 dark:text-stone-100 translate-y-1">{t("imageWorkbench.title")}</h1>
                         </div>
                         <div className="flex items-center gap-1.5">
                             <Button
@@ -437,7 +435,7 @@ export default function ImagePage() {
                             void addReferences(event.dataTransfer.files);
                         }}
                     >
-                        <div className={`flex items-center gap-2 px-2.5 ${references.length ? "pt-2.5" : "pt-2"}`}>
+                        <div className="flex items-center gap-2 px-2.5 pt-2.5">
                             <div
                                 className="no-scrollbar flex min-w-0 flex-1 items-center gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain"
                                 onWheel={(event) => {
@@ -446,7 +444,7 @@ export default function ImagePage() {
                                     event.currentTarget.scrollLeft += event.deltaY;
                                 }}
                             >
-                                {references.map((item, index) => (
+                                {references.map((item) => (
                                     <div
                                         key={item.id}
                                         className="group relative size-12 shrink-0 overflow-hidden rounded-xl bg-stone-100 dark:bg-stone-800"
@@ -456,41 +454,30 @@ export default function ImagePage() {
                                             alt={item.name}
                                             className="size-full object-cover"
                                         />
-                                        <span className="absolute left-1 top-1 rounded bg-black/65 px-1 py-px text-[9px] font-medium leading-none text-white">
-                                            {imageReferenceLabel(index)}
-                                        </span>
-                                        
                                         <button
                                             type="button"
-                                            className="absolute right-1 top-1 hidden size-4 items-center justify-center rounded bg-black/65 text-white group-hover:flex"
+                                            className="absolute right-1 top-1 hidden size-4 items-center justify-center rounded-full bg-black/70 text-white shadow-sm transition-transform hover:scale-110 group-hover:flex"
                                             onClick={() => setReferences((value) => value.filter((ref) => ref.id !== item.id))}
                                             aria-label={t("imageWorkbench.removeReference")}
                                         >
-                                            <Trash2 className="size-2.5" />
+                                            <X className="size-2.5 stroke-[3] text-white" />
                                         </button>
                                     </div>
                                 ))}
-                                <button
-                                    type="button"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className={`flex shrink-0 items-center justify-center gap-1 transition-colors ${
-                                        references.length
-                                            ? `size-12 rounded-xl border border-dashed text-stone-400 hover:border-stone-400 hover:text-stone-700 dark:hover:border-stone-500 dark:hover:text-stone-200 ${isReferenceDragActive ? "border-stone-900 bg-stone-200/70 dark:border-stone-100 dark:bg-stone-700/70" : "border-stone-300 dark:border-stone-700"}`
-                                            : `h-7 rounded-lg px-2 text-xs ${isReferenceDragActive ? "bg-stone-200/80 text-stone-800 dark:bg-white/10 dark:text-stone-100" : "text-stone-500 hover:bg-black/5 hover:text-stone-800 dark:text-stone-400 dark:hover:bg-white/10 dark:hover:text-stone-100"}`
-                                    }`}
-                                    title={t("workbench.upload")}
-                                >
-                                    {references.length ? (
-                                        <Plus className="size-4" />
-                                    ) : (
-                                        <>
-                                            <ImagePlus className="size-3.5" />
-                                            <span className="whitespace-nowrap text-xs">
-                                                {isReferenceDragActive ? t("imageWorkbench.dropReferences") : t("imageWorkbench.addReference")}
-                                            </span>
-                                        </>
-                                    )}
-                                </button>
+                                <Tooltip title={t("imageWorkbench.addReference")}>
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className={`flex size-12 shrink-0 items-center justify-center rounded-xl border border-dashed text-stone-400 transition-colors hover:border-stone-400 hover:text-stone-700 dark:hover:border-stone-500 dark:hover:text-stone-200 ${
+                                            isReferenceDragActive
+                                                ? "border-stone-900 bg-stone-200/70 dark:border-stone-100 dark:bg-stone-700/70"
+                                                : "border-stone-300 dark:border-stone-700"
+                                        }`}
+                                        aria-label={t("imageWorkbench.addReference")}
+                                    >
+                                        <Plus className="size-4 stroke-[2.5]" />
+                                    </button>
+                                </Tooltip>
                             </div>
                             <div className="flex shrink-0 items-center gap-0.5">
                                 <Tooltip title={t("workbench.viewPrompts")}>
@@ -570,9 +557,6 @@ export default function ImagePage() {
                         </div>
                     ) : (
                         <div className="flex flex-1 min-h-[360px] flex-col items-center justify-center rounded-2xl border border-dashed border-stone-200/90 bg-stone-50/40 text-center dark:border-stone-800 dark:bg-stone-900/30">
-                            <div className="flex size-14 items-center justify-center rounded-2xl bg-stone-100 text-stone-400 dark:bg-stone-800/80 dark:text-stone-500 mb-3 shadow-inner">
-                                <ImagePlus className="size-7" />
-                            </div>
                             <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("imageWorkbench.empty")} />
                             <p className="mt-1 text-xs text-stone-400 max-w-xs">{t("imageWorkbench.promptPlaceholder")}</p>
                         </div>
@@ -641,6 +625,9 @@ function GenerationSettings({
                         onChange={(value) => updateConfig("imageModel", value)}
                         capability="image"
                         fullWidth
+                        hideChevron
+                        side="top"
+                        contentClassName="w-60"
                         className="!h-8 !min-w-0 !w-full !rounded-full !border-0 !bg-transparent !px-2.5 !text-xs !shadow-none hover:!bg-black/5 dark:!border-0 dark:hover:!bg-white/10"
                         onMissingConfig={() => openConfigDialog(false)}
                     />
@@ -672,13 +659,23 @@ function GenerationSettings({
             {onGenerate ? (
                 <button
                     type="button"
-                    className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full bg-stone-900 text-sm font-medium text-white shadow-[0_6px_16px_rgba(28,25,23,0.18)] transition hover:bg-stone-800 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none dark:bg-stone-100 dark:text-stone-950 dark:shadow-[0_6px_16px_rgba(0,0,0,0.28)] dark:hover:bg-white"
+                    className="group relative inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-black/10 bg-black/5 px-4 text-sm font-semibold text-black transition-all duration-150 hover:bg-black/10 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
                     disabled={!canGenerate || running}
                     onClick={onGenerate}
                 >
-                    {running ? <LoaderCircle className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-                    {t("workbench.generate")}
-                    {count > 1 ? <span className="text-xs font-normal tabular-nums opacity-80">×{count}</span> : null}
+                    {running ? (
+                        <LoaderCircle className="size-4 animate-spin text-black dark:text-white" />
+                    ) : (
+                        <Wand2 className="size-4 stroke-2 text-black transition-transform duration-200 group-hover:-rotate-12 group-hover:scale-110 dark:text-white" />
+                    )}
+                    <span className="text-black dark:text-white font-semibold">
+                        {t("workbench.generate")}
+                    </span>
+                    {count > 1 ? (
+                        <span className="rounded-full bg-black/10 px-1.5 py-0.5 text-xs font-medium tabular-nums text-black dark:bg-white/20 dark:text-white">
+                            ×{count}
+                        </span>
+                    ) : null}
                 </button>
             ) : null}
         </div>
