@@ -628,7 +628,7 @@ function GenerationSettings({
                         hideChevron
                         side="top"
                         contentClassName="w-60"
-                        className="!h-8 !min-w-0 !w-full !rounded-full !border-0 !bg-transparent !px-2.5 !text-xs !shadow-none hover:!bg-black/5 dark:!border-0 dark:hover:!bg-white/10"
+                        className="!h-8 !min-w-0 !w-full !rounded-full !border-0 !bg-transparent !px-2.5 !text-xs [&_.canvas-model-picker-text]:!text-xs !shadow-none hover:!bg-black/5 dark:!border-0 dark:hover:!bg-white/10"
                         onMissingConfig={() => openConfigDialog(false)}
                     />
                 </div>

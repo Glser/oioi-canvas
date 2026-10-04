@@ -3,7 +3,6 @@ import {
     ArrowRight,
     BookOpen,
     CheckSquare,
-    ClipboardPaste,
     Download,
     FolderPlus,
     History,
@@ -142,27 +141,6 @@ export default function VideoPage() {
             }),
         );
         setReferences((value) => [...value, ...nextReferences].slice(0, 7));
-    };
-
-    const addReferencesFromClipboard = async () => {
-        try {
-            const items = await navigator.clipboard.read();
-            const blobs = await Promise.all(items.flatMap((item) => item.types.filter((type) => type.startsWith("image/")).map((type) => item.getType(type))));
-            if (!blobs.length) {
-                message.error(t("videoWorkbench.clipboardEmpty"));
-                return;
-            }
-            const nextReferences = await Promise.all(
-                blobs.slice(0, 7 - references.length).map(async (blob, index) => {
-                    const image = await uploadImage(blob);
-                    return { id: nanoid(), name: `clipboard-${index + 1}.png`, type: image.mimeType, dataUrl: image.url, storageKey: image.storageKey };
-                }),
-            );
-            setReferences((value) => [...value, ...nextReferences].slice(0, 7));
-            message.success(t("videoWorkbench.clipboardAdded", { count: nextReferences.length }));
-        } catch {
-            message.error(t("videoWorkbench.clipboardEmpty"));
-        }
     };
 
     const generate = async () => {
@@ -510,16 +488,6 @@ export default function VideoPage() {
                                 )}
                             </div>
                             <div className="flex shrink-0 items-center gap-0.5">
-                                <Tooltip title={t("workbench.clipboard")}>
-                                    <button
-                                        type="button"
-                                        className={COMPOSER_TOOL_BTN}
-                                        onClick={() => void addReferencesFromClipboard()}
-                                        aria-label={t("workbench.clipboard")}
-                                    >
-                                        <ClipboardPaste className="size-3.5" />
-                                    </button>
-                                </Tooltip>
                                 <Tooltip title={t("workbench.viewPrompts")}>
                                     <button
                                         type="button"
@@ -611,7 +579,6 @@ export default function VideoPage() {
                         </div>
                     ) : (
                         <div className="flex flex-1 min-h-[360px] flex-col items-center justify-center rounded-2xl border border-dashed border-stone-200/90 bg-stone-50/40 text-center dark:border-stone-800 dark:bg-stone-900/30">
-                            <VideoIcon className="mb-3 size-10 text-stone-400/80" />
                             <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("videoWorkbench.empty")} />
                             <p className="mt-1 text-xs text-stone-400 max-w-xs">{t("videoWorkbench.promptPlaceholder")}</p>
                         </div>
@@ -681,7 +648,7 @@ function GenerationSettings({
                         hideChevron
                         side="top"
                         contentClassName="w-60"
-                        className="!h-8 !min-w-0 !w-full !rounded-full !border-0 !bg-transparent !px-2.5 !text-xs !shadow-none hover:!bg-black/5 dark:!border-0 dark:hover:!bg-white/10"
+                        className="!h-8 !min-w-0 !w-full !rounded-full !border-0 !bg-transparent !px-2.5 !text-xs [&_.canvas-model-picker-text]:!text-xs !shadow-none hover:!bg-black/5 dark:!border-0 dark:hover:!bg-white/10"
                         onMissingConfig={() => openConfigDialog(false)}
                     />
                 </div>
