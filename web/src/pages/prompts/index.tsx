@@ -42,8 +42,16 @@ export default function PromptsPage() {
     };
 
     return (
-        <div className="flex h-full flex-col overflow-hidden bg-background text-stone-800 dark:text-stone-100">
-            <main className="min-h-0 flex-1 overflow-y-auto bg-background bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] px-4 py-6 [background-size:16px_16px] sm:px-6 lg:py-8 dark:bg-[radial-gradient(rgba(245,245,244,.16)_1px,transparent_1px)]" onScroll={handleListScroll}>
+        <div className="relative flex h-full flex-col overflow-hidden bg-stone-50/50 text-stone-950 dark:bg-[#141413] dark:text-stone-100">
+            {/* 低调柔和的点状粒子网格背景 (沿用首页 21.6px 间隔与细腻低亮粒子) */}
+            <div
+                className="pointer-events-none absolute inset-0 z-0 text-stone-900/[0.18] dark:text-[#f4f4f4]/[0.19]"
+                style={{
+                    backgroundImage: "radial-gradient(circle, currentColor 0.72px, transparent 0.87px)",
+                    backgroundSize: "21.6px 21.6px",
+                }}
+            />
+            <main className="relative z-10 min-h-0 flex-1 overflow-y-auto px-4 pt-20 pb-8 sm:px-6 lg:pb-12" onScroll={handleListScroll}>
                 <div className="mx-auto max-w-7xl">
                     <div className="text-center">
                         <h1 className="text-2xl font-semibold text-stone-950 dark:text-stone-100">{t("prompts.title")}</h1>

@@ -194,8 +194,16 @@ export default function AssetsPage() {
     };
 
     return (
-        <div className="flex h-full flex-col overflow-hidden bg-background text-stone-900 dark:text-stone-100">
-            <main className="min-h-0 flex-1 overflow-y-auto bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] px-6 py-8 [background-size:16px_16px] dark:bg-[radial-gradient(rgba(245,245,244,.14)_1px,transparent_1px)]">
+        <div className="relative flex h-full flex-col overflow-hidden bg-stone-50/50 text-stone-950 dark:bg-[#141413] dark:text-stone-100">
+            {/* 低调柔和的点状粒子网格背景 (沿用首页 21.6px 间隔与细腻低亮粒子) */}
+            <div
+                className="pointer-events-none absolute inset-0 z-0 text-stone-900/[0.18] dark:text-[#f4f4f4]/[0.19]"
+                style={{
+                    backgroundImage: "radial-gradient(circle, currentColor 0.72px, transparent 0.87px)",
+                    backgroundSize: "21.6px 21.6px",
+                }}
+            />
+            <main className="relative z-10 min-h-0 flex-1 overflow-y-auto px-6 pt-20 pb-12">
                 <div className="pb-8">
                     <div className="mx-auto max-w-5xl text-center">
                         <h1 className="text-4xl font-semibold tracking-tight text-stone-950 dark:text-stone-100">{t("assets.title")}</h1>
