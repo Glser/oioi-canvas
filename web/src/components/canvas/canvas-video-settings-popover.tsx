@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
-import { Settings2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Slider } from "antd";
 
@@ -11,6 +10,7 @@ import {
     clampVideoSeconds,
     computeVideoSize,
     inferVideoRatio,
+    parseAspectRatio,
     parseVideoResolution,
     videoRatioOptions,
     VIDEO_SECONDS_MAX,
@@ -77,6 +77,10 @@ export function CanvasVideoSettingsPopover({
 
     const resolution = parseVideoResolution(config.vquality);
     const selectedRatio = inferVideoRatio(config.size || "auto");
+    const parsedRatio = parseAspectRatio(selectedRatio);
+    const ratioOption = videoRatioOptions.find((item) => item.value === selectedRatio);
+    const triggerRatioWidth = ratioOption?.width || parsedRatio?.width || 16;
+    const triggerRatioHeight = ratioOption?.height || parsedRatio?.height || 9;
 
     return (
         <div className="relative inline-flex min-w-0">
@@ -86,13 +90,13 @@ export function CanvasVideoSettingsPopover({
                 className={`canvas-video-settings-trigger inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-input bg-transparent px-3 text-xs font-normal shadow-xs transition hover:bg-black/5 dark:hover:bg-white/10 ${buttonClassName || ""}`}
                 style={{ color: theme.node.text }}
                 onClick={() => setOpen((current) => !current)}
-                title={`${videoResolutionLabel(config.vquality)} · ${videoSizeLabel(config.size)} · ${videoSecondsLabel(config.videoSeconds)} · ${videoModeLabel(config.videoMode)}`}
+                title={`${videoSizeLabel(config.size)} · ${videoResolutionLabel(config.vquality)} · ${videoSecondsLabel(config.videoSeconds)} · ${videoModeLabel(config.videoMode)}`}
             >
-                <Settings2 className="size-3.5 shrink-0" />
+                <VideoAspectIcon width={triggerRatioWidth} height={triggerRatioHeight} color="currentColor" />
                 <span className="truncate inline-flex items-center gap-1">
-                    <span className="font-medium">{videoResolutionLabel(config.vquality)}</span>
+                    <span className="font-medium">{videoSizeLabel(config.size)}</span>
                     <span className="opacity-35">·</span>
-                    <span className="font-medium opacity-90">{videoSizeLabel(config.size)}</span>
+                    <span className="font-medium opacity-90">{videoResolutionLabel(config.vquality)}</span>
                     <span className="opacity-35">·</span>
                     <span className="opacity-90">{videoSecondsLabel(config.videoSeconds)}</span>
                     <span className="opacity-35">·</span>
