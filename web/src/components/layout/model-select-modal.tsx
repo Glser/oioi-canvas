@@ -97,10 +97,10 @@ export function ModelSelectModal({ open, channel, selectedNames, onConfirm, onCl
             }
             styles={{ body: { maxHeight: "62vh", overflowY: "auto" } }}
             footer={[
-                <Button key="cancel" onClick={onClose}>
+                <Button key="cancel" className="!h-8 !rounded-full !px-3.5 !text-xs font-medium" onClick={onClose}>
                     {t("common.cancel")}
                 </Button>,
-                <Button key="confirm" type="primary" onClick={confirm}>
+                <Button key="confirm" type="primary" className="!h-8 !rounded-full !px-3.5 !text-xs font-medium" onClick={confirm}>
                     {t("config.modelSelect.confirm")}
                 </Button>,
             ]}
@@ -128,10 +128,10 @@ export function ModelSelectModal({ open, channel, selectedNames, onConfirm, onCl
             <div className="mb-3 flex items-center justify-between gap-2">
                 <span className="text-xs text-stone-500">{t("config.modelSelect.visibleSelected", { selected: visibleSelectedCount, total: visibleList.length })}</span>
                 <div className="flex gap-2">
-                    <Button size="small" disabled={!visibleList.length} onClick={() => selectVisible(true)}>
+                    <Button size="small" className="!h-7 !rounded-full !px-2.5 !text-xs" disabled={!visibleList.length} onClick={() => selectVisible(true)}>
                         {t("config.modelSelect.selectVisible")}
                     </Button>
-                    <Button size="small" disabled={!visibleSelectedCount} onClick={() => selectVisible(false)}>
+                    <Button size="small" className="!h-7 !rounded-full !px-2.5 !text-xs" disabled={!visibleSelectedCount} onClick={() => selectVisible(false)}>
                         {t("config.modelSelect.clearVisible")}
                     </Button>
                 </div>

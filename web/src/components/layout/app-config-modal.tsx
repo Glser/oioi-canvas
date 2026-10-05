@@ -164,13 +164,13 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
 
     return (
         <>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-200 pb-3 dark:border-stone-800">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-3 border-b border-black/[0.06] pb-3 dark:border-white/[0.08]">
                 <div className="text-xs text-stone-500">{t("config.fileSecurity")}</div>
                 <div className="flex gap-2">
-                    <Button icon={<Upload className="size-4" />} onClick={() => configInputRef.current?.click()}>
+                    <Button className="!h-8 !rounded-full !px-3.5 !text-xs font-medium" icon={<Upload className="size-3.5" />} onClick={() => configInputRef.current?.click()}>
                         {t("config.import")}
                     </Button>
-                    <Button icon={<Download className="size-4" />} onClick={exportAppConfig}>
+                    <Button className="!h-8 !rounded-full !px-3.5 !text-xs font-medium" icon={<Download className="size-3.5" />} onClick={exportAppConfig}>
                         {t("config.export")}
                     </Button>
                     <input ref={configInputRef} type="file" accept="application/json,.json" className="hidden" onChange={(event) => event.target.files?.[0] && void loadConfigFile(event.target.files[0])} />
@@ -187,24 +187,28 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                             <div>
                                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                                     <div className="text-xs text-stone-500">{t("config.channels.description")}</div>
-                                    <Button type="primary" icon={<Plus className="size-4" />} onClick={addChannel}>
+                                    <Button type="primary" className="!h-8 !rounded-full !px-3.5 !text-xs font-medium" icon={<Plus className="size-3.5" />} onClick={addChannel}>
                                         {t("config.channels.add")}
                                     </Button>
                                 </div>
                                 <div className="space-y-2">
                                     {config.channels.map((channel) => (
-                                        <div key={channel.id} className="flex items-center justify-between gap-3 rounded-lg border border-stone-200 px-4 py-3 dark:border-stone-800">
-                                            <div className="min-w-0">
-                                                <div className="truncate text-sm font-semibold">{channel.name || t("config.channels.unnamed")}</div>
-                                                <div className="mt-1 truncate text-xs text-stone-500">
-                                                    {apiFormatLabel(channel.apiFormat)} · {t("config.channels.modelCount", { count: channel.models.length })} · {channel.baseUrl || t("config.channels.missingUrl")}
+                                        <div key={channel.id} className="flex items-center justify-between gap-3 rounded-2xl border border-black/[0.06] bg-stone-50/70 p-3.5 shadow-xs transition-colors hover:border-black/10 dark:border-white/[0.08] dark:bg-stone-800/50 dark:hover:border-white/15">
+                                            <div className="min-w-0 pl-1">
+                                                <div className="truncate text-sm font-semibold text-stone-900 dark:text-stone-100">{channel.name || t("config.channels.unnamed")}</div>
+                                                <div className="mt-1 flex flex-wrap items-center gap-1.5 truncate text-xs text-stone-500 dark:text-stone-400">
+                                                    <span className="rounded-full bg-black/5 px-2 py-0.5 text-[11px] font-medium text-stone-600 dark:bg-white/10 dark:text-stone-300">{apiFormatLabel(channel.apiFormat)}</span>
+                                                    <span>·</span>
+                                                    <span>{t("config.channels.modelCount", { count: channel.models.length })}</span>
+                                                    <span>·</span>
+                                                    <span className="truncate">{channel.baseUrl || t("config.channels.missingUrl")}</span>
                                                 </div>
                                             </div>
-                                            <div className="flex shrink-0 gap-2">
-                                                <Button size="small" icon={<Pencil className="size-3.5" />} onClick={() => setEditingChannelId(channel.id)}>
+                                            <div className="flex shrink-0 items-center gap-1.5">
+                                                <Button size="small" className="!h-7.5 !rounded-full !px-3 !text-xs font-medium" icon={<Pencil className="size-3" />} onClick={() => setEditingChannelId(channel.id)}>
                                                     {t("common.edit")}
                                                 </Button>
-                                                <Button size="small" danger icon={<Trash2 className="size-3.5" />} onClick={() => deleteChannel(channel.id)} />
+                                                <Button size="small" danger className="!h-7.5 !w-7.5 !min-w-7.5 !rounded-full !p-0" icon={<Trash2 className="size-3" />} onClick={() => deleteChannel(channel.id)} />
                                             </div>
                                         </div>
                                     ))}
@@ -221,51 +225,55 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                         key: "preferences",
                         label: t("config.tabs.preferences"),
                         children: (
-                            <Form layout="vertical" requiredMark={false}>
-                                <div className="mb-2 text-sm font-semibold">{t("config.preferences.defaultModels")}</div>
-                                <div className="mb-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                                    {modelGroups.map((group) => (
-                                        <Form.Item key={group.modelKey} label={t(group.labelKey)} className="mb-0">
-                                            <ModelPicker config={config} value={config[group.modelKey]} onChange={(model) => updateConfig(group.modelKey, model)} capability={group.capability} fullWidth />
+                            <Form layout="vertical" requiredMark={false} className="space-y-4">
+                                <section className="rounded-2xl border border-black/[0.06] bg-stone-50/70 p-4 shadow-xs dark:border-white/[0.08] dark:bg-stone-800/50">
+                                    <div className="mb-3 text-sm font-semibold text-stone-900 dark:text-stone-100">{t("config.preferences.defaultModels")}</div>
+                                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                                        {modelGroups.map((group) => (
+                                            <Form.Item key={group.modelKey} label={<span className="text-xs font-medium text-stone-600 dark:text-stone-300">{t(group.labelKey)}</span>} className="mb-0">
+                                                <ModelPicker config={config} value={config[group.modelKey]} onChange={(model) => updateConfig(group.modelKey, model)} capability={group.capability} fullWidth />
+                                            </Form.Item>
+                                        ))}
+                                    </div>
+                                </section>
+                                <section className="rounded-2xl border border-black/[0.06] bg-stone-50/70 p-4 shadow-xs dark:border-white/[0.08] dark:bg-stone-800/50">
+                                    <div className="mb-3 text-sm font-semibold text-stone-900 dark:text-stone-100">{t("config.preferences.generation")}</div>
+                                    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-4">
+                                        <Form.Item label={<span className="text-xs font-medium text-stone-600 dark:text-stone-300">{t("config.preferences.canvasImageCount")}</span>} extra={<span className="text-[11px] text-stone-400">{t("config.preferences.canvasImageCountDescription")}</span>} className="mb-3">
+                                            <Input
+                                                type="number"
+                                                min={1}
+                                                max={15}
+                                                value={config.canvasImageCount}
+                                                onChange={(event) => updateConfig("canvasImageCount", event.target.value)}
+                                                onBlur={(event) => updateConfig("canvasImageCount", normalizeImageCount(event.target.value))}
+                                            />
                                         </Form.Item>
-                                    ))}
-                                </div>
-                                <div className="mb-2 text-sm font-semibold">{t("config.preferences.generation")}</div>
-                                <div className="grid gap-4 md:grid-cols-4">
-                                    <Form.Item label={t("config.preferences.canvasImageCount")} extra={t("config.preferences.canvasImageCountDescription")} className="mb-4">
-                                        <Input
-                                            type="number"
-                                            min={1}
-                                            max={15}
-                                            value={config.canvasImageCount}
-                                            onChange={(event) => updateConfig("canvasImageCount", event.target.value)}
-                                            onBlur={(event) => updateConfig("canvasImageCount", normalizeImageCount(event.target.value))}
-                                        />
+                                        <Form.Item label={<span className="text-xs font-medium text-stone-600 dark:text-stone-300">{t("config.preferences.audioVoice")}</span>} className="mb-3">
+                                            <Select value={config.audioVoice} options={audioVoiceOptions} onChange={(value) => updateConfig("audioVoice", value)} />
+                                        </Form.Item>
+                                        <Form.Item label={<span className="text-xs font-medium text-stone-600 dark:text-stone-300">{t("config.preferences.audioFormat")}</span>} className="mb-3">
+                                            <Select value={config.audioFormat} options={audioFormatOptions} onChange={(value) => updateConfig("audioFormat", value)} />
+                                        </Form.Item>
+                                        <Form.Item label={<span className="text-xs font-medium text-stone-600 dark:text-stone-300">{t("config.preferences.audioSpeed")}</span>} className="mb-3">
+                                            <Input
+                                                type="number"
+                                                min={0.25}
+                                                max={4}
+                                                step={0.05}
+                                                value={config.audioSpeed}
+                                                onChange={(event) => updateConfig("audioSpeed", event.target.value)}
+                                                onBlur={(event) => updateConfig("audioSpeed", normalizeAudioSpeedValue(event.target.value))}
+                                            />
+                                        </Form.Item>
+                                    </div>
+                                    <Form.Item label={<span className="text-xs font-medium text-stone-600 dark:text-stone-300">{t("config.preferences.audioInstructions")}</span>} className="mb-3">
+                                        <Input.TextArea rows={2} value={config.audioInstructions} placeholder={t("config.preferences.audioInstructionsPlaceholder")} onChange={(event) => updateConfig("audioInstructions", event.target.value)} />
                                     </Form.Item>
-                                    <Form.Item label={t("config.preferences.audioVoice")} className="mb-4">
-                                        <Select value={config.audioVoice} options={audioVoiceOptions} onChange={(value) => updateConfig("audioVoice", value)} />
+                                    <Form.Item label={<span className="text-xs font-medium text-stone-600 dark:text-stone-300">{t("config.preferences.systemPrompt")}</span>} className="mb-0">
+                                        <Input.TextArea rows={4} value={config.systemPrompt} placeholder={t("config.preferences.systemPromptPlaceholder")} onChange={(event) => updateConfig("systemPrompt", event.target.value)} />
                                     </Form.Item>
-                                    <Form.Item label={t("config.preferences.audioFormat")} className="mb-4">
-                                        <Select value={config.audioFormat} options={audioFormatOptions} onChange={(value) => updateConfig("audioFormat", value)} />
-                                    </Form.Item>
-                                    <Form.Item label={t("config.preferences.audioSpeed")} className="mb-4">
-                                        <Input
-                                            type="number"
-                                            min={0.25}
-                                            max={4}
-                                            step={0.05}
-                                            value={config.audioSpeed}
-                                            onChange={(event) => updateConfig("audioSpeed", event.target.value)}
-                                            onBlur={(event) => updateConfig("audioSpeed", normalizeAudioSpeedValue(event.target.value))}
-                                        />
-                                    </Form.Item>
-                                </div>
-                                <Form.Item label={t("config.preferences.audioInstructions")} className="mb-4">
-                                    <Input.TextArea rows={2} value={config.audioInstructions} placeholder={t("config.preferences.audioInstructionsPlaceholder")} onChange={(event) => updateConfig("audioInstructions", event.target.value)} />
-                                </Form.Item>
-                                <Form.Item label={t("config.preferences.systemPrompt")} className="mb-0">
-                                    <Input.TextArea rows={4} value={config.systemPrompt} placeholder={t("config.preferences.systemPromptPlaceholder")} onChange={(event) => updateConfig("systemPrompt", event.target.value)} />
-                                </Form.Item>
+                                </section>
                             </Form>
                         ),
                     },
@@ -279,39 +287,39 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                         label: "WebDAV",
                         children: (
                             <Form layout="vertical" requiredMark={false}>
-                                <section className="rounded-lg border border-stone-200 p-3 dark:border-stone-800">
-                                    <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                                <section className="rounded-2xl border border-black/[0.06] bg-stone-50/70 p-4 shadow-xs dark:border-white/[0.08] dark:bg-stone-800/50">
+                                    <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                                         <div>
-                                            <div className="flex items-center gap-2 text-sm font-semibold">
-                                                <Cloud className="size-4" />
+                                            <div className="flex items-center gap-2 text-sm font-semibold text-stone-900 dark:text-stone-100">
+                                                <Cloud className="size-4 text-stone-700 dark:text-stone-300" />
                                                 {t("config.webdav.title")}
                                             </div>
-                                            <div className="mt-1 text-xs text-stone-500">{t("config.webdav.description")}</div>
+                                            <div className="mt-1 text-xs text-stone-500 dark:text-stone-400">{t("config.webdav.description")}</div>
                                         </div>
-                                        <div className="text-xs text-stone-500">{webdav.lastSyncedAt ? t("config.webdav.lastSynced", { time: formatWebdavTime(webdav.lastSyncedAt, locale) }) : t("config.webdav.neverSynced")}</div>
+                                        <div className="text-xs text-stone-500 dark:text-stone-400">{webdav.lastSyncedAt ? t("config.webdav.lastSynced", { time: formatWebdavTime(webdav.lastSyncedAt, locale) }) : t("config.webdav.neverSynced")}</div>
                                     </div>
                                     <div className="grid gap-4 md:grid-cols-2">
-                                        <Form.Item label={t("config.webdav.url")} className="mb-4">
+                                        <Form.Item label={<span className="text-xs font-medium text-stone-600 dark:text-stone-300">{t("config.webdav.url")}</span>} className="mb-3">
                                             <Input value={webdav.url} placeholder="https://nas.example.com/webdav" onChange={(event) => updateWebdavConfig("url", event.target.value)} />
                                         </Form.Item>
-                                        <Form.Item label={t("config.webdav.directory")} extra={t("config.webdav.directoryDescription", { manifest: WEBDAV_MANIFEST_FILE_NAME })} className="mb-4">
+                                        <Form.Item label={<span className="text-xs font-medium text-stone-600 dark:text-stone-300">{t("config.webdav.directory")}</span>} extra={<span className="text-[11px] text-stone-400">{t("config.webdav.directoryDescription", { manifest: WEBDAV_MANIFEST_FILE_NAME })}</span>} className="mb-3">
                                             <Input value={webdav.directory} placeholder="oioi-canvas" onChange={(event) => updateWebdavConfig("directory", event.target.value)} />
                                         </Form.Item>
-                                        <Form.Item label={t("config.webdav.username")} className="mb-0">
+                                        <Form.Item label={<span className="text-xs font-medium text-stone-600 dark:text-stone-300">{t("config.webdav.username")}</span>} className="mb-0">
                                             <Input value={webdav.username} autoComplete="username" onChange={(event) => updateWebdavConfig("username", event.target.value)} />
                                         </Form.Item>
-                                        <Form.Item label={t("config.webdav.password")} className="mb-0">
+                                        <Form.Item label={<span className="text-xs font-medium text-stone-600 dark:text-stone-300">{t("config.webdav.password")}</span>} className="mb-0">
                                             <Input.Password value={webdav.password} autoComplete="current-password" onChange={(event) => updateWebdavConfig("password", event.target.value)} />
                                         </Form.Item>
                                     </div>
-                                    <div className="mt-4 flex flex-wrap items-center gap-2">
-                                        <Button icon={<Wifi className="size-4" />} disabled={!webdavReady || syncingWebdav} loading={testingWebdav} onClick={() => void testWebdav()}>
+                                    <div className="mt-4 flex flex-wrap items-center gap-2.5">
+                                        <Button className="!h-8 !rounded-full !px-3.5 !text-xs font-medium" icon={<Wifi className="size-3.5" />} disabled={!webdavReady || syncingWebdav} loading={testingWebdav} onClick={() => void testWebdav()}>
                                             {t("config.webdav.test")}
                                         </Button>
-                                        <Button type="primary" icon={<RefreshCw className="size-4" />} disabled={!webdavReady || testingWebdav} loading={syncingWebdav} onClick={() => void syncWebdav()}>
+                                        <Button type="primary" className="!h-8 !rounded-full !px-3.5 !text-xs font-medium" icon={<RefreshCw className="size-3.5" />} disabled={!webdavReady || testingWebdav} loading={syncingWebdav} onClick={() => void syncWebdav()}>
                                             {t(syncingWebdav ? "config.webdav.syncing" : "config.webdav.syncNow")}
                                         </Button>
-                                        {webdavSyncStatus ? <span className="text-xs text-stone-500">{syncStageLabel(webdavSyncStatus, t)}</span> : null}
+                                        {webdavSyncStatus ? <span className="text-xs text-stone-500 dark:text-stone-400">{syncStageLabel(webdavSyncStatus, t)}</span> : null}
                                     </div>
                                     {syncingWebdav || webdavSyncStatus ? <WebdavProgressGrid progress={webdavDomainProgress} t={t} /> : null}
                                 </section>
@@ -327,7 +335,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
             />
             {showDoneButton ? (
                 <div className="mt-4 flex justify-end">
-                    <Button type="primary" onClick={finishConfig}>
+                    <Button type="primary" className="!h-8 !rounded-full !px-5 !text-xs font-medium" onClick={finishConfig}>
                         {t("common.done")}
                     </Button>
                 </div>
@@ -406,7 +414,7 @@ function WebdavProgressGrid({ progress, t }: { progress: Record<AppSyncDomainKey
                 const item = progress[key];
                 const count = item.total ? `${item.current || 0}/${item.total}` : "";
                 return (
-                    <div key={key} className="rounded-md border border-stone-200 px-3 py-2 dark:border-stone-800">
+                    <div key={key} className="rounded-xl border border-black/[0.06] bg-white/80 px-3.5 py-2.5 shadow-xs dark:border-white/[0.08] dark:bg-stone-900/60">
                         <div className="mb-1 flex min-w-0 items-center justify-between gap-3 text-xs">
                             <span className="shrink-0 font-medium text-stone-700 dark:text-stone-200">{t(`config.webdav.domains.${domainTranslationKey(key)}`)}</span>
                             <span className="min-w-0 truncate text-right text-stone-500">

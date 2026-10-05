@@ -57,8 +57,8 @@ export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: 
             styles={{ body: { paddingTop: 16 } }}
             extra={
                 <Space>
-                    <Button onClick={onClose}>{t("common.cancel")}</Button>
-                    <Button type="primary" onClick={save}>
+                    <Button className="!h-8 !rounded-full !px-3.5 !text-xs font-medium" onClick={onClose}>{t("common.cancel")}</Button>
+                    <Button type="primary" className="!h-8 !rounded-full !px-3.5 !text-xs font-medium" onClick={save}>
                         {t("common.save")}
                     </Button>
                 </Space>
@@ -88,24 +88,24 @@ export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: 
                     <div className="text-sm font-semibold">{t("config.channelEditor.models")}</div>
                     <div className="mt-0.5 text-xs text-stone-500">{t("config.channelEditor.modelDescription", { count: draft.models.length })}</div>
                 </div>
-                <Button type="primary" icon={<ListPlus className="size-4" />} onClick={() => setSelectOpen(true)}>
+                <Button type="primary" className="!h-8 !rounded-full !px-3.5 !text-xs font-medium" icon={<ListPlus className="size-3.5" />} onClick={() => setSelectOpen(true)}>
                     {t("config.channelEditor.selectModels")}
                 </Button>
             </div>
 
-            <div className="space-y-2 rounded-lg border border-stone-200 p-2 dark:border-stone-800">
+            <div className="space-y-2 rounded-2xl border border-black/[0.06] bg-stone-50/70 p-2.5 shadow-xs dark:border-white/[0.08] dark:bg-stone-800/50">
                 {draft.models.length ? (
                     draft.models.map((model) => (
-                        <div key={model.name} className="flex flex-wrap items-center gap-3 rounded-md px-2 py-1.5 hover:bg-stone-50 dark:hover:bg-stone-900/40">
+                        <div key={model.name} className="flex flex-wrap items-center gap-3 rounded-xl border border-black/[0.04] bg-white/80 px-3 py-2 shadow-xs transition-colors hover:border-black/10 dark:border-white/[0.06] dark:bg-stone-900/60 dark:hover:border-white/15">
                             <span className="min-w-0 flex-1 truncate text-sm" title={model.name}>
                                 {model.name}
                             </span>
                             <div className="flex shrink-0 items-center gap-2">
                                 <Segmented size="small" value={model.capability} options={capabilityOptions} onChange={(value) => setCapability(model.name, value as ModelCapability)} />
-                                <Button size="small" type={model.script ? "primary" : "default"} ghost={Boolean(model.script)} onClick={() => setScriptTarget({ name: model.name, capability: model.capability, value: model.script || "" })}>
+                                <Button size="small" type={model.script ? "primary" : "default"} ghost={Boolean(model.script)} className="!h-7 !rounded-full !px-2.5 !text-xs font-medium" onClick={() => setScriptTarget({ name: model.name, capability: model.capability, value: model.script || "" })}>
                                     {t(model.script ? "config.channelEditor.scriptReady" : "config.channelEditor.script")}
                                 </Button>
-                                <Button size="small" danger type="text" icon={<Trash2 className="size-3.5" />} onClick={() => removeModel(model.name)} />
+                                <Button size="small" danger type="text" className="!h-7 !w-7 !min-w-7 !rounded-full !p-0" icon={<Trash2 className="size-3.5" />} onClick={() => removeModel(model.name)} />
                             </div>
                         </div>
                     ))

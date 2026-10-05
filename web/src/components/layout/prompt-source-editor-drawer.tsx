@@ -36,8 +36,8 @@ export function PromptSourceEditorDrawer({ open, source, onSave, onClose }: { op
             styles={{ body: { paddingTop: 16 } }}
             extra={
                 <Space>
-                    <Button onClick={onClose}>{t("common.cancel")}</Button>
-                    <Button type="primary" onClick={save}>
+                    <Button className="!h-8 !rounded-full !px-3.5 !text-xs font-medium" onClick={onClose}>{t("common.cancel")}</Button>
+                    <Button type="primary" className="!h-8 !rounded-full !px-3.5 !text-xs font-medium" onClick={save}>
                         {t("common.save")}
                     </Button>
                 </Space>
