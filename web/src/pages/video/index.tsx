@@ -648,7 +648,7 @@ function GenerationSettings({
                         hideChevron
                         side="top"
                         contentClassName="w-60"
-                        className="!h-8 !min-w-0 !w-full !rounded-full !border-0 !bg-transparent !px-2.5 !text-[11px] [&_.canvas-model-picker-text]:!text-[11px] !shadow-none hover:!bg-black/5 dark:!border-0 dark:hover:!bg-white/10"
+                        className="!h-8 !min-w-0 !w-full !rounded-full !border-0 !bg-transparent !px-2.5 !text-xs [&_.canvas-model-picker-text]:!text-xs !shadow-none hover:!bg-black/5 dark:!border-0 dark:hover:!bg-white/10"
                         onMissingConfig={() => openConfigDialog(false)}
                     />
                 </div>
@@ -656,7 +656,7 @@ function GenerationSettings({
                 <div className="min-w-0 shrink-0 max-w-[55%]">
                     <CanvasVideoSettingsPopover
                         config={config}
-                        buttonClassName="!h-8 !rounded-full !border-0 !bg-transparent !px-2.5 !text-[11px] [&_span]:!text-[11px] !shadow-none hover:!bg-black/5 dark:!border-0 dark:hover:!bg-white/10"
+                        buttonClassName="!h-8 !rounded-full !border-0 !bg-transparent !px-2.5 !shadow-none hover:!bg-black/5 dark:!border-0 dark:hover:!bg-white/10"
                         onConfigChange={(key, value) => updateConfig(key, value)}
                         placement="top"
                     />

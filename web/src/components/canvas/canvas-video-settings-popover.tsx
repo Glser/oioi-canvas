@@ -89,8 +89,14 @@ export function CanvasVideoSettingsPopover({
                 title={`${videoResolutionLabel(config.vquality)} · ${videoSizeLabel(config.size)} · ${videoSecondsLabel(config.videoSeconds)} · ${videoModeLabel(config.videoMode)}`}
             >
                 <Settings2 className="size-3.5 shrink-0" />
-                <span className="truncate">
-                    {videoResolutionLabel(config.vquality)} · {videoSizeLabel(config.size)} · {videoSecondsLabel(config.videoSeconds)} · {videoModeLabel(config.videoMode)}
+                <span className="truncate inline-flex items-center gap-1">
+                    <span className="font-medium">{videoResolutionLabel(config.vquality)}</span>
+                    <span className="opacity-35">·</span>
+                    <span className="font-medium opacity-90">{videoSizeLabel(config.size)}</span>
+                    <span className="opacity-35">·</span>
+                    <span className="opacity-90">{videoSecondsLabel(config.videoSeconds)}</span>
+                    <span className="opacity-35">·</span>
+                    <span className="text-[11px] opacity-75">{videoModeLabel(config.videoMode)}</span>
                 </span>
             </button>
             {open && buttonRect ? (
