@@ -348,25 +348,21 @@ export default function ImagePage() {
             <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3 gap-3 lg:flex-row lg:overflow-hidden">
                 {/* Collapsible History Drawer / Sidebar for Desktop */}
                 <aside
-                    className={`thin-scrollbar hidden h-full flex-col overflow-y-auto rounded-2xl border border-black/[0.06] bg-white/80 p-4 shadow-[0_4px_20px_rgba(0,0,0,0.03)] backdrop-blur-md transition-all duration-300 ease-in-out dark:border-white/[0.08] dark:bg-stone-900/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] lg:flex ${
-                        showHistory ? "w-80 opacity-100" : "w-0 p-0 border-0 opacity-0 overflow-hidden"
+                    className={`thin-scrollbar hidden h-full flex-col overflow-hidden rounded-2xl border border-black/[0.06] bg-white/80 shadow-[0_4px_20px_rgba(0,0,0,0.03)] backdrop-blur-md transition-all duration-300 ease-in-out dark:border-white/[0.08] dark:bg-stone-900/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] lg:flex ${
+                        showHistory ? "w-80 opacity-100" : "w-0 border-0 p-0 opacity-0"
                     }`}
                 >
-                    <div className="flex items-center justify-between pb-2.5 border-b border-stone-100 dark:border-stone-800 mb-3">
+                    <div className="flex items-center justify-between px-4 pb-2 pt-3.5">
                         <div className="flex items-center gap-2">
                             <History className="size-4 text-stone-500" />
-                            <span className="font-semibold text-sm">{t("workbench.logs")}</span>
-                            <Tag className="m-0 text-xs px-1.5 py-0">{logs.length}</Tag>
+                            <span className="text-sm font-semibold">{t("workbench.logs")}</span>
+                            {logs.length ? <span className="text-xs text-stone-400">{logs.length}</span> : null}
                         </div>
-                        <Button
-                            type="text"
-                            size="small"
-                            className="!p-1 text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
-                            icon={<X className="size-4" />}
-                            onClick={() => setShowHistory(false)}
-                        />
+                        <button type="button" className="grid size-7 place-items-center rounded-full text-stone-400 transition hover:bg-black/5 hover:text-stone-700 dark:hover:bg-white/10 dark:hover:text-stone-200" onClick={() => setShowHistory(false)}>
+                            <X className="size-4" />
+                        </button>
                     </div>
-                    <div className="min-h-0 flex-1 overflow-y-auto">
+                    <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
                         <LogPanel
                             hideHeader
                             logs={logs}
@@ -393,7 +389,7 @@ export default function ImagePage() {
                                 size="small"
                                 type={showHistory || logsOpen ? "default" : "text"}
                                 icon={<History className="size-3.5" />}
-                                className="!h-7 rounded-lg text-xs"
+                                className="!h-7 !rounded-full !px-2.5 !text-xs"
                                 onClick={() => {
                                     if (window.innerWidth < 1024) {
                                         setLogsOpen(true);
@@ -860,18 +856,18 @@ function LogPanel({
                     <Tag className="m-0">{logs.length}</Tag>
                 </div>
             )}
-            <div className="mb-4 flex flex-wrap gap-2">
-                <Button size="small" icon={<Plus className="size-3.5" />} onClick={onCreateSession}>
+            <div className="mb-3 flex flex-wrap gap-1">
+                <Button size="small" type="text" className="!h-7 !rounded-full !px-2.5 !text-xs" icon={<Plus className="size-3.5" />} onClick={onCreateSession}>
                     {t("workbench.new")}
                 </Button>
-                <Button size="small" icon={<CheckSquare className="size-3.5" />} disabled={!logs.length} onClick={toggleAll}>
+                <Button size="small" type="text" className="!h-7 !rounded-full !px-2.5 !text-xs" icon={<CheckSquare className="size-3.5" />} disabled={!logs.length} onClick={toggleAll}>
                     {allSelected ? t("common.cancel") : t("workbench.selectAll")}
                 </Button>
-                <Button size="small" danger icon={<Trash2 className="size-3.5" />} disabled={!selectedLogIds.length} onClick={onDeleteSelected}>
+                <Button size="small" type="text" danger className="!h-7 !rounded-full !px-2.5 !text-xs" icon={<Trash2 className="size-3.5" />} disabled={!selectedLogIds.length} onClick={onDeleteSelected}>
                     {t("common.delete")}
                 </Button>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-1.5">
                 {logs.map((log) => (
                     <LogCard
                         key={log.id}
@@ -882,7 +878,7 @@ function LogPanel({
                         onClick={() => onPreviewLog(log)}
                     />
                 ))}
-                {!logs.length ? <div className="flex min-h-48 items-center justify-center rounded-lg border border-dashed border-stone-300 text-center text-sm text-stone-500 dark:border-stone-700">{t("workbench.noLogs")}</div> : null}
+                {!logs.length ? <div className="flex min-h-40 items-center justify-center text-center text-sm text-stone-400">{t("workbench.noLogs")}</div> : null}
             </div>
         </>
     );
@@ -896,45 +892,24 @@ function LogCard({ log, selected, active, onSelectedChange, onClick }: { log: Ge
     return (
         <button
             type="button"
-            className={`block w-full rounded-lg border p-2 text-left transition ${active ? "border-stone-900 bg-blue-50 dark:border-stone-100 dark:bg-blue-950/20" : "border-stone-200 bg-background hover:bg-stone-50 dark:border-stone-800 dark:hover:bg-stone-900"}`}
+            className={`flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition ${active ? "bg-stone-100 dark:bg-white/10" : "hover:bg-black/5 dark:hover:bg-white/5"}`}
             onClick={onClick}
         >
-            <div className="grid grid-cols-[minmax(128px,1fr)_auto] gap-2">
-                <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-2">
-                    <Checkbox className="mt-0.5" checked={selected} onClick={(event) => event.stopPropagation()} onChange={(event) => onSelectedChange(event.target.checked)} />
-                    <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold leading-5">{log.title}</div>
-                        {thumbnails.length ? (
-                            <div className="mt-2 flex gap-1 overflow-hidden">
-                                {thumbnails.map((image) => (
-                                    <img key={image.id} src={previewUrlFor(image.storageKey) || image.dataUrl} alt="" className="size-8 shrink-0 rounded-md object-cover" />
-                                ))}
-                            </div>
-                        ) : null}
-                    </div>
-                </div>
-                <div className="grid justify-items-end gap-2">
-                    <div className="flex gap-1">
-                        <Tag className="m-0 flex h-6 items-center rounded-md px-1.5 text-xs leading-none" color="blue">
-                            {t("workbench.successCount", { count: log.successCount ?? log.imageCount })}
-                        </Tag>
-                        {log.failCount ? (
-                            <Tag className="m-0 flex h-6 items-center rounded-md px-1.5 text-xs leading-none" color="red">
-                                {t("workbench.failCount", { count: log.failCount })}
-                            </Tag>
-                        ) : null}
-                    </div>
-                    <div className="flex flex-wrap justify-end gap-1">
-                        <Tag className="m-0 flex h-6 items-center rounded-md px-1.5 text-xs leading-none">{t("workbench.itemCount", { count: log.imageCount })}</Tag>
-                        <Tag className="m-0 flex h-6 items-center rounded-md px-1.5 text-xs leading-none" color="green">
-                            {formatDuration(log.durationMs)}
-                        </Tag>
-                    </div>
-                    <div className="flex justify-end">
-                        <Tag className="m-0 flex h-6 items-center rounded-md px-1.5 text-xs leading-none">{log.time}</Tag>
-                    </div>
-                </div>
-            </div>
+            <Checkbox className="shrink-0" checked={selected} onClick={(event) => event.stopPropagation()} onChange={(event) => onSelectedChange(event.target.checked)} />
+            {thumbnails[0] ? (
+                <img src={previewUrlFor(thumbnails[0].storageKey) || thumbnails[0].dataUrl} alt="" className="size-10 shrink-0 rounded-md object-cover" />
+            ) : (
+                <span className="grid size-10 shrink-0 place-items-center text-stone-400">
+                    <ImagePlus className="size-4 opacity-60" />
+                </span>
+            )}
+            <span className="min-w-0 flex-1 space-y-0.5">
+                <span className="block truncate text-sm font-medium leading-snug">{log.title}</span>
+                <span className="block truncate text-[11px] leading-snug text-stone-400">
+                    {t("workbench.itemCount", { count: log.imageCount })} · {formatDuration(log.durationMs)} · {log.time}
+                    {log.failCount ? ` · ${t("workbench.failCount", { count: log.failCount })}` : ""}
+                </span>
+            </span>
         </button>
     );
 }

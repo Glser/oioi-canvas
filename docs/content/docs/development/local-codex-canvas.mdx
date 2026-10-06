@@ -1,63 +1,63 @@
 ---
-title: How Local Codex Connects to the Canvas
-description: Interaction between Canvas Agent, MCP, SSE, and browser canvas state
+title: 本地 Agent 连接画布原理
+description: 本地原生 Agent 如何通过 stdio MCP 和 loopback HTTP 操作浏览器画布
 ---
 
-# How Local Codex Connects to the Canvas
+# 本地 Agent 连接画布原理
 
-Codex does not control the browser DOM or simulate mouse actions. A local `Canvas Agent` bridges Codex tools and the React state that owns the canvas.
-
-```text
-The user's own Codex
-        ↓
-Local Canvas Agent
-        ↓
-Browser canvas React state
-```
-
-The Agent side panel only shows how to connect. Chat, skills, and logs stay in the user's Codex. The web app does not record or process that conversation.
-
-## Local Codex connects to the canvas
-
-After installing the `oioi-canvas` plugin or adding the MCP manually:
+Codex / Claude Code 等本地原生 Agent 不直接控制 DOM。工具调用经过本机桥接服务，最终由浏览器应用到画布状态：
 
 ```text
-Local Codex
-  -> oioi-canvas MCP tools
-  -> local Canvas Agent
-  -> browser canvas
+本地原生 Agent
+  -> stdio MCP（canvas-agent mcp）
+  -> POST /api/tools（本机 Canvas Agent HTTP）
+  -> SSE tool_call
+  -> 浏览器画布 React 状态
+  -> POST /canvas/result
+  -> 返回 MCP 工具结果
 ```
 
-From a local Codex conversation, the `oioi-canvas` MCP tools call Canvas Agent. Common tools read canvas state and selection, create or update nodes, connect nodes, and start image or text generation.
+网页 Agent 面板只提供连接指引与状态。对话、技能、历史、文件权限和工具批准由原生 Agent 负责，网页不托管这些能力。
 
-## Browser connection and state
+## 两个本地进程
 
-Canvas Agent listens on `http://127.0.0.1:17371` by default and generates a connection token. A cloud-hosted canvas still connects to this local address; no tunnel is required. The browser opens an authenticated SSE connection:
+- `npx -y @oioi-npm/canvas-agent@latest` 启动 HTTP 桥接服务，默认监听 `http://127.0.0.1:17371` 并输出连接 token。
+- 原生 Agent 通过 `npx -y @oioi-npm/canvas-agent@latest mcp` 启动 stdio MCP。该进程读取同一份本机配置并调用 HTTP 服务，不提供网页连接服务。
+
+安装插件或配置 MCP 不等于已经启动 HTTP 服务；网页也不能直接启动本地进程。
+
+## 浏览器连接和快照
+
+**公网站点必须在运行 Canvas Agent 的同一台电脑上的浏览器里打开**，由该浏览器直接连接 loopback。公网站点不代理本机请求，也不需要内网穿透。远程浏览器或另一台设备的 `127.0.0.1` 不是用户电脑；浏览器要求本地网络访问权限时须由用户授权。
+
+浏览器使用 token 建立 SSE 连接并上报状态：
 
 ```text
 GET /events?token=xxx&clientId=xxx
-```
-
-The browser pushes snapshots to:
-
-```text
 POST /canvas/state?token=xxx&clientId=xxx
+POST /canvas/result?token=xxx&clientId=xxx
 ```
 
-Snapshots contain the canvas ID and title, nodes, edges, selected node IDs, and viewport. Canvas Agent keeps the latest snapshot in memory, so tools read structured state rather than the DOM.
+画布快照包含画布 ID、标题、节点、连线、选区和视口。Canvas Agent 在内存中保存各网页的最新快照；`canvas_get_state`、`canvas_get_selection` 等工具读的是快照，不是 DOM，也不是云端存储。
 
-## Applying operations
+## 工具操作与目标
 
-For a node creation, Codex calls an MCP tool, Canvas Agent converts it to `canvas_apply_ops`, sends an SSE `tool_call`, and the browser applies operations such as `add_node`, `update_node`, `delete_node`, `connect_nodes`, `set_viewport`, and `select_nodes`. The browser posts the result to `/canvas/result`, which completes the MCP call.
+- 单个文本节点使用 `canvas_create_text_node`；生成流程使用 `canvas_create_generation_flow`；批量修改使用 `canvas_apply_ops`。
+- 高层画布工具转换为 `add_node`、`update_node`、`delete_node`、`connect_nodes`、`set_viewport`、`select_nodes` 等结构化操作，由浏览器执行并回传结果。
+- 网页收到有效工具请求后自动执行，不做二次审批；不要为方便执行关闭或绕过原生 Agent 的权限批准流程。
+- 所有业务工具调用前，先 `canvas_list_clients({})` 查看已连接网页，再用 `canvas_bind_client({clientId, projectId})` 绑定。可选 `projectId` 使用列表值以防列表后换画布；省略它仍会固定网页当时的画布 ID。
+- 每个 stdio MCP 进程有独立的内部 `bindingId`，不是用户工具参数。切换标签页不改变目标，画布读写校验绑定的 `projectId`；导航或换画布后须重新列出并绑定。
+- `canvas_release_client({})` 解除绑定；目标断开时报错，不回退其他标签页。
+- 前端保留最近一次画布工具操作前的快照用于撤销；撤销不代表取消已提交的外部生成请求。
 
-Writes are applied automatically. There is no confirmation UI. The frontend also stores the snapshot before the latest Agent operation so it can be undone.
+目标绑定相关协议为版本 `7`。`canvas_list_clients({})` 返回 `clients`（各项含 `clientId`、`path`、`pageTitle`、`projectId`、`title`、`active`）和当前 `binding`；未绑定时 `binding` 为 `null`。`canvas_bind_client` 返回绑定的 `clientId` 与 `projectId`，`canvas_release_client({})` 返回 `{released: true}`。
 
-## Security boundary
+SSE `tool_call` 携带目标 `clientId`；画布工具还携带 `expectedProjectId`，浏览器须校验页面及画布归属后执行。本轮目标选择与绑定调整仍待用户测试，使用时以当前 MCP 工具声明为准。
 
-- Canvas Agent binds to `127.0.0.1` by default.
-- Browser connections require the generated token and are bound to the first accepted origin.
-- Codex does not directly access the DOM or own the canvas state.
-- The hosted website does not store the local Codex login, API keys, or local file permissions.
-- The web app does not record or process the user's Agent chat, skills, or logs.
+## 安全和数据边界
 
-In short, reads flow from browser snapshots through Canvas Agent and MCP to Codex; writes flow from Codex through MCP and SSE back to browser React state.
+- Canvas Agent 默认只监听 `127.0.0.1`；网页和 MCP 请求需要 token。网页来源经 token 授权后加入允许列表，不是只绑定第一个 Origin。
+- token 是本机桥接凭据，不要公开分享或写入日志。网页会在本地保存连接配置，不保存原生 Agent 的登录态或文件权限。
+- 画布项目和「我的素材」主要保存在浏览器本地，不提供云同步；HTTP 桥接不是备份服务。
+- 网页不记录或处理原生 Agent 的对话、技能或日志，但工具输入和结果会进入原生 Agent 的处理范围。
+- 画布生成服务的 API Key 保存在浏览器本地，生成请求仍由前端直接发送给用户配置的外部服务，不经过原生 Agent 执行引擎。

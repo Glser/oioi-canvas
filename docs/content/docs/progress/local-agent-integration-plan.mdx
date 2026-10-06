@@ -1,41 +1,52 @@
 ---
-title: Local Agent Integration Plan
-description: Plan for connecting Codex and Claude to the canvas through Canvas Agent and MCP
+title: 本地 Agent 架构与边界
+description: 本地原生 Agent、stdio MCP、loopback HTTP 与浏览器画布的职责划分
 ---
 
-# Local Agent Integration Plan
+# 本地 Agent 架构与边界
 
-## Goal
+本文替代旧的网页侧边栏执行引擎规划。当前方向是让用户自己的 Codex / Claude Code 等原生 Agent 通过 MCP 操作画布，不在网页重建聊天客户端。
 
-Allow locally authenticated coding agents to read and modify the active browser canvas without moving canvas data, credentials, or local permissions to a hosted backend.
+## 调用链
 
-## Architecture
+```text
+本地原生 Agent
+  -> stdio MCP（canvas-agent mcp）
+  -> loopback HTTP（本机 Canvas Agent）
+  -> 浏览器画布
+```
 
-Canvas Agent is the single local bridge. The browser synchronizes structured canvas state to it over authenticated HTTP and SSE. Codex and future Claude adapters use MCP tools exposed by Canvas Agent. Browser-side writes remain structured, reviewable, and undoable.
+浏览器主动建立 SSE 连接接收工具请求，并通过 HTTP 上报画布快照和工具结果。网页负责真正应用节点操作，Agent 不模拟鼠标点击或操作 DOM。
 
-The service is divided into agent adapters, canvas state and tool handling, HTTP/SSE transport, and MCP exposure. Codex is the first adapter through `codex app-server`; Claude should use the Claude Agent SDK rather than duplicating canvas logic.
+## 职责
 
-## Tool design
+- **本地原生 Agent**：负责对话、上下文、模型、技能、历史、文件权限、工具批准和任务取消，直接使用其原生界面。
+- **stdio MCP**：向原生 Agent 暴露画布工具，通过本地配置里的地址和 token 请求 HTTP 桥接服务，不运行对话或模型。
+- **Canvas Agent HTTP 服务**：默认只监听 `127.0.0.1:17371`，校验 token 和网页来源，维护网页连接及内存快照，将工具请求发送给对应网页并返回结果。
+- **浏览器**：维护画布 React 状态及浏览器本地持久化，执行结构化工具操作。Agent 面板只承担连接指引和连接状态，不托管对话、技能、历史或执行日志。
 
-Tools should cover state and selection reads, node creation and updates, connections, batch operations, viewport and selection changes, and text, image, or video generation. High-level tools convert to a small set of canvas operations before the browser applies them.
+普通启动命令提供 HTTP 服务；`mcp` 子命令只提供 stdio MCP，两者不是同一个进程。两种进程共用本机配置：
 
-## Side panel
+```bash
+npx -y @oioi-npm/canvas-agent@latest
+npx -y @oioi-npm/canvas-agent@latest mcp
+```
 
-The browser panel manages connection state, conversations, streaming events, model and reasoning settings, permissions, approvals, local Skills, diagnostics, and task cancellation. A turn is bound to its initiating `clientId` so focusing another browser tab cannot redirect its canvas operations.
+第二条由原生 Agent 的 MCP 配置启动，不需要在普通终端手动交互。
 
-## Security
+## 浏览器与目标边界
 
-- Bind to localhost and require a generated connection token.
-- Pin the accepted browser origin.
-- Keep local agent login and file permissions out of the hosted site.
-- Make writes confirmable and undoable in the browser.
-- Never redirect an active turn to another tab when its initiating page disconnects.
+- 公网站点也必须由**运行 Canvas Agent 的同一台电脑上的浏览器**直接连接 loopback。云端远程浏览器、另一台电脑或手机上的 `127.0.0.1` 不指向这台电脑。
+- 公网站点不代理本机连接，不需要内网穿透；浏览器若要求访问本地网络的权限，须由用户授权。
+- 所有业务工具先明确绑定：`canvas_list_clients({})` 列出网页，`canvas_bind_client({clientId, projectId})` 绑定目标画布；`projectId` 可省略，但绑定始终固定该网页当时的画布 ID，传入列表值可防止列表后换画布。
+- 每个 stdio MCP 进程有独立绑定，内部 `bindingId` 不作为用户工具参数。切标签页不改变目标；画布读写须校验绑定的 `projectId`，导航或换画布后重新列出并绑定。
+- 目标断开时应报错，不静默转发到其他页面。`canvas_release_client({})` 解除绑定，后续业务工具须重新绑定。
+- 权限批准由本地原生 Agent 处理，网页收到有效写入请求后自动执行，不做二次审批；不要绕过原生 Agent 的权限流程。
 
-## Delivery stages
+## 数据与安全边界
 
-1. Expose canvas state and operations to local Codex through MCP.
-2. Add the browser Codex panel with streaming conversations and history.
-3. Add a Claude Agent SDK adapter using the same canvas tools.
-4. Improve approvals, diagnostics, multi-tab behavior, Skills, and recovery.
-
-The MVP is complete when an agent can connect to the active canvas, read state and selection, apply visible node operations, start a generation workflow, return structured errors, and remain isolated across tabs.
+- 网页连接和 MCP 到 HTTP 的请求须携带连接 token；不要把带 token 的地址写进公开日志或分享给他人。
+- Canvas Agent 不是 Codex / Claude 执行器，不启动或管理它们的会话，也不保存它们的登录态或文件权限。
+- 画布项目和「我的素材」主要保存在当前浏览器本地，不提供云同步；内存快照用于工具桥接，不是云端备份。
+- 网页不托管 Agent 对话，但画布工具的输入与结果会经过原生 Agent；使用外部模型或生成服务时，相关内容仍可能发往对应服务。
+- 目标绑定等本轮代码调整仍需用户测试，本文只明确架构职责与边界，不作为已通过验收的功能清单。

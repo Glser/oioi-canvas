@@ -1,248 +1,52 @@
 ---
-title: 本地 Agent 接入规划
-description: 规划通过本地 Canvas Agent、MCP 和侧边栏助手连接 Codex / Claude Code 操作画布
+title: 本地 Agent 架构与边界
+description: 本地原生 Agent、stdio MCP、loopback HTTP 与浏览器画布的职责划分
 ---
 
-# 本地 Agent 接入规划
+# 本地 Agent 架构与边界
 
-本文档规划个人用户在访问线上画布网页时，如何连接自己电脑上的 Codex / Claude Code，并让 Agent 通过对话和工具调用操作当前画布。
+本文替代旧的网页侧边栏执行引擎规划。当前方向是让用户自己的 Codex / Claude Code 等原生 Agent 通过 MCP 操作画布，不在网页重建聊天客户端。
 
-## 目标
+## 调用链
 
-- 用户打开线上画布后，可以启动本机服务连接当前画布。
-- 用户可以在 Codex 终端里通过 MCP 操作画布。
-- 用户也可以在网页侧边栏里和本地 Codex / Claude Code 对话。
-- 侧边栏需要展示普通消息、流式输出、工具调用、工具结果和错误提示。
-- 线上服务不保存用户本地 Codex / Claude Code 登录态、API Key 或本地文件权限。
-
-## 核心结论
-
-浏览器页面不能直接启动本地进程，也不应该直接控制本机 Codex / Claude Code。推荐增加一个用户本机运行的 `canvas-agent` 服务：
-
-```txt
-线上画布网页 <-> 本机 canvas-agent <-> Codex / Claude Code
-                         |
-                         +-> MCP Server
-                         +-> 画布连接
+```text
+本地原生 Agent
+  -> stdio MCP（canvas-agent mcp）
+  -> loopback HTTP（本机 Canvas Agent）
+  -> 浏览器画布
 ```
 
-`canvas-agent` 是本地可信边界，负责启动或连接 Codex / Claude Code、暴露 MCP 工具、维护画布连接、转发侧边栏对话事件。
+浏览器主动建立 SSE 连接接收工具请求，并通过 HTTP 上报画布快照和工具结果。网页负责真正应用节点操作，Agent 不模拟鼠标点击或操作 DOM。
 
-## 推荐目录
+## 职责
 
-后续实现时建议在项目根目录新增独立 npm 包：
+- **本地原生 Agent**：负责对话、上下文、模型、技能、历史、文件权限、工具批准和任务取消，直接使用其原生界面。
+- **stdio MCP**：向原生 Agent 暴露画布工具，通过本地配置里的地址和 token 请求 HTTP 桥接服务，不运行对话或模型。
+- **Canvas Agent HTTP 服务**：默认只监听 `127.0.0.1:17371`，校验 token 和网页来源，维护网页连接及内存快照，将工具请求发送给对应网页并返回结果。
+- **浏览器**：维护画布 React 状态及浏览器本地持久化，执行结构化工具操作。Agent 面板只承担连接指引和连接状态，不托管对话、技能、历史或执行日志。
 
-```txt
-canvas-agent/
-  package.json
-  tsconfig.json
-  src/
-    index.ts
-    config.ts
-    http-server.ts
-    canvas-session.ts
-    mcp-server.ts
-    agents.ts
-    schemas.ts
-    tools.ts
-    types.ts
-```
-
-原因：
-
-- 这是用户本机运行的 Node 服务，不属于线上服务端，也不属于纯前端页面。
-- 后续可以发布成 npm 包，用户通过 `npx` 或全局安装启动。
-- Codex SDK、Codex MCP、Claude SDK 都更适合在本地 Node 进程中接入。
-- HTTP 路由使用 Express，MCP 协议层使用官方 `@modelcontextprotocol/sdk`，工具入参使用 `zod`，避免手写协议和松散 JSON。
-
-## 本机启动方式
-
-MVP 阶段优先提供 `npx`：
+普通启动命令提供 HTTP 服务；`mcp` 子命令只提供 stdio MCP，两者不是同一个进程。两种进程共用本机配置：
 
 ```bash
-npx -y @basketikun/canvas-agent
+npx -y @oioi-npm/canvas-agent@latest
+npx -y @oioi-npm/canvas-agent@latest mcp
 ```
 
-在本仓库内开发调试时可直接运行：
+第二条由原生 Agent 的 MCP 配置启动，不需要在普通终端手动交互。
 
-```bash
-cd canvas-agent
-npm install
-npm run build
-node dist/index.js
-```
+## 浏览器与目标边界
 
-启动后输出：
+- 公网站点也必须由**运行 Canvas Agent 的同一台电脑上的浏览器**直接连接 loopback。云端远程浏览器、另一台电脑或手机上的 `127.0.0.1` 不指向这台电脑。
+- 公网站点不代理本机连接，不需要内网穿透；浏览器若要求访问本地网络的权限，须由用户授权。
+- 所有业务工具先明确绑定：`canvas_list_clients({})` 列出网页，`canvas_bind_client({clientId, projectId})` 绑定目标画布；`projectId` 可省略，但绑定始终固定该网页当时的画布 ID，传入列表值可防止列表后换画布。
+- 每个 stdio MCP 进程有独立绑定，内部 `bindingId` 不作为用户工具参数。切标签页不改变目标；画布读写须校验绑定的 `projectId`，导航或换画布后重新列出并绑定。
+- 目标断开时应报错，不静默转发到其他页面。`canvas_release_client({})` 解除绑定，后续业务工具须重新绑定。
+- 权限批准由本地原生 Agent 处理，网页收到有效写入请求后自动执行，不做二次审批；不要绕过原生 Agent 的权限流程。
 
-```txt
-Infinite Canvas Agent
-Local URL: http://127.0.0.1:17371
-Connect token: xxxxxx
-```
+## 数据与安全边界
 
-网页侧边栏填写或自动发现 `http://127.0.0.1:17371` 和 token 后连接本机服务。
-
-## 前端需要增加的能力
-
-前端不直接暴露 HTTP 接口给本机服务，优先由网页主动连接本机 Canvas Agent。当前 MVP 使用 SSE 接收本机事件，HTTP POST 上报画布状态和工具结果：
-
-```txt
-网页 -> http://127.0.0.1:17371/events?token=xxx
-网页 -> http://127.0.0.1:17371/canvas/state?token=xxx
-网页 -> http://127.0.0.1:17371/canvas/result?token=xxx
-```
-
-前端需要提供一个画布 Agent 控制层，内部调用现有 store / hook，不直接让外部操作 React 组件：
-
-```ts
-canvasAgent.getState()
-canvasAgent.getSelection()
-canvasAgent.applyOps(ops)
-canvasAgent.focusNodes(ids)
-canvasAgent.exportSnapshot()
-```
-
-建议先支持最小操作集：
-
-- `add_node`：新增图片、文本、音频、视频、生成配置节点。
-- `update_node`：更新节点位置、尺寸、内容和配置。
-- `delete_node`：删除节点。
-- `connect_nodes`：连接两个节点。
-- `set_viewport`：移动或缩放当前视口。
-- `select_nodes`：选中节点。
-
-工具入参应使用画布业务 JSON，不使用模拟鼠标点击或屏幕坐标自动化。
-
-MCP 读取画布状态时默认返回摘要，不直接把完整图片、视频、音频或超长 base64 内容塞给 Agent。
-
-## MCP 工具设计
-
-`canvas-agent` 内置 MCP Server，让 Codex CLI 可以连接：
-
-```txt
-Codex CLI <-> canvas-agent MCP <-> 当前网页画布
-```
-
-建议首批 MCP 工具：
-
-- `canvas_get_state`：读取当前画布节点、连线、选区和视口摘要。
-- `canvas_apply_ops`：批量执行画布操作。
-- `canvas_get_selection`：读取当前选中的节点。
-- `canvas_export_snapshot`：导出当前画布快照，用于让 Agent 理解布局。
-- `canvas_create_text_node`：快捷创建文本节点。
-- `canvas_create_image_prompt_flow`：快捷创建提示词文本节点和图片生成配置节点。
-
-用户本机 Codex 配置示例：
-
-```bash
-codex mcp add infinite-canvas -- npx -y @basketikun/canvas-agent@latest mcp
-```
-
-本仓库调试时可使用，实际配置建议替换为本机绝对路径：
-
-```bash
-codex mcp add infinite-canvas -- node /path/to/infinite-canvas/canvas-agent/dist/index.js mcp
-```
-
-网页侧边栏助手另走 Canvas Agent 的对话通道。Canvas Agent 使用官方 `@openai/codex` CLI 的 `codex app-server --stdio` 启动并续用同一个 thread，启动时会注入 `infinite-canvas` MCP 配置并把 `default_tools_approval_mode` 设为 `approve`，避免 Codex 自己的 MCP 审批卡住侧边栏；真正修改画布前由网页侧边栏做二次确认。
-
-侧边栏图片附件通过 HTTP 发送到本机 Canvas Agent，Canvas Agent 临时写入本机文件后作为 app-server `localImage` 输入传给 Codex；MVP 会在输入区提示附件体积，单次请求体限制为 30MB。
-
-## 侧边栏助手设计
-
-侧边栏助手连接 `canvas-agent` 后，由 Canvas Agent 选择 Agent Adapter：
-
-```txt
-Sidebar -> canvas-agent -> Codex app-server stdio
-Sidebar -> canvas-agent -> Claude Code CLI / Claude Agent SDK
-```
-
-侧边栏优先展示 Codex app-server 原生结构化事件。前端只消费必要事件：
-
-```ts
-type AgentEvent =
-  | { type: "thread.started"; thread_id: string }
-  | { type: "turn.started" }
-  | { type: "item.started" | "item.updated" | "item.completed"; item: ThreadItem }
-  | { type: "turn.completed"; usage: Usage }
-  | { type: "turn.failed"; error: { message: string } };
-```
-
-Claude 后续接入时再单独做 Claude Adapter；当前前端默认只展示 Codex。
-
-## Codex 接入优先级
-
-优先使用官方 `@openai/codex` CLI 的 `codex app-server --stdio`。
-
-- Codex app-server 会输出 `item/agentMessage/delta`；Canvas Agent 转成 `item.updated` 后，前端用同一条消息做真实流式渲染。
-- 图片附件使用 app-server `localImage` 输入，不手写多模态协议。
-
-参考：
-
-- https://github.com/openai/codex/tree/main/codex-rs/app-server
-- https://developers.openai.com/codex/codex-manual.md
-
-## Claude Code 接入优先级
-
-Claude Code 侧当前 MVP 先调用本机 Claude Code CLI 的流式 JSON 输出，由 `canvas-agent` 统一转换事件和工具调用；后续可升级为 Claude Agent SDK。
-
-如果希望 Claude Code 也能操作当前画布，需要给 Claude Code 配置同一个 MCP：
-
-```bash
-claude mcp add --scope user --transport stdio infinite-canvas -- npx -y @basketikun/canvas-agent@latest mcp
-```
-
-Canvas Agent 调用 Claude Code 时默认允许 `mcp__infinite-canvas__*`，避免 print 模式被工具审批卡住；真正修改画布仍由网页侧边栏确认。
-
-参考：
-
-- https://docs.anthropic.com/en/docs/claude-code/sdk
-- https://code.claude.com/docs/en/agent-sdk/typescript
-
-## 安全边界
-
-- Canvas Agent 默认只监听 `127.0.0.1`。
-- Canvas Agent 启动时生成 token，网页连接必须携带 token。
-- Canvas Agent 只接受允许的 Origin，默认允许用户当前打开的画布域名。
-- 画布操作默认先在侧边栏展示工具调用，`canvas_apply_ops` 默认需要用户确认后执行，并保留最近一次工具操作撤销入口。
-- 不把 Codex / Claude 登录态、API Key、用户本地文件路径上传到线上服务。
-- 线上网页只保存 Canvas Agent 地址和必要偏好，不保存本地密钥。
-
-## 实现阶段
-
-### 第一阶段：Codex 终端操作画布
-
-1. 新增 `canvas-agent/` npm 包。
-2. Canvas Agent 提供 SSE/HTTP 连接，网页连接并注册当前画布。
-3. 前端新增 `canvasAgent` 控制层。
-4. Canvas Agent 内置 MCP Server。
-5. Codex 通过 MCP 调用 `canvas_get_state` 和 `canvas_apply_ops`。
-
-### 第二阶段：网页侧边栏连接 Codex
-
-1. 前端新增本地 Agent 侧边栏。
-2. Canvas Agent 通过官方 `@openai/codex` CLI 的 `codex app-server --stdio` 接入 Codex，复用同一个 thread，注入 `infinite-canvas` MCP，并展示结构化事件流。
-3. 运行日志只保留关键 Codex 事件，避免把流式中间更新刷满日志。
-4. 侧边栏展示消息流、工具调用、工具结果、错误和图片附件大小提示。
-
-### 第三阶段：接入 Claude Code
-
-1. Canvas Agent 新增 Claude Code CLI Adapter。
-2. 统一 Claude Code 的消息和工具调用事件。
-3. 前端侧边栏增加 Agent 类型选择。
-
-### 第四阶段：体验完善
-
-1. 增加本机连接状态、重连和 token 更新。
-2. 优化工具调用确认、撤销和批量工具队列体验。
-3. 增加常用画布动作模板。
-4. 增加 npm 发布和用户安装文档。
-
-## MVP 验收标准
-
-- 用户运行 `npx -y @basketikun/canvas-agent@latest` 后，线上画布能显示已连接。
-- 用户在 Codex CLI 中可以创建文本节点、移动节点、连接节点。
-- 网页侧边栏能发送一条消息给本地 Codex，并展示流式回复。
-- 网页侧边栏默认只展示本地 Codex，并展示结构化回复。
-- 侧边栏能展示一次 `canvas_apply_ops` 工具调用和结果。
-- 断开 Canvas Agent 后，网页能显示清晰的本机连接失败提示。
+- 网页连接和 MCP 到 HTTP 的请求须携带连接 token；不要把带 token 的地址写进公开日志或分享给他人。
+- Canvas Agent 不是 Codex / Claude 执行器，不启动或管理它们的会话，也不保存它们的登录态或文件权限。
+- 画布项目和「我的素材」主要保存在当前浏览器本地，不提供云同步；内存快照用于工具桥接，不是云端备份。
+- 网页不托管 Agent 对话，但画布工具的输入与结果会经过原生 Agent；使用外部模型或生成服务时，相关内容仍可能发往对应服务。
+- 目标绑定等本轮代码调整仍需用户测试，本文只明确架构职责与边界，不作为已通过验收的功能清单。

@@ -1,8 +1,6 @@
 import i18n from "@/i18n";
 import type { CanvasAgentSnapshot } from "@/lib/canvas/canvas-agent-ops";
 
-type AgentConfigResponse = { ok?: boolean; protocolVersion?: number; url?: string; token?: string; hasToken?: boolean };
-
 export class AgentApiError<T = unknown> extends Error {
     constructor(readonly status: number, readonly response: T & { code?: string; error?: string; msg?: string }) {
         super(response.error || response.msg || i18n.t("agent.state.requestFailed"));
@@ -15,7 +13,7 @@ export async function postState(endpoint: string, token: string, clientId: strin
         const response = await fetch(`${endpoint}/canvas/state?token=${encodeURIComponent(token)}&clientId=${encodeURIComponent(clientId)}`, {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify(snapshot ? { ...snapshot, hasCanvas: true } : { hasCanvas: false }),
+            body: JSON.stringify({ ...(snapshot ? { ...snapshot, hasCanvas: true } : { hasCanvas: false }), path: window.location.pathname, pageTitle: document.title }),
         });
         return response.ok;
     } catch {
@@ -41,13 +39,3 @@ export async function fetchAgentJson<T>(endpoint: string, token: string, path: s
     return data;
 }
 
-export async function discoverAgentConfig(endpoint: string) {
-    try {
-        const res = await fetch(`${endpoint}/config`);
-        if (!res.ok) return null;
-        const data = (await res.json()) as AgentConfigResponse;
-        return data.ok ? data : null;
-    } catch {
-        return null;
-    }
-}

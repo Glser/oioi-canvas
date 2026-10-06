@@ -34,10 +34,12 @@ description: Major features available in the current project
 
 ## Canvas Agent
 
-- Connect local Codex through Canvas Agent and MCP without giving a web server direct access to browser state.
-- Read the active canvas, selection, nodes, edges, generation status, and apply structured operations.
-- Use Codex from the browser side panel with streaming responses, history, approvals, permissions, diagnostics, and local Skills.
-- Isolate active canvases and turns across multiple browser tabs.
+- Connect your own local Codex or Claude Code through Canvas Agent and MCP.
+- Read canvas state, selection, nodes, edges, and generation status, and apply structured operations.
+- The browser side panel only manages the connection. Chat, skills, history, and permission approvals stay in your own Agent; the webpage does not host an Agent execution engine.
+- A cloud-hosted webpage connects to the local bridge from a browser on the same computer. This does not add cloud storage for canvas projects.
+
+The current target-binding changes remain in [Pending Tests](/docs/progress/pending-test).
 
 See [Codex App Plugin](/docs/overview/codex-app-plugin) for installation and usage.
 

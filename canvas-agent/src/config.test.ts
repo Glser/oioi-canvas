@@ -6,7 +6,7 @@ import test from "node:test";
 
 import { writeConfigFile, type CanvasAgentConfig } from "./config.js";
 
-const sample: CanvasAgentConfig = { url: "http://127.0.0.1:17371", token: "test-token" };
+const sample: CanvasAgentConfig = { url: "http://127.0.0.1:17371", token: "test-token", origins: ["http://localhost:3100", "https://canvas.example.com"] };
 
 function makeTempBase(): string {
     return fs.mkdtempSync(path.join(os.tmpdir(), "canvas-agent-config-test-"));

@@ -5,253 +5,150 @@ import test from "node:test";
 
 import { CanvasSession } from "./session.js";
 
-test("MCP 读取当前激活网页的画布", async (t) => {
-    const session = new CanvasSession();
-    const first = connect(session, "first");
-    const second = connect(session, "second");
-    t.after(() => {
-        first.close();
-        second.close();
-    });
-    session.updateState(snapshot("canvas-first"), "first");
-    session.updateState(snapshot("canvas-second"), "second");
-
-    session.activateClient("first");
-    assert.equal(field(await session.callTool("canvas_get_state", {}), "projectId"), "canvas-first");
-
-    session.activateClient("second");
-    assert.equal(field(await session.callTool("canvas_get_state", {}), "projectId"), "canvas-second");
-});
-
-test("按精确 clientId 读取画布快照，不受当前焦点影响", (t) => {
-    const session = new CanvasSession();
-    const first = connect(session, "first");
-    const second = connect(session, "second");
-    t.after(() => {
-        first.close();
-        second.close();
-    });
-    session.updateState(snapshot("canvas-first"), "first");
-    session.updateState(snapshot("canvas-second"), "second");
-    session.activateClient("second");
-
-    assert.equal(field(session.canvasStateForClient("first"), "projectId"), "canvas-first");
-    assert.equal(field(session.canvasStateForClient("second"), "projectId"), "canvas-second");
-    assert.equal(session.canvasStateForClient("missing"), null);
-    first.close();
-    assert.equal(session.canvasStateForClient("first"), null);
-});
-
-test("画布写操作只发送给当前激活网页", async (t) => {
-    const session = new CanvasSession();
-    const first = connect(session, "first");
-    const second = connect(session, "second");
-    t.after(() => {
-        first.close();
-        second.close();
-    });
-    session.updateState(snapshot("canvas-first"), "first");
-    session.updateState(snapshot("canvas-second"), "second");
-    session.activateClient("second");
-
-    const result = session.callTool("canvas_create_text_node", { text: "只写入第二个画布" });
-    const call = second.event("tool_call");
-    assert.equal(first.event("tool_call"), undefined);
-    assert.equal(field(call, "name"), "canvas_apply_ops");
-    session.resolveResult("second", { requestId: String(field(call, "requestId")), result: { ok: true } });
-    assert.deepEqual(await result, { ok: true });
-});
-
-test("当前 turn 的图片附件可在发起标签页画布创建图片节点", async (t) => {
+test("未绑定时拒绝业务工具，目标列表不自动选择焦点页", async (t) => {
     const session = new CanvasSession();
     const first = connect(session, "first");
     t.after(() => first.close());
-    const dataUrl = "data:image/png;base64,aW1hZ2U=";
-    session.setTurnAttachments("first", [{ id: "attachment-1", name: "商品.png", type: "image/png", size: 5, width: 1200, height: 600, dataUrl }]);
-    session.bindClient("first");
+    session.updateState({ ...snapshot("canvas-first"), path: "/canvas/canvas-first", pageTitle: "页面" }, "first");
+    const list = session.listClients("mcp-1");
+    assert.equal(list.binding, null);
+    assert.equal(list.clients[0].path, "/canvas/canvas-first");
+    await assert.rejects(session.callTool("canvas_get_state", {}, "mcp-1"), /尚未绑定/);
+    await assert.rejects(session.callTool("canvas_list_clients", {}, undefined), /bindingId/);
+});
 
-    const result = session.callTool("canvas_create_attachment_nodes", { attachmentIds: ["attachment-1"], x: 100, y: 200 });
+test("独立 MCP 绑定不受焦点影响，读取使用 canvas_get_state SSE", async (t) => {
+    const session = new CanvasSession();
+    const first = connect(session, "first");
+    const second = connect(session, "second");
+    t.after(() => { first.close(); second.close(); });
+    session.updateState(snapshot("canvas-first"), "first");
+    session.updateState(snapshot("canvas-second"), "second");
+    session.bindClient("mcp-1", "first", "canvas-first");
+    session.bindClient("mcp-2", "second", "canvas-second");
+    session.activateClient("second");
+
+    const result = session.callTool("canvas_get_state", {}, "mcp-1");
     const call = first.event("tool_call");
-    const input = field(call, "input") as Record<string, unknown>;
-    const nodes = input.nodes as Array<Record<string, unknown>>;
-    assert.equal(field(call, "name"), "canvas_create_attachment_nodes");
-    assert.equal(nodes.length, 1);
-    assert.equal(nodes[0].attachmentId, "attachment-1");
-    assert.equal(nodes[0].title, "商品.png");
-    assert.deepEqual(nodes[0].position, { x: 100, y: 200 });
-    assert.equal(nodes[0].width, 640);
-    assert.equal(nodes[0].height, 320);
-    assert.equal("dataUrl" in nodes[0], false);
-    assert.equal(session.getTurnAttachment("first", "attachment-1").dataUrl, dataUrl);
-
-    session.resolveResult("first", { requestId: String(field(call, "requestId")), result: { ok: true } });
-    const created = (await result) as { nodes: Array<{ id: string; attachmentId: string; title: string }> };
-    assert.equal(created.nodes[0].id, nodes[0].id);
-    assert.equal(created.nodes[0].attachmentId, "attachment-1");
-    session.clearTurnAttachments("first");
-    assert.throws(() => session.getTurnAttachment("first", "attachment-1"), /找不到/);
-});
-
-test("图片附件只允许发起 turn 的标签页读取和落入画布", async (t) => {
-    const session = new CanvasSession();
-    const first = connect(session, "first");
-    const second = connect(session, "second");
-    t.after(() => {
-        first.close();
-        second.close();
-    });
-    session.setTurnAttachments("first", [{ id: "attachment-1", name: "商品.png", type: "image/png", dataUrl: "data:image/png;base64,aW1hZ2U=" }]);
-    session.bindClient("second");
-
-    await assert.rejects(session.callTool("canvas_create_attachment_nodes", { attachmentIds: ["attachment-1"] }), /发起标签页/);
-    assert.throws(() => session.getTurnAttachment("second", "attachment-1"), /发起标签页/);
-    assert.equal(first.event("tool_call"), undefined);
+    assert.equal(field(call, "name"), "canvas_get_state");
+    assert.equal(field(call, "clientId"), "first");
+    assert.equal(field(call, "expectedProjectId"), "canvas-first");
     assert.equal(second.event("tool_call"), undefined);
+    session.resolveResult("first", { requestId: String(field(call, "requestId")), result: snapshot("canvas-first") });
+    assert.equal(field(await result, "projectId"), "canvas-first");
+    assert.deepEqual(session.listClients("mcp-2").binding, { clientId: "second", projectId: "canvas-second" });
+    session.releaseClient("mcp-1");
+    await assert.rejects(session.callTool("canvas_get_state", {}, "mcp-1"), /尚未绑定/);
 });
 
-test("活动网页关闭后回退到仍连接的画布", async (t) => {
+test("写操作与结果按 clientId 隔离，成功快照立即用于后续布局", async (t) => {
     const session = new CanvasSession();
     const first = connect(session, "first");
     const second = connect(session, "second");
-    t.after(() => {
-        first.close();
-        second.close();
-    });
-    session.updateState(snapshot("canvas-first"), "first");
+    t.after(() => { first.close(); second.close(); });
+    session.updateState({ ...snapshot("canvas-first"), path: "/canvas/canvas-first", pageTitle: "页面" }, "first");
     session.updateState(snapshot("canvas-second"), "second");
+    session.bindClient("mcp-1", "first");
     session.activateClient("second");
-    second.close();
-
-    assert.equal(field(await session.callTool("canvas_get_state", {}), "projectId"), "canvas-first");
-});
-
-test("closing the active client falls back to the most recently focused client", async (t) => {
-    const session = new CanvasSession();
-    const first = connect(session, "first");
-    const second = connect(session, "second");
-    const third = connect(session, "third");
-    t.after(() => {
-        first.close();
-        second.close();
-        third.close();
-    });
-    session.updateState(snapshot("canvas-first"), "first");
-    session.updateState(snapshot("canvas-second"), "second");
-    session.updateState(snapshot("canvas-third"), "third");
-    session.activateClient("third");
-    session.activateClient("second");
-    second.close();
-
-    assert.equal(field(await session.callTool("canvas_get_state", {}), "projectId"), "canvas-third");
-});
-
-test("closing a client rejects its pending tool requests", async () => {
-    const session = new CanvasSession();
-    const first = connect(session, "first");
-    const result = session.callTool("canvas_create_text_node", { text: "pending" });
+    const result = session.callTool("canvas_create_text_node", { text: "bound" }, "mcp-1");
     const call = first.event("tool_call");
     const requestId = String(field(call, "requestId"));
-    first.close();
-
-    const outcome = await Promise.race([
-        result.then(() => "resolved", (error) => error instanceof Error ? error.message : String(error)),
-        new Promise<string>((resolve) => setTimeout(() => resolve("pending"), 20)),
-    ]);
-    if (outcome === "pending") session.resolveResult("first", { requestId, result: null });
-    assert.match(outcome, /断开/);
+    assert.equal(field(call, "name"), "canvas_apply_ops");
+    assert.equal(second.event("tool_call"), undefined);
+    assert.equal(session.resolveResult("second", { requestId, result: { ok: true } }), false);
+    const updated = { ...snapshot("canvas-first"), nodes: [{ id: "node-1", type: "text" as const, position: { x: 100, y: 0 }, width: 200, height: 100 }] };
+    session.resolveResult("first", { requestId, result: updated });
+    await result;
+    assert.equal(session.listClients("mcp-1").clients[0].pageTitle, "页面");
+    const next = session.callTool("canvas_create_text_node", { text: "next" }, "mcp-1");
+    const nextCall = first.events("tool_call")[1];
+    const input = field(nextCall, "input") as { ops: Array<{ position: { x: number } }> };
+    assert.equal(input.ops[0].position.x, 380);
+    session.resolveResult("first", { requestId: String(field(nextCall, "requestId")), result: updated });
+    await next;
 });
 
-test("a bound client remains the tool target while focus changes", async (t) => {
+test("页内切换画布后拒绝旧绑定的读写与画布任务查询", async (t) => {
+    const session = new CanvasSession();
+    const first = connect(session, "first");
+    t.after(() => first.close());
+    session.updateState(snapshot("old"), "first");
+    session.bindClient("mcp-1", "first", "old");
+    session.updateState(snapshot("new"), "first");
+    await assert.rejects(session.callTool("canvas_get_state", {}, "mcp-1"), /切换画布/);
+    await assert.rejects(session.callTool("canvas_create_text_node", { text: "wrong" }, "mcp-1"), /切换画布/);
+    await assert.rejects(session.callTool("generation_get_status", { scope: "all" }, "mcp-1"), /切换画布/);
+    assert.throws(() => session.bindClient("mcp-1", "first", "old"), /已改变/);
+    assert.equal(first.event("tool_call"), undefined);
+    assert.deepEqual(session.bindClient("mcp-1", "first", "new"), { clientId: "first", projectId: "new" });
+});
+
+test("断开绑定网页拒绝在途请求，不回退其他标签；重连仍核对原画布", async (t) => {
     const session = new CanvasSession();
     const first = connect(session, "first");
     const second = connect(session, "second");
-    t.after(() => {
-        first.close();
-        second.close();
-    });
+    t.after(() => { first.close(); second.close(); });
     session.updateState(snapshot("canvas-first"), "first");
     session.updateState(snapshot("canvas-second"), "second");
-    session.bindClient("first");
-    session.activateClient("second");
-
-    assert.equal(field(await session.callTool("canvas_get_state", {}), "projectId"), "canvas-first");
-    const result = session.callTool("canvas_create_text_node", { text: "bound" });
-    const call = first.event("tool_call");
-    assert.equal(second.event("tool_call"), undefined);
-    session.resolveResult("first", { requestId: String(field(call, "requestId")), result: { ok: true } });
-    assert.deepEqual(await result, { ok: true });
-
-    session.releaseClient("first");
-    assert.equal(field(await session.callTool("canvas_get_state", {}), "projectId"), "canvas-second");
-});
-
-test("a disconnected bound client never falls back and can resume with the same client id", async (t) => {
-    const session = new CanvasSession();
-    const first = connect(session, "first");
-    const second = connect(session, "second");
-    t.after(() => {
-        first.close();
-        second.close();
-    });
-    session.updateState(snapshot("canvas-first"), "first");
-    session.updateState(snapshot("canvas-second"), "second");
-    session.bindClient("first");
-    session.activateClient("second");
+    session.bindClient("mcp-1", "first");
+    const result = session.callTool("canvas_create_text_node", { text: "pending" }, "mcp-1");
     first.close();
-
-    await assert.rejects(session.callTool("canvas_get_state", {}), /当前没有已连接画布/);
+    await assert.rejects(result, /断开/);
+    await assert.rejects(session.callTool("canvas_get_state", {}, "mcp-1"), /断开/);
     assert.equal(second.event("tool_call"), undefined);
-
     const reconnected = connect(session, "first");
     t.after(() => reconnected.close());
-    session.updateState(snapshot("canvas-first-reconnected"), "first");
-    assert.equal(field(await session.callTool("canvas_get_state", {}), "projectId"), "canvas-first-reconnected");
-
-    const result = session.callTool("canvas_create_text_node", { text: "reconnected" });
-    const call = reconnected.event("tool_call");
-    assert.equal(second.event("tool_call"), undefined);
-    session.resolveResult("first", { requestId: String(field(call, "requestId")), result: { ok: true } });
-    assert.deepEqual(await result, { ok: true });
+    session.updateState(snapshot("different"), "first");
+    await assert.rejects(session.callTool("canvas_get_state", {}, "mcp-1"), /切换画布/);
 });
 
-/** 创建用于测试的画布 SSE 连接。 */
+test("替换相同 clientId 连接清除旧快照，旧连接关闭不移除新连接", (t) => {
+    const session = new CanvasSession();
+    const old = connect(session, "first");
+    session.updateState(snapshot("old"), "first");
+    const current = connect(session, "first");
+    t.after(() => { old.close(); current.close(); });
+    assert.throws(() => session.bindClient("mcp-1", "first"), /尚未上报/);
+    old.close();
+    session.updateState(snapshot("new"), "first");
+    assert.deepEqual(session.bindClient("mcp-1", "first"), { clientId: "first", projectId: "new" });
+});
+
+test("任务查询仅在包含画布时附 expectedProjectId，非画布页使用空 ID", async (t) => {
+    const session = new CanvasSession();
+    const first = connect(session, "first");
+    t.after(() => first.close());
+    session.updateState({ hasCanvas: false, path: "/image" }, "first");
+    session.bindClient("mcp-1", "first");
+    for (const [input, expected] of [[{ scope: "all" }, ""], [{ scope: "image" }, undefined], [{ taskId: "task-1" }, undefined]] as const) {
+        const result = session.callTool("generation_get_status", input, "mcp-1");
+        const call = first.events("tool_call").at(-1);
+        assert.equal(field(call, "expectedProjectId"), expected);
+        session.resolveResult("first", { requestId: String(field(call, "requestId")), result: { tasks: [] } });
+        await result;
+    }
+});
+
 function connect(session: CanvasSession, clientId: string) {
     const response = new FakeSseResponse();
     session.openEvents(new URL(`http://127.0.0.1/events?clientId=${clientId}`), response as unknown as ServerResponse);
     return response;
 }
 
-/** 创建最小画布快照。 */
 function snapshot(projectId: string) {
     return { projectId, title: projectId, nodes: [], connections: [], selectedNodeIds: [], viewport: { x: 0, y: 0, k: 1 } };
 }
 
-/** 安全读取测试对象字段。 */
 function field(value: unknown, key: string) {
     return value && typeof value === "object" ? (value as Record<string, unknown>)[key] : undefined;
 }
 
-/** 模拟 Node SSE 响应并提供事件读取能力。 */
 class FakeSseResponse extends EventEmitter {
     private chunks: string[] = [];
-
-    /** 模拟写入响应头。 */
-    writeHead() {
-        return this;
-    }
-
-    /** 保存写入的 SSE 文本块。 */
-    write(chunk: string) {
-        this.chunks.push(chunk);
-        return true;
-    }
-
-    /** 读取指定类型的首个 SSE 事件数据。 */
-    event(type: string) {
-        return this.events(type)[0];
-    }
-
-    /** 读取指定类型的全部 SSE 事件数据。 */
+    writeHead() { return this; }
+    write(chunk: string) { this.chunks.push(chunk); return true; }
+    end() { this.close(); }
+    event(type: string) { return this.events(type)[0]; }
     events(type: string) {
         return this.chunks.flatMap((chunk) => {
             if (!chunk.startsWith(`event: ${type}\n`)) return [];
@@ -259,9 +156,5 @@ class FakeSseResponse extends EventEmitter {
             return data ? [JSON.parse(data) as unknown] : [];
         });
     }
-
-    /** 触发连接关闭事件。 */
-    close() {
-        this.emit("close");
-    }
+    close() { this.emit("close"); }
 }

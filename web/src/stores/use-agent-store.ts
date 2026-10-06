@@ -14,6 +14,7 @@ type AgentStoreData = {
     url: string;
     token: string;
     connected: boolean;
+    clientId: string;
     enabled: boolean;
     silentConnect: boolean;
     fragmentBootstrap: boolean;
@@ -42,6 +43,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     url: typeof window === "undefined" ? "http://127.0.0.1:17371" : localStorage.getItem("oioi-canvas-agent-url") || "http://127.0.0.1:17371",
     token: typeof window === "undefined" ? "" : localStorage.getItem("oioi-canvas-agent-token") || "",
     connected: false,
+    clientId: "",
     enabled: false,
     silentConnect: false,
     fragmentBootstrap: false,

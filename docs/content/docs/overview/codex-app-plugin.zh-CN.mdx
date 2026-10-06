@@ -35,7 +35,13 @@ codex plugin add oioi-canvas@oioi-canvas-local
 打开无限画布
 ```
 
-插件会启动本地 Canvas Agent，读取连接地址和 token，然后打开 `http://localhost:3100/?mode=new` 并自动新建、连接画布。
+插件会启动本地 Canvas Agent 的 HTTP 服务，并通过 stdio MCP 调用它，再由浏览器执行画布工具。默认打开 `http://localhost:3100/?mode=new` 并自动带上连接信息；本机站点须已启动，Canvas Agent 不提供网页站点。
+
+使用公网站点时明确给出地址。无论本机还是公网，必须在运行 Canvas Agent 的同一台电脑上的浏览器中打开，直接连接 loopback；远程浏览器或其他设备不能连接这台电脑的 `127.0.0.1`。
+
+对话、技能、历史和工具批准留在用户自己的原生 Agent；网页只显示连接信息，不托管对话、不做二次审批。有效写入请求自动执行，画布和素材主要保存在浏览器本地，不提供云同步。
+
+本轮目标绑定调整仍待测试：先调用 `canvas_list_clients({})` 查看目标，再 `canvas_bind_client({clientId, projectId})` 绑定列出的画布（非画布页可省略 `projectId`）。业务工具必须先绑定，切标签页不改变目标；导航或换画布后重新列出并绑定，断开时报错，不回退其他页。`canvas_release_client({})` 用于解除绑定。
 
 画布打开后可以继续说：
 

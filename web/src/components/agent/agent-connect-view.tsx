@@ -1,135 +1,90 @@
-import { Fragment } from "react";
-import { App, Button, Input, Tooltip } from "antd";
-import copyToClipboard from "copy-to-clipboard";
+import { useState } from "react";
+import { Input, Tooltip } from "antd";
 import { Copy, KeyRound, Link2, PlugZap } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { useCopyText } from "@/hooks/use-copy-text";
 import { canvasThemes } from "@/lib/canvas-theme";
+import { useAgentStore } from "@/stores/use-agent-store";
+import { useThemeStore } from "@/stores/use-theme-store";
 
-const AGENT_START_COMMAND = "npx -y @basketikun/canvas-agent@latest";
+const AGENT_START_COMMAND = "npx -y @oioi-npm/canvas-agent@latest";
+const MCP_COMMANDS = {
+    Codex: "codex mcp add oioi-canvas -- npx -y @oioi-npm/canvas-agent@latest mcp",
+    "Claude Code": "claude mcp add --scope user --transport stdio oioi-canvas -- npx -y @oioi-npm/canvas-agent@latest mcp",
+};
 
-export function AgentConnectView({
-    theme,
-    url,
-    token,
-    enabled,
-    connected,
-    activity,
-    connectError,
-    onUrlChange,
-    onTokenChange,
-    onToggleEnabled,
-}: {
-    theme: (typeof canvasThemes)[keyof typeof canvasThemes];
-    url: string;
-    token: string;
-    enabled: boolean;
-    connected: boolean;
-    activity: string;
-    connectError: string;
-    onUrlChange: (value: string) => void;
-    onTokenChange: (value: string) => void;
-    onToggleEnabled: () => void;
-}) {
+export function AgentConnectView({ onToggleEnabled }: { onToggleEnabled: () => void }) {
     const { t } = useTranslation();
-    const { message } = App.useApp();
-    const steps = [
-        { title: t("agent.connect.pluginTitle"), text: t("agent.connect.pluginText") },
-        { title: t("agent.connect.directTitle"), text: t("agent.connect.directText"), command: AGENT_START_COMMAND },
-    ];
-    const statusText = connectError || activity;
-    const statusColor = connectError ? "#dc2626" : connected ? "#16a34a" : enabled ? "#d97706" : theme.node.muted;
-    const copyCommand = (command: string) => {
-        if (copyToClipboard(command)) message.success(t("agent.connect.commandCopied"));
-    };
+    const theme = canvasThemes[useThemeStore((state) => state.theme)];
+    const { url, token, enabled, connected, connectError, clientId, canvasContext, setAgentState } = useAgentStore();
+    const [agent, setAgent] = useState<keyof typeof MCP_COMMANDS>("Codex");
+    const copyText = useCopyText();
+    const targetTitle = canvasContext?.snapshot.title || t("agent.connect.noCanvas");
+    const prompt = t("agent.connect.examplePrompt", { clientId, title: targetTitle });
+    const commandBlock = (command: string) => (
+        <div className="mt-2 flex items-start gap-2 rounded-xl px-2.5 py-2" style={{ background: theme.node.fill }}>
+            <code className="min-w-0 flex-1 break-all text-[11px] leading-5">{command}</code>
+            <Tooltip title={t("agent.connect.copyCommand")}>
+                <button type="button" className="grid size-7 shrink-0 place-items-center rounded-full transition hover:bg-black/5 dark:hover:bg-white/10" aria-label={t("agent.connect.copyCommand")} onClick={() => copyText(command)}>
+                    <Copy className="size-3.5" />
+                </button>
+            </Tooltip>
+        </div>
+    );
 
     return (
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
-            <div className="grid gap-4">
-                <div className="text-xs leading-5" style={{ color: theme.node.muted }}>
-                    {t("agent.connect.description")}
-                </div>
-                <div className="grid gap-3">
-                    {steps.map((step, index) => {
-                        const command = "command" in step ? step.command : "";
-                        return (
-                            <Fragment key={step.title}>
-                                <div className="rounded-lg border p-3" style={{ borderColor: theme.node.stroke }}>
-                                    <div className="flex items-start gap-2">
-                                        <span className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full text-[11px] font-medium" style={{ background: theme.node.stroke, color: theme.node.text }}>
-                                            {index + 1}
-                                        </span>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="text-sm font-medium leading-5">{step.title}</div>
-                                            <div className="mt-1 text-xs leading-5" style={{ color: theme.node.muted }}>
-                                                {step.text}
-                                            </div>
-                                            {command ? (
-                                                <div className="mt-2 flex items-center gap-2 rounded-md border bg-transparent px-2 py-1.5" style={{ borderColor: theme.node.stroke, color: theme.node.text }}>
-                                                    <code className="min-w-0 flex-1 overflow-x-auto whitespace-nowrap text-[11px] leading-5">{command}</code>
-                                                    <Tooltip title={t("agent.connect.copyCommand")}>
-                                                        <Button size="small" type="text" className="!h-6 !w-6 !min-w-6" icon={<Copy className="size-3.5" />} onClick={() => copyCommand(command)} />
-                                                    </Tooltip>
-                                                </div>
-                                            ) : null}
-                                        </div>
-                                    </div>
-                                </div>
-                            </Fragment>
-                        );
-                    })}
-                </div>
-                <div className="rounded-lg border p-3" style={{ borderColor: theme.node.stroke }}>
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                            <div className="flex min-w-0 items-center gap-2">
-                                <span className="shrink-0 text-sm font-medium leading-5">{t("agent.connect.webConnection")}</span>
-                                <span
-                                    className="inline-flex min-w-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] leading-4"
-                                    style={{ borderColor: connected || enabled || connectError ? statusColor : theme.node.stroke, color: statusColor }}
-                                >
-                                    <span className="size-1.5 shrink-0 rounded-full" style={{ background: statusColor }} />
-                                    <span className="truncate">{statusText}</span>
-                                </span>
-                            </div>
-                            <div className="mt-1 text-xs leading-5" style={{ color: theme.node.muted }}>
-                                {t("agent.connect.autoDiscover")}
-                            </div>
-                        </div>
-                        <Button className="!h-8 !px-3" type={enabled ? "default" : "primary"} icon={<PlugZap className="size-4" />} onClick={onToggleEnabled}>
-                            {enabled ? t("agent.connect.disconnect") : t("agent.connect.connect")}
-                        </Button>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-5 pt-1">
+            <p className="mb-4 text-xs leading-5" style={{ color: theme.node.muted }}>{t("agent.connect.description")}</p>
+            <div className="grid gap-3">
+                <section className="rounded-2xl border border-black/[0.06] p-3.5 dark:border-white/[0.08]" style={{ background: theme.node.panel }}>
+                    <h3 className="text-sm font-medium leading-5">{t("agent.connect.directTitle")}</h3>
+                    <p className="mt-1 text-xs leading-5" style={{ color: theme.node.muted }}>{t("agent.connect.directText")}</p>
+                    {commandBlock(AGENT_START_COMMAND)}
+                </section>
+                <section className="rounded-2xl border border-black/[0.06] p-3.5 dark:border-white/[0.08]" style={{ background: theme.node.panel }}>
+                    <h3 className="text-sm font-medium leading-5">{t("agent.connect.mcpTitle")}</h3>
+                    <p className="mt-1 text-xs leading-5" style={{ color: theme.node.muted }}>{t("agent.connect.mcpText")}</p>
+                    <div className="mt-2 flex gap-1">
+                        {(Object.keys(MCP_COMMANDS) as (keyof typeof MCP_COMMANDS)[]).map((name) => (
+                            <button type="button" key={name} aria-pressed={agent === name} onClick={() => setAgent(name)} className="rounded-full px-2.5 py-1 text-xs transition hover:bg-black/5 dark:hover:bg-white/10" style={{ background: agent === name ? theme.toolbar.activeBg : "transparent" }}>{name}</button>
+                        ))}
                     </div>
+                    {commandBlock(MCP_COMMANDS[agent])}
+                </section>
+                <section className="rounded-2xl border border-black/[0.06] p-3.5 dark:border-white/[0.08]" style={{ background: theme.node.panel }}>
+                    <div className="flex items-center justify-between gap-2">
+                        <h3 className="text-sm font-medium leading-5">{t("agent.connect.webConnection")}</h3>
+                        <button type="button" className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition hover:bg-black/5 dark:hover:bg-white/10" onClick={onToggleEnabled}>
+                            <PlugZap className="size-3.5" />
+                            {enabled ? t("agent.connect.disconnect") : t("agent.connect.connect")}
+                        </button>
+                    </div>
+                    <p className="mt-1 text-xs leading-5" style={{ color: theme.node.muted }}>{t("agent.connect.connectionText")}</p>
                     <div className="mt-3 grid gap-2.5">
                         <label className="grid gap-1.5">
-                            <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: theme.node.muted }}>
-                                <Link2 className="size-3.5" />
-                                {t("agent.connect.localAddress")}
-                                <span className="font-normal opacity-70">Local URL</span>
-                            </span>
-                            <Input size="large" prefix={<Link2 className="mr-1 size-4" style={{ color: theme.node.faint }} />} value={url} onChange={(event) => onUrlChange(event.target.value)} placeholder={t("agent.connect.urlPlaceholder")} />
+                            <span className="text-[11px] font-medium" style={{ color: theme.node.muted }}>{t("agent.connect.localAddress")}</span>
+                            <Input className="!h-9 !rounded-xl" prefix={<Link2 className="mr-1 size-3.5" style={{ color: theme.node.faint }} />} value={url} disabled={enabled} onChange={(event) => setAgentState({ url: event.target.value, connectError: "" })} placeholder={t("agent.connect.urlPlaceholder")} />
                         </label>
                         <label className="grid gap-1.5">
-                            <span className="flex items-center gap-1.5 text-xs font-medium" style={{ color: theme.node.muted }}>
-                                <KeyRound className="size-3.5" />
-                                {t("agent.connect.token")}
-                                <span className="font-normal opacity-70">Connect token</span>
-                            </span>
-                            <Input.Password
-                                size="large"
-                                prefix={<KeyRound className="mr-1 size-4" style={{ color: theme.node.faint }} />}
-                                value={token}
-                                onChange={(event) => onTokenChange(event.target.value)}
-                                placeholder={t("agent.connect.tokenPlaceholder")}
-                            />
+                            <span className="text-[11px] font-medium" style={{ color: theme.node.muted }}>{t("agent.connect.token")}</span>
+                            <Input.Password className="!h-9 !rounded-xl" prefix={<KeyRound className="mr-1 size-3.5" style={{ color: theme.node.faint }} />} value={token} disabled={enabled} onChange={(event) => setAgentState({ token: event.target.value, connectError: "" })} placeholder={t("agent.connect.tokenPlaceholder")} />
                         </label>
-                        {connectError ? (
-                            <div className="rounded-md border px-2.5 py-2 text-xs leading-5" style={{ borderColor: "rgba(220,38,38,.35)", color: "#dc2626" }}>
-                                {connectError}
-                            </div>
-                        ) : null}
+                        {connectError ? <p role="alert" className="text-xs leading-5 text-red-600 dark:text-red-400">{connectError}</p> : null}
                     </div>
-                </div>
+                </section>
+                <section className="px-1 pt-1">
+                    <h3 className="text-sm font-medium leading-5">{t("agent.connect.useTitle")}</h3>
+                    <p className="mt-1 text-xs leading-5" style={{ color: theme.node.muted }}>{t("agent.connect.useText")}</p>
+                    {connected && clientId ? (
+                        <div className="mt-2">
+                            <div className="text-xs leading-5">{t("agent.connect.currentTarget", { title: targetTitle })}</div>
+                            <div className="break-all text-[11px] leading-5" style={{ color: theme.node.muted }}>clientId: {clientId}</div>
+                            <button type="button" className="mt-1 inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-xs transition hover:bg-black/5 dark:hover:bg-white/10" onClick={() => copyText(prompt)}><Copy className="size-3.5" />{t("agent.connect.copyPrompt")}</button>
+                        </div>
+                    ) : null}
+                    <p className="mt-2 text-[11px] leading-5" style={{ color: theme.node.muted }}>{t("agent.connect.localOnly")}</p>
+                </section>
             </div>
         </div>
     );

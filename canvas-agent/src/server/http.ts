@@ -42,7 +42,7 @@ export function startHttpServer() {
         session.openEvents(requestUrl(req, config), res);
     });
     app.post("/canvas/state", (req, res) => {
-        session.updateState(req.body, String(req.query.clientId || "") || undefined);
+        session.updateState(req.body, String(req.query.clientId || ""));
         res.json({ ok: true });
     });
     app.post("/canvas/activate", (req, res) => {
@@ -53,14 +53,7 @@ export function startHttpServer() {
         const ok = session.resolveResult(String(req.query.clientId || ""), req.body);
         res.status(ok ? 200 : 409).json({ ok });
     });
-    app.get("/agent/attachments/:attachmentId", route(async (req, res) => {
-        const attachment = session.getTurnAttachment(String(req.query.clientId || ""), routeParam(req.params.attachmentId));
-        const data = attachment.dataUrl.split(",", 2)[1];
-        if (!data) throw new Error("图片附件内容无效");
-        res.setHeader("Cache-Control", "no-store");
-        res.type(attachment.type).send(Buffer.from(data, "base64"));
-    }));
-    app.post("/api/tools", route(async (req, res) => res.json({ ok: true, result: await session.callTool(req.body?.name, req.body?.input || {}) })));
+    app.post("/api/tools", route(async (req, res) => res.json({ ok: true, result: await session.callTool(req.body?.name, req.body?.input || {}, req.body?.bindingId) })));
     app.use((_req, res) => res.status(404).json({ ok: false, error: "not found" }));
     app.use((error: Error, req: Request, res: Response, _next: NextFunction) => {
         logger.error("HTTP request failed", { method: req.method, path: req.path, error });
@@ -72,9 +65,10 @@ export function startHttpServer() {
         checkVersions();
         console.log(`Local URL: ${config.url}`);
         console.log(`Connect token: ${config.token}`);
-        console.log("Codex MCP is not installed by this command.");
-        console.log("Optional MCP add: codex mcp add oioi-canvas -- npx -y @basketikun/canvas-agent@latest mcp");
-        console.log("Remove manually added MCP: codex mcp remove oioi-canvas");
+        console.log("Register MCP in your own Codex or Claude Code (skip if the plugin already provides it).");
+        console.log("Codex: codex mcp add oioi-canvas -- npx -y @oioi-npm/canvas-agent@latest mcp");
+        console.log("Claude: claude mcp add --scope user --transport stdio oioi-canvas -- npx -y @oioi-npm/canvas-agent@latest mcp");
+        console.log("After connecting the browser, use canvas_list_clients and canvas_bind_client in your Agent.");
         if (logger.enabled) console.log(`Debug log: ${logger.filePath}`);
         logger.info("Canvas Agent started", { url: config.url, debugLog: logger.filePath });
     });
@@ -83,11 +77,6 @@ export function startHttpServer() {
 /** 将异步 Express 路由异常交给统一错误处理中间件。 */
 function route(handler: (req: Request, res: Response) => Promise<unknown>) {
     return (req: Request, res: Response, next: NextFunction) => void handler(req, res).catch(next);
-}
-
-/** 从 Express 路由参数中读取单个字符串。 */
-function routeParam(value: string | string[]) {
-    return Array.isArray(value) ? value[0] || "" : value;
 }
 
 /** 结合服务配置解析当前请求 URL。 */

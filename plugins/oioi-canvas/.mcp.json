@@ -2,7 +2,7 @@
   "mcpServers": {
     "oioi-canvas": {
       "command": "npx",
-      "args": ["-y", "@basketikun/canvas-agent@latest", "mcp"],
+      "args": ["-y", "@oioi-npm/canvas-agent@latest", "mcp"],
       "startup_timeout_sec": 60,
       "tool_timeout_sec": 90
     }

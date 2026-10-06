@@ -6,6 +6,18 @@ const viewportSchema = z.object({ x: z.number(), y: z.number(), k: z.number() })
 const nodeTypeSchema = z.enum(["image", "text", "config", "video", "audio"]);
 const generationModeSchema = z.enum(["text", "image", "video", "audio"]);
 
+export const bindingToolInputSchemas = {
+    canvas_list_clients: z.object({}),
+    canvas_bind_client: z.object({ clientId: z.string().trim().min(1), projectId: z.string().trim().min(1).optional() }),
+    canvas_release_client: z.object({}),
+};
+export type BindingToolName = keyof typeof bindingToolInputSchemas;
+export const bindingToolDescriptions: Record<BindingToolName, string> = {
+    canvas_list_clients: "列出本机 bridge 已连接的浏览器页面（clientId、path、pageTitle、projectId、title、active）和当前 MCP 进程的绑定。active 仅作焦点参考，不会自动选择目标。",
+    canvas_bind_client: "明确绑定 clientId 及该页面当前画布，用于后续连续工具调用；可传列表中的 projectId 防止选择期间页面已切换。网页断线或切换画布时不会自动改目标；打开新画布后需重新绑定。",
+    canvas_release_client: "解除当前 MCP 进程的页面/画布绑定；后续业务工具需重新明确绑定。",
+};
+
 /** Canvas Agent 对外提供的工具名称。 */
 export const toolNames = [
     "site_navigate",
@@ -15,7 +27,6 @@ export const toolNames = [
     "canvas_export_snapshot",
     "canvas_apply_ops",
     "canvas_create_node",
-    "canvas_create_attachment_nodes",
     "canvas_create_text_node",
     "canvas_create_text_nodes",
     "canvas_create_config_node",
@@ -97,7 +108,6 @@ export const toolInputSchemas = {
     canvas_export_snapshot: z.object({}).passthrough(),
     canvas_apply_ops: z.object({ ops: z.array(canvasOpSchema) }),
     canvas_create_node: z.object({ nodeType: nodeTypeSchema, title: z.string().optional(), x: z.number().optional(), y: z.number().optional(), width: z.number().optional(), height: z.number().optional(), metadata: recordSchema.optional() }),
-    canvas_create_attachment_nodes: z.object({ attachmentIds: z.array(z.string()).min(1), x: z.number().optional(), y: z.number().optional(), gap: z.number().optional(), direction: z.enum(["row", "column"]).optional() }),
     canvas_create_text_node: z.object({ text: z.string().optional(), x: z.number().optional(), y: z.number().optional(), title: z.string().optional(), width: z.number().optional(), height: z.number().optional() }),
     canvas_create_text_nodes: z.object({ items: z.array(textNodeSchema).min(1), x: z.number().optional(), y: z.number().optional(), gap: z.number().optional(), direction: z.enum(["row", "column"]).optional() }),
     canvas_create_config_node: z.object({ prompt: z.string().optional(), mode: generationModeSchema.optional(), title: z.string().optional(), x: z.number().optional(), y: z.number().optional(), width: z.number().optional(), height: z.number().optional(), autoRun: z.boolean().optional() }).merge(generationOptionsSchema),
@@ -134,7 +144,6 @@ export const toolDescriptions: Record<ToolName, string> = {
     canvas_export_snapshot: "导出当前画布快照，用于理解布局。",
     canvas_apply_ops: "批量操作当前网页画布。ops 支持 add_node、update_node、delete_node、delete_connections、connect_nodes、set_viewport、select_nodes、run_generation。",
     canvas_create_node: "创建任意类型节点：text、image、config、video、audio。适合创建占位图、媒体占位、配置节点或自定义 metadata 节点。",
-    canvas_create_attachment_nodes: "把当前对话中用户上传的图片附件创建成真实画布图片节点。attachmentIds 使用本轮附件清单中的 ID；返回的节点 ID 可传给 canvas_create_generation_flow.referenceNodeIds 作为生成参考图。",
     canvas_create_text_node: "在当前画布创建单个文本节点。",
     canvas_create_text_nodes: "批量创建文本节点，适合生成标题、段落、脚本、说明等内容块。",
     canvas_create_config_node: "创建生成配置节点，可指定 text/image/video/audio 模式和生成参数，可选择立即触发生成。",
@@ -153,7 +162,7 @@ export const toolDescriptions: Record<ToolName, string> = {
     canvas_select_nodes: "设置当前选中节点。",
     canvas_set_viewport: "调整画布视口。",
     canvas_run_generation: "触发指定节点生成，通常用于配置节点或文本/图片/视频/音频节点。",
-    generation_get_status: "查询当前活动网页的生成任务状态。默认返回画布、生图工作台和视频工作台最近任务；可用 scope 过滤来源，用 taskId 查询工作台任务，用 nodeIds 查询画布节点。",
+    generation_get_status: "查询绑定网页的生成任务状态。默认返回画布、生图工作台和视频工作台最近任务；可用 scope 过滤来源，用 taskId 查询工作台任务，用 nodeIds 查询画布节点。",
     workbench_image_get_config: "读取生图工作台的当前参数和可选项（可用模型、质量、分辨率 1k/2k/4k/auto、宽高比、张数范围），在调用 workbench_image_generate 前先了解可选值。",
     workbench_image_generate: "在生图工作台填入提示词并按需设置 model、quality、size（如 16:9 或 2048x1152）、count，run 默认 true 会自动点击生成按钮。会自动跳转到生图工作台。生成为异步过程，提交后返回 taskId，可用 generation_get_status 查询状态。",
     workbench_video_get_config: "读取视频创作台的当前参数和可选项（可用模型、清晰度 480/720/1080、比例 1:1/3:4/4:3/16:9/9:16/21:9/auto、时长 4–30 秒、首尾帧或全能参考模式、是否生成声音与水印）。",

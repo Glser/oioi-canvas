@@ -1,120 +1,59 @@
 # oioi-canvas Agent
 
-本地 Canvas Agent 用来把网页画布接到用户自己的 Codex / Claude Code。对话、技能和日志都在用户的 Agent 里完成，网页只负责连接和执行画布工具。
+本机 HTTP bridge 将同电脑浏览器的 oioi Canvas 接到用户自己的原生 Codex / Claude Code：`原生 Agent → stdio MCP → 本机 bridge → 浏览器工具`。对话、模型、权限、技能和历史由原生 Agent 管理，bridge 不运行 Agent 执行引擎。
 
-本地开发时优先连接 `http://localhost:3100`。云端打开的画布也是连你电脑上的 `127.0.0.1`，不需要内网穿透。
+## 快速开始
 
-## 启动
+新包 `@oioi-npm/canvas-agent` 尚未发布；以下 npx 命令需待新包发布后使用，发布前请按「连接与开发」运行本地源码。
 
-```bash
-npx -y @basketikun/canvas-agent@latest
-```
+1. 在电脑终端启动 bridge，保持终端运行：
 
-带上 `@latest` 是因为 npx 会缓存已下载的版本，不加就可能一直运行旧版本。
+   ```bash
+   npx -y @oioi-npm/canvas-agent@latest
+   ```
 
-需要排查连接或工具调用问题时，可开启 Debug 模式：
+   终端会输出 `Local URL: http://127.0.0.1:17371` 和 `Connect token`。`@latest` 避免 npx 一直使用旧缓存；排查问题时可在命令后加 `--debug`，日志位于 `~/.oioi-canvas/logs/`，token 与图片 Data URL 会隐藏。
 
-```bash
-npx -y @basketikun/canvas-agent@latest --debug
-```
+2. 给原生 Agent 注册 MCP；已有 oioi-canvas 插件提供 MCP 时跳过，避免重复注册。
 
-Debug 日志会保存到 `~/.oioi-canvas/logs/canvas-agent-YYYY-MM-DD.log`。终端日志带级别颜色，文件日志为纯文本；token 与图片 Data URL 会自动隐藏。
+   Codex：
 
-本仓库开发时也可以直接运行：
+   ```bash
+   codex mcp add oioi-canvas -- npx -y @oioi-npm/canvas-agent@latest mcp
+   ```
 
-```bash
-cd canvas-agent
-npm install
-npm run build
-node dist/index.js
-```
+   Claude Code：
 
-启动后会输出本机地址和 token：
+   ```bash
+   claude mcp add --scope user --transport stdio oioi-canvas -- npx -y @oioi-npm/canvas-agent@latest mcp
+   ```
 
-```txt
-Local URL: http://127.0.0.1:17371
-Connect token: xxxxxx
-```
+   默认启动命令仅运行 bridge，`mcp` 子命令仅提供 stdio 工具，两者不是同一个进程。MCP 从 `~/.oioi-canvas/canvas-agent.json` 读取同一地址和 token。
 
-在画布右上角点击 `Agent`，按连接说明操作。安装 oioi-canvas 插件后，Codex 会读取 Local URL 和 Connect token 并直接打开画布；Canvas Agent 不负责生成画布打开 URL。
+3. 打开网页 Agent 侧栏，填写终端输出的地址/token 并连接，然后回原生 Agent 对话中操作。云端网页也连接你电脑的 loopback 地址，不需要内网穿透；本地网页开发地址通常为 `http://localhost:3100`，它不是 bridge 地址。
 
-Canvas Agent 默认只监听 `127.0.0.1`。网页第一次带正确 token 连接后，Canvas Agent 会记录该网页 Origin；之后其他 Origin 不能复用这个本地 Agent，除非用户清理 `~/.oioi-canvas/canvas-agent.json` 里的 `origins`。
+## 目标选择与工具
 
-## 发布
+- 首先调用 `canvas_list_clients({})`，根据页面路径、标题、画布 ID 选择目标；多个标签页无法确定时询问用户，不以焦点自动选择。
+- 调用 `canvas_bind_client({clientId, projectId?})`。可传列表中的 `projectId` 检查选择期间画布未变化；绑定始终记录此刻页面的画布 ID。
+- 每个 MCP 进程独立保持绑定，后续站点工具只发到该页面，画布工具还会核对项目 ID。焦点变化不改目标，断线不回退到其他标签页。
+- `site_navigate` 可以在绑定页面打开其他画布；项目加载后重新 list/bind 才能操作新画布。旧绑定不会跟随导航自动更新。
+- 结束或换目标时调用 `canvas_release_client({})`，再明确重新绑定。
 
-`canvas-agent` 使用自己的 `package.json` 版本号，不跟仓库根目录 `VERSION` 绑定。推送到 `main` 后，GitHub Actions 会检查 npm 上是否已经存在当前包版本；不存在时才发布 `@basketikun/canvas-agent`。
+保留画布读取/批量操作/生成、画布项目列表、站点导航、图片/视频工作台、提示词库和素材工具。图片素材可用 `assets_add` 的 `imageUrl`（URL 或 dataURL）；画布图片节点用 `canvas_create_node`/`canvas_apply_ops` 的真实媒体 metadata。原生 Agent 的附件和原生生图结果不会自动导入浏览器。
 
-发布前需要在 GitHub 仓库 Secrets 中配置 `NPM_TOKEN`。
+权限审批遵循原生 Agent 配置；浏览器收到已授权工具后直接执行，不提供网页聊天或第二套审批流程。
 
-## Codex MCP
+## 连接与开发
 
-直接运行 `npx -y @basketikun/canvas-agent@latest` 只启动本机网页连接服务，不会安装 MCP。只有安装 oioi-canvas 插件，或手动执行 `codex mcp add` 后，`oioi-canvas` 工具才会进入 Codex 上下文。
+bridge 默认只监听 `127.0.0.1`。每个带正确 token 的网页 Origin 都可以被授权并记录到配置，不是首个 Origin 独占；token 属于连接凭证，不要分享。`/config` 只返回地址、协议版本和是否配置 token，不泄露 token。
 
-通过插件安装时移除插件：
+开发时在本目录安装依赖后使用 `npm run dev`，或构建后运行 `node dist/index.js`。注册开发 MCP 时，将命令改成 `node /绝对路径/canvas-agent/dist/index.js mcp`。
 
-```bash
-codex plugin remove oioi-canvas
-```
+手动移除 MCP 使用 `codex mcp remove oioi-canvas` 或 `claude mcp remove --scope user oioi-canvas`；插件安装的 MCP 应通过对应 Agent 移除插件。
 
-手动添加 MCP 时移除 MCP：
+## 文档与发布
 
-```bash
-codex mcp remove oioi-canvas
-```
+操作指令见 [agent-instructions.md](./agent-instructions.md)，完整文档和待测试变更见仓库 `docs/`，插件入口见 `plugins/oioi-canvas/`。
 
-### Codex app 插件
-
-仓库内提供了 Codex app 插件：`plugins/oioi-canvas`。在 Codex app 中添加本仓库的 marketplace 后，可以安装 `oioi Canvas` 插件；插件会注册 `oioi-canvas` MCP，并带上画布操作说明。
-
-添加本地 marketplace 时建议使用仓库绝对路径：
-
-```bash
-cd /path/to/oioi-canvas
-codex plugin marketplace add "$(pwd)"
-codex plugin add oioi-canvas@oioi-canvas-local
-```
-
-插件默认通过 npm 启动 MCP；这个命令只提供 MCP 工具，不会把 MCP 写入全局配置：
-
-```bash
-npx -y @basketikun/canvas-agent@latest mcp
-```
-
-使用时可以直接在 Codex 里说“打开无限画布”，插件会启动本地 Agent，读取 Local URL 和 Connect token，然后打开 `http://localhost:3100/?mode=new` 并自动新建、连接画布。
-
-手动给 Codex 添加 MCP：
-
-```bash
-codex mcp add oioi-canvas -- npx -y @basketikun/canvas-agent@latest mcp
-```
-
-本仓库开发时可以改成：
-
-```bash
-codex mcp add oioi-canvas -- node /path/to/oioi-canvas/canvas-agent/dist/index.js mcp
-```
-
-如果希望终端里的 Codex 不被 MCP 审批卡住，可以在 `~/.codex/config.toml` 里给这个 MCP 设置自动放行：
-
-```toml
-[mcp_servers.oioi-canvas]
-command = "npx"
-args = ["-y", "@basketikun/canvas-agent@latest", "mcp"]
-default_tools_approval_mode = "approve"
-```
-
-网页收到画布写操作后会自动执行，不再二次确认。
-
-## Claude Code
-
-如果希望 Claude Code 也能操作画布，需要添加同一个 MCP。建议用 user scope：
-
-```bash
-claude mcp add --scope user --transport stdio oioi-canvas -- npx -y @basketikun/canvas-agent@latest mcp
-```
-
-本仓库开发时可以改成：
-
-```bash
-claude mcp add --scope user --transport stdio oioi-canvas -- node /path/to/oioi-canvas/canvas-agent/dist/index.js mcp
-```
+本包版本独立于根目录 `VERSION`。npm 旧包不会自动迁移到新包名；首次发布须具备 `@oioi-npm` scope 的真实发布权限，并以 public 发布。使用本机已登录的 npm 账号手动发布，按 npm 提示完成双重验证；仓库不提供此包的 GitHub Actions 发布工作流，推送代码不会发布 npm 包。新包仍未发布。

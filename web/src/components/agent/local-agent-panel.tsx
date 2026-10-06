@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { App, Button, Tooltip } from "antd";
+import { App, Tooltip } from "antd";
 import { Bot, PanelRightClose } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
@@ -9,21 +9,18 @@ import i18n from "@/i18n";
 import { readAgentUrlBootstrap } from "@/lib/agent/agent-url-bootstrap";
 import { isSiteTool, runSiteTool } from "@/lib/agent/agent-site-tools";
 import { canvasThemes } from "@/lib/canvas-theme";
-import { imageMetadata } from "@/lib/canvas/canvas-node-factory";
-import { fitNodeSize } from "@/lib/canvas/canvas-node-size";
 import { randomId } from "@/lib/utils";
-import { uploadImage } from "@/services/image-storage";
-import { activateAgentClient, discoverAgentConfig, postState, postToolResult } from "@/services/api/canvas-agent";
+import { activateAgentClient, postState, postToolResult } from "@/services/api/canvas-agent";
 import { useThemeStore } from "@/stores/use-theme-store";
 import { useAgentStore, type AgentCanvasContext } from "@/stores/use-agent-store";
 import { type CanvasAgentOp, type CanvasAgentSnapshot } from "@/lib/canvas/canvas-agent-ops";
 import { AgentConnectView } from "./agent-connect-view";
 
 const DEFAULT_AGENT_URL = "http://127.0.0.1:17371";
-const AGENT_PROTOCOL_VERSION = 6;
+const AGENT_PROTOCOL_VERSION = 7;
 const rt = (key: string, options?: Record<string, unknown>) => i18n.t(`agent.runtime.${key}`, options);
 
-type AgentPendingToolCall = { requestId: string; name: string; input?: { ops?: CanvasAgentOp[]; path?: string; nodes?: unknown } & Record<string, unknown> };
+type AgentPendingToolCall = { requestId: string; clientId: string; expectedProjectId?: string; name: string; input?: { ops?: CanvasAgentOp[]; path?: string } & Record<string, unknown> };
 type AgentHelloEvent = { ok?: boolean; protocolVersion?: number };
 type AgentClientGlobal = typeof globalThis & { __oioiCanvasAgentClientIdPromise?: Promise<string> };
 
@@ -39,16 +36,15 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
     const { t } = useTranslation();
     const theme = canvasThemes[useThemeStore((state) => state.theme)];
     const { message } = App.useApp();
-    const { hash } = useLocation();
+    const { hash, pathname } = useLocation();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { url, token, connected, enabled, activity, connectError } = useAgentStore(
+    const { url, token, connected, enabled, connectError } = useAgentStore(
         useShallow((state) => ({
             url: state.url,
             token: state.token,
             connected: state.connected,
             enabled: state.enabled,
-            activity: state.activity,
             connectError: state.connectError,
         })),
     );
@@ -68,11 +64,16 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
         void acquireAgentClientId().then((clientId) => {
             if (!disposed) {
                 clientIdRef.current = clientId;
+                setAgentState({ clientId });
                 setClientReady(true);
             }
         });
         return () => { disposed = true; };
-    }, []);
+    }, [setAgentState]);
+
+    useEffect(() => {
+        if (connected) void postState(endpoint, token, clientIdRef.current, canvasContextRef.current?.snapshot || null);
+    }, [connected, pathname, endpoint, token]);
 
     useEffect(() => {
         let timer: ReturnType<typeof setTimeout> | null = null;
@@ -166,16 +167,15 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
         };
     }, [connected, endpoint, token]);
 
-    const toggleAgentConnection = async ({ silent = false }: { silent?: boolean } = {}) => {
+    const toggleAgentConnection = ({ silent = false }: { silent?: boolean } = {}) => {
         if (enabled) {
             setAgentState({ enabled: false, connected: false, activity: rt("offline"), connectError: "", fragmentBootstrap: false, silentConnect: false });
             return;
         }
         const urlToken = searchParams.get("agentToken") || "";
         const urlEndpoint = searchParams.get("agentUrl") || "";
-        const discovered = urlToken ? null : await discoverAgentConfig(endpoint || DEFAULT_AGENT_URL);
-        const nextEndpoint = (urlEndpoint || discovered?.url || endpoint || DEFAULT_AGENT_URL).trim().replace(/\/$/, "");
-        const nextToken = (urlToken || token.trim() || discovered?.token || "").trim();
+        const nextEndpoint = (urlEndpoint || endpoint || DEFAULT_AGENT_URL).trim().replace(/\/$/, "");
+        const nextToken = (urlToken || token.trim()).trim();
         if (!nextEndpoint) {
             const text = rt("addressRequired");
             if (!silent) {
@@ -240,33 +240,28 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
     if (!embedded) return null;
     return (
         <>
-            <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b px-2" style={{ borderColor: theme.node.stroke }}>
-                <div className="flex min-w-0 items-center gap-1">
-                    <span className="grid size-8 place-items-center">
-                        <Bot className="size-4" />
-                    </span>
-                    <div className="text-base font-semibold leading-5">{t("agent.connect.title")}</div>
+            <div className="flex h-12 shrink-0 items-center justify-between gap-2 px-3">
+                <div className="flex min-w-0 items-center gap-2">
+                    <Bot className="size-4 shrink-0 opacity-80" />
+                    <div className="text-sm font-semibold leading-5">{t("agent.connect.title")}</div>
                     <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] leading-4" style={{ color: connectionStatusColor }}>
                         <span className="size-1.5 shrink-0 rounded-full" style={{ background: connectionStatusColor }} />
                         <span className="truncate">{connectionStatus}</span>
                     </span>
                 </div>
                 <Tooltip title={t("agent.panel.collapse")}>
-                    <Button type="text" shape="circle" className="!h-8 !w-8 !min-w-8" aria-label={t("agent.panel.collapseLabel")} style={{ color: theme.node.muted }} icon={<PanelRightClose className="size-4" />} onClick={closePanel} />
+                    <button
+                        type="button"
+                        className="grid size-8 place-items-center rounded-full transition hover:bg-black/5 dark:hover:bg-white/10"
+                        aria-label={t("agent.panel.collapseLabel")}
+                        style={{ color: theme.node.muted }}
+                        onClick={closePanel}
+                    >
+                        <PanelRightClose className="size-4" />
+                    </button>
                 </Tooltip>
             </div>
-            <AgentConnectView
-                theme={theme}
-                url={url}
-                token={token}
-                enabled={enabled}
-                connected={connected}
-                activity={activity}
-                connectError={connectError}
-                onUrlChange={(value) => setAgentState({ url: value, connectError: "" })}
-                onTokenChange={(value) => setAgentState({ token: value, connectError: "" })}
-                onToggleEnabled={() => void toggleAgentConnection()}
-            />
+            <AgentConnectView onToggleEnabled={() => void toggleAgentConnection()} />
         </>
     );
 }
@@ -278,74 +273,33 @@ async function runToolCall(
     navigate: ReturnType<typeof useNavigate>,
     clientIdRef: { current: string },
 ) {
-    if (isSiteTool(payload.name)) {
-        try {
-            const result = await runSiteTool(payload.name, payload.input || {}, navigate, { canvasSnapshot: useAgentStore.getState().canvasContext?.snapshot || null });
-            await postToolResult(endpoint, token, clientIdRef.current, { requestId: payload.requestId, result });
-        } catch (error) {
-            const message = error instanceof Error ? error.message : rt("toolExecutionFailed");
-            await postToolResult(endpoint, token, clientIdRef.current, { requestId: payload.requestId, error: message });
-        }
-        return;
-    }
+    if (payload.clientId !== clientIdRef.current) return;
     try {
-        const input: { ops?: CanvasAgentOp[]; path?: string } = payload.input || {};
-        let result: unknown;
-        let appliedOps = input.ops || [];
         const context = useAgentStore.getState().canvasContext;
-        if (payload.name === "site_navigate") {
-            const path = input.path || "/";
+        if (payload.expectedProjectId !== undefined && payload.expectedProjectId !== (context?.snapshot.projectId || "")) throw new Error(rt("targetChanged"));
+        let result: unknown;
+        if (isSiteTool(payload.name)) {
+            result = await runSiteTool(payload.name, payload.input || {}, navigate, { canvasSnapshot: context?.snapshot || null });
+        } else if (payload.name === "site_navigate") {
+            const path = payload.input?.path || "/";
             navigate(path);
             result = { ok: true, path };
         } else if (payload.name === "canvas_apply_ops") {
             if (!context) throw new Error(rt("openCanvasFirst"));
-            result = context.applyOps(appliedOps);
+            result = context.applyOps(payload.input?.ops || []);
+            useAgentStore.getState().setCanvasContext({ ...context, snapshot: result as CanvasAgentSnapshot, canUndo: true });
             void postState(endpoint, token, clientIdRef.current, result as CanvasAgentSnapshot);
-        } else if (payload.name === "canvas_create_attachment_nodes") {
+        } else if (payload.name === "canvas_get_state") {
             if (!context) throw new Error(rt("openCanvasFirst"));
-            appliedOps = await attachmentNodeOps(endpoint, token, clientIdRef.current, payload.input?.nodes);
-            result = context.applyOps(appliedOps);
-            await postState(endpoint, token, clientIdRef.current, result as CanvasAgentSnapshot);
-        } else {
-            if (!context?.snapshot) throw new Error(rt("openCanvasFirst"));
             result = context.snapshot;
+        } else {
+            throw new Error(i18n.t("agent.siteTools.unknownTool", { name: payload.name }));
         }
         await postToolResult(endpoint, token, clientIdRef.current, { requestId: payload.requestId, result });
     } catch (error) {
         const message = error instanceof Error ? error.message : rt("canvasOperationFailed");
         await postToolResult(endpoint, token, clientIdRef.current, { requestId: payload.requestId, error: message });
     }
-}
-
-async function attachmentNodeOps(endpoint: string, token: string, clientId: string, value: unknown): Promise<CanvasAgentOp[]> {
-    const nodes = Array.isArray(value) ? value : [];
-    if (!nodes.length) throw new Error(rt("noImageAttachments"));
-    return await Promise.all(
-        nodes.map(async (value) => {
-            const item = value as { id?: unknown; attachmentId?: unknown; title?: unknown; position?: unknown };
-            const id = String(item.id || "");
-            const attachmentId = String(item.attachmentId || "");
-            if (!id || !attachmentId) throw new Error(rt("invalidAttachmentNode"));
-            const res = await fetch(`${endpoint}/agent/attachments/${encodeURIComponent(attachmentId)}?token=${encodeURIComponent(token)}&clientId=${encodeURIComponent(clientId)}`);
-            if (!res.ok) {
-                const body = (await res.json().catch(() => null)) as { error?: string } | null;
-                throw new Error(body?.error || rt("attachmentReadFailed"));
-            }
-            const image = await uploadImage(await res.blob());
-            const size = fitNodeSize(image.width, image.height);
-            const position = item.position && typeof item.position === "object" ? (item.position as { x?: unknown; y?: unknown }) : {};
-            return {
-                type: "add_node" as const,
-                id,
-                nodeType: "image" as const,
-                title: String(item.title || rt("referenceImage")),
-                position: { x: Number(position.x) || 0, y: Number(position.y) || 0 },
-                width: size.width,
-                height: size.height,
-                metadata: imageMetadata(image),
-            };
-        }),
-    );
 }
 
 function acquireAgentClientId() {

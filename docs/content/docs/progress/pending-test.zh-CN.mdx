@@ -5,7 +5,13 @@ description: 当前版本已实现但仍需人工验证的变更项
 
 # 待测试
 
-- Agent 侧边栏：打开后只显示如何连接（安装 oioi-canvas 插件、本机启动 Canvas Agent、网页 Local URL / Token），不应再出现对话、技能、日志、历史、输入框或二次确认。画布写操作应自动执行。
+- npm 包改名：仓库启动命令、Codex / Claude Code / ZCode MCP 配置、npm/Bun 锁文件和版本检查统一使用 `@oioi-npm/canvas-agent`，MCP 名称 `oioi-canvas`、可执行文件 `canvas-agent` 与配置目录不变。新包尚未发布，发布后再验收 npx 启动、MCP 工具加载及更新提醒；npm 包由本机手动发布，不提供 GitHub Actions 发布工作流，推送代码不会发布 npm 包。正式发布事项保留在 TODO。
+
+- 原生 Agent 接入与侧栏指引：按「启动本机服务 → 添加 Codex / Claude Code MCP → 填入地址与 Token 连接网页」完成接入；切换 Agent 类型可复制对应注册命令，已安装插件可跳过注册。确认不再承诺自动发现 Token，连接中地址与 Token 不可编辑；连接后显示当前页面和 clientId，可复制操作指令回到原生 Agent 对话。网页不显示聊天、审批、技能或历史。
+- MCP 目标隔离（协议 7）：先调用 `canvas_list_clients`，再用 `canvas_bind_client({clientId, projectId?})` 明确绑定；未绑定业务工具应拒绝执行。同一任务切换标签不能转移目标，每个 stdio MCP 进程绑定独立；页面切换画布后应拒绝旧绑定的画布读写，重新列出并绑定后才恢复；加载期间不能读取尚未恢复或旧项目的节点。断开目标页不应回退到其他页面，`canvas_release_client` 可释放绑定；协议不一致应拒绝连接并提示更新。
+- 本地桥接清理：启动 Canvas Agent 不再检测或要求安装 Codex，保留桥接自身版本提醒；只提供 HTTP / SSE / stdio MCP 工具链，不启动 Codex app-server / Claude CLI，不托管会话、历史、技能或附件。原生 Agent 可通过现行素材工具及节点 metadata 接入图片；删除的旧附件工具不应再出现在 MCP 列表。
+
+- Agent 侧边栏：打开后只显示连接指引（启动桥接服务、注册 Codex / Claude Code MCP 或使用插件、填写网页 Local URL / Token），不应再出现对话、技能、日志、历史、输入框或二次确认。画布写操作应自动执行。
 - Canvas Agent：启动后只提供网页连接和画布工具桥，不再创建或恢复 Codex 会话，也不再提供对话、技能、线程或日志接口。
 - 标识更名：浏览器数据库、导出和同步的 app 名为 `oioi-canvas`；Canvas Agent 配置目录为 `~/.oioi-canvas`；MCP 名为 `oioi-canvas`。
 - Codex 插件：安装 `oioi-canvas@oioi-canvas-local` 后，在新对话中说「打开无限画布」应打开 `http://localhost:3100/?mode=new` 并带上 agent 连接参数，自动新建画布并完成连接。`mode=recent` 应打开最近画布，`mode=choose` 应留在首页。访问 `/canvas` 时应保留 search 和 hash。
@@ -32,15 +38,14 @@ description: 当前版本已实现但仍需人工验证的变更项
 - 国际化基础框架：从页面右上角切换简体中文或 English 后，首页、顶部及移动端导航、版本弹窗、配置主面板、渠道编辑、模型选择、页面标题、页面描述和 Ant Design 内置文案应立即切换，刷新页面后保持所选语言；偏好设置中不应再显示语言选项，WebDAV 同步错误、提示词来源及其他尚未接入翻译的业务模块暂时仍可能显示中文。
 - 全局弹层主题：全站 Dropdown、Menu、Select、Cascader、TreeSelect 等弹层在浅色主题下应使用白色背景、轻灰悬停和选中态，在深色主题下应使用深色背景与低对比度浅色交互态，不应再出现默认黑灰色块、文字对比不足或单个页面配色不一致。
 - 画布节点缩放稳定性：选中任意节点并反复拖动四角缩放时，节点工具条应在缩放期间隐藏、松开后恢复，页面不应再出现 `Maximum update depth exceeded`。
-- Agent 画布生图：在 Codex 中输入“生成一张图片”时应调用 `canvas_generate_image`，通过当前画布节点创建并运行生成流程；只有明确输入“使用 Codex 内置生图/ImageGen 技能生成”时才允许调用内置能力，Codex App Server 返回的 `imageGeneration` 结果应显示在 Codex 侧并作为保持原比例的图片节点添加到当前画布；Agent 不应在没有生成结果时提前声称“已生成”。
-- Canvas Agent Debug：普通启动应通过公共 logger 输出 Info、Warn 和 Error 日志；使用 `npx -y @basketikun/canvas-agent@latest --debug` 启动后还应输出 Debug 日志并显示日志文件路径，终端统一采用“`YYYY-MM-DD HH:mm:ss` 级别 消息 详情”的纯文本单行格式，`~/.oioi-canvas/logs/` 下应按启动日期生成相同格式的 `canvas-agent-YYYY-MM-DD.log`，同一天多次启动应追加到同一文件；日志中不应出现连接 token 或图片 Data URL 原文。
-- Canvas Agent 凭据脱敏：Codex 与 Claude CLI 的 stderr 包含 Bearer token、`sk-` 密钥、显式 API key/token/authorization 赋值、ANSI 样式或跨输出分片的凭据时，调试日志均不应出现明文；普通 stderr 文本应保持不变。
+- Agent 画布生图：在原生 Agent 中输入“生成一张图片”时应调用 `canvas_generate_image`，通过绑定画布的节点创建并运行生成流程；仅提交生成不等于已生成，应通过生成状态工具检查实际结果。原生 Agent 自己生成的图片需通过现行素材工具或节点 metadata 显式写入，网页桥接不再处理 App Server `imageGeneration` 或会话附件。
+- Canvas Agent Debug：普通启动应通过公共 logger 输出 Info、Warn 和 Error 日志；使用 `npx -y @oioi-npm/canvas-agent@latest --debug` 启动后还应输出 Debug 日志并显示日志文件路径，终端统一采用“`YYYY-MM-DD HH:mm:ss` 级别 消息 详情”的纯文本单行格式，`~/.oioi-canvas/logs/` 下应按启动日期生成相同格式的 `canvas-agent-YYYY-MM-DD.log`，同一天多次启动应追加到同一文件；日志中不应出现连接 token 或图片 Data URL 原文。
 - Canvas Agent 配置权限：在 Linux 和 macOS 上保存配置后，`~/.oioi-canvas` 权限应为 `0700`，`canvas-agent.json` 权限应为 `0600`，已有的宽松权限也应被纠正；配置应能继续正常读写，Windows 启动不受影响。
-- Canvas Agent URL 自动连接：链接应在 `#` 后传递 `agentUrl` 和 `agentToken`，进入或选择具体画布时继续保留，读取后立即从地址栏移除，并可连接有效的本机、局域网或远程 HTTP(S) Agent 地址且不主动展开设置面板；缺少参数或地址无效时应展开设置并显示错误。
+- Canvas Agent URL 自动连接：链接应在 `#` 后传递 `agentUrl` 和 `agentToken`，进入或选择具体画布时继续保留，读取后立即从地址栏移除，并连接同电脑的 loopback 桥接服务且不主动展开设置面板；公网站点也应由同电脑浏览器连接，不表示桥接服务支持公网监听。缺少参数或地址无效时应展开设置并显示错误。
 - 图片 API 模型参数：`gpt-image-*` 的生成和编辑请求不应发送 `response_format`，`dall-e-*` 请求仍应发送 `response_format: "b64_json"`。
 - 图片外链持久化：画布和生图工作台对图片接口返回的远程 URL 应只下载一次，经图片解码校验后保存到 IndexedDB；返回 `200` 但内容不是图片时应失败，下载期间停止画布生成后不得保存或应用结果；浏览器因 CORS 无法读取但图片仍可显示时，应保留原 URL 且不生成空 `storageKey`，插件调用在外链可读取时仍应收到 Data URL。
 - 多参考图编辑：OpenAI 格式在多张参考图时应使用重复的 `image[]` 表单字段提交文件，单张参考图仍使用 `image`；新建的 OpenAI 图片脚本应使用相同字段名。Gemini 渠道和已经保存的自定义脚本不受影响。
-- Agent 当前画布优先：在已打开某个画布时要求 Agent 创建、修改、整理或生成内容，Agent 应直接读取并操作当前画布，不应先调用 `canvas_list_projects` 或使用 `site_navigate` 重复进入画布；只有明确要求查看或切换其他画布时才允许查询画布列表并导航。
+- Agent 当前画布优先：先列出连接页面并明确绑定目标；目标已经打开画布时，直接读取并操作该画布，不应先调用 `canvas_list_projects` 或重复导航。仅在明确要求查看或切换其他画布时查询项目列表并导航，导航完成后重新绑定。
 - 画布文本复制：在节点信息详情中用鼠标选中文字后，按 `Ctrl/Cmd + C` 应复制所选文本，不应触发画布节点复制；未选中文字且焦点位于画布时，原有节点复制快捷键应保持可用。
 - 画布文本设置：文本节点和生成配置节点切换到文本模式后应显示推理强度设置，可选择自动、低、中、高、极高；选择自动时默认 OpenAI Responses 请求不应携带 `reasoning`，选择其他档位时应携带所选强度，刷新画布后节点设置应保留；文本模型自定义调用脚本应能读取 `reasoningEffort`，OpenAI 模板应按自动或指定档位正确组装请求。
 - 生图工作台参考图：将一张或多张图片拖入参考图区域后应直接上传并显示缩略图；拖入非图片文件应忽略，拖动过程中区域应显示高亮提示，放下文件不应导致浏览器打开或替换当前页面。

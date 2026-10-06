@@ -1,41 +1,67 @@
 ---
-title: Codex App Plugin
-description: Install and use the oioi Canvas plugin in Codex App
+title: Codex App 插件
+description: 在 Codex App 中安装并使用 oioi Canvas 插件
 ---
 
-# Codex App Plugin
+# Codex App 插件
 
-The plugin connects Codex to a local Canvas Agent so Codex can open oioi Canvas, read and create nodes, and start generation workflows. Source: `plugins/oioi-canvas/`.
+oioi Canvas 提供一个 Codex 插件，用来把 Codex 和本地 Canvas Agent 连起来。安装后直接说「打开无限画布」，Codex 会打开本机画布、读取节点、创建内容并触发生成。
 
-## Install from this repository
+插件源码在 `plugins/oioi-canvas/`。
+
+## 本仓库安装
+
+在仓库根目录执行：
 
 ```powershell
 codex plugin marketplace add "$PWD"
 codex plugin add oioi-canvas@oioi-canvas-local
 ```
 
-macOS / Linux:
+macOS / Linux：
 
 ```bash
 codex plugin marketplace add "$(pwd)"
 codex plugin add oioi-canvas@oioi-canvas-local
 ```
 
-The repo marketplace at `.agents/plugins/marketplace.json` already points to `./plugins/oioi-canvas`. Start a new Codex conversation after installation so the Skill and MCP tools load completely.
+仓库内的 `.agents/plugins/marketplace.json` 已指向 `./plugins/oioi-canvas`。安装后请新建一个 Codex 对话，让 skill 和 MCP 工具完整加载。
 
-## Usage
+## 使用
 
-In a new Codex conversation, say:
+新建 Codex 对话后直接说：
 
 ```text
 打开无限画布
 ```
 
-The plugin starts Canvas Agent, reads the connection URL and token, and opens `http://localhost:3100/?mode=new` to create and connect a canvas.
+插件会启动本地 Canvas Agent 的 HTTP 服务，并通过 stdio MCP 调用它，再由浏览器执行画布工具。默认打开 `http://localhost:3100/?mode=new` 并自动带上连接信息；本机站点须已启动，Canvas Agent 不提供网页站点。
 
-You can then ask Codex to summarize the current canvas, create prompts from selected nodes, or organize nodes into a generation workflow.
+使用公网站点时明确给出地址。无论本机还是公网，必须在运行 Canvas Agent 的同一台电脑上的浏览器中打开，直接连接 loopback；远程浏览器或其他设备不能连接这台电脑的 `127.0.0.1`。
 
-Reinstall or refresh the plugin after changing its manifest, MCP configuration, or Skills.
+对话、技能、历史和工具批准留在用户自己的原生 Agent；网页只显示连接信息，不托管对话、不做二次审批。有效写入请求自动执行，画布和素材主要保存在浏览器本地，不提供云同步。
+
+本轮目标绑定调整仍待测试：先调用 `canvas_list_clients({})` 查看目标，再 `canvas_bind_client({clientId, projectId})` 绑定列出的画布（非画布页可省略 `projectId`）。业务工具必须先绑定，切标签页不改变目标；导航或换画布后重新列出并绑定，断开时报错，不回退其他页。`canvas_release_client({})` 用于解除绑定。
+
+画布打开后可以继续说：
+
+```text
+读取当前画布并总结节点结构
+根据选中节点创建一组生图提示词
+把这些节点整理成一个生成流程
+```
+
+## 更新插件
+
+改了下面这些内容后，才需要重新安装或刷新插件：
+
+- `plugins/oioi-canvas/.codex-plugin/plugin.json`
+- `plugins/oioi-canvas/.mcp.json`
+- `plugins/oioi-canvas/skills/` 下的技能说明
+
+重新安装后建议开启新对话，避免旧对话继续使用缓存中的技能和 MCP 工具。
+
+移除插件：
 
 ```bash
 codex plugin remove oioi-canvas

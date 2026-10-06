@@ -6,6 +6,13 @@ description: Implemented changes that still need manual verification
 
 # Pending Tests
 
+- npm 包改名：仓库启动命令、Codex / Claude Code / ZCode MCP 配置、npm/Bun 锁文件和版本检查统一使用 `@oioi-npm/canvas-agent`，MCP 名称 `oioi-canvas`、可执行文件 `canvas-agent` 与配置目录不变。新包尚未发布，发布后再验收 npx 启动、MCP 工具加载及更新提醒；npm 包由本机手动发布，不提供 GitHub Actions 发布工作流，推送代码不会发布 npm 包。正式发布事项保留在 TODO。
+
+- 原生 Agent 接入与侧栏指引：按「启动本机服务 → 添加 Codex / Claude Code MCP → 填入地址与 Token 连接网页」完成接入；切换 Agent 类型可复制对应注册命令，已安装插件可跳过注册。确认不再承诺自动发现 Token，连接中地址与 Token 不可编辑；连接后显示当前页面和 clientId，可复制操作指令回到原生 Agent 对话。网页不显示聊天、审批、技能或历史。
+- MCP 目标隔离（协议 7）：先调用 `canvas_list_clients`，再用 `canvas_bind_client({clientId, projectId?})` 明确绑定；未绑定业务工具应拒绝执行。同一任务切换标签不能转移目标，每个 stdio MCP 进程绑定独立；页面切换画布后应拒绝旧绑定的画布读写，重新列出并绑定后才恢复；断开目标页不应回退到其他页面。`canvas_release_client` 可释放绑定。协议不一致应拒绝连接并提示更新。
+- 本地桥接清理：启动 Canvas Agent 不再检测或要求安装 Codex，保留桥接自身版本提醒；只提供 HTTP / SSE / stdio MCP 工具链，不启动 Codex app-server / Claude CLI，不托管会话、历史、技能或附件。原生 Agent 可通过现行素材工具及节点 metadata 接入图片；删除的旧附件工具不应再出现在 MCP 列表。
+
+- 侧边展开页面风格对齐：画布左侧栏页签改为扁平药丸并去掉厚重分隔；生图/视频历史侧栏收成无边框列表行，操作按钮改为扁平药丸；Agent 右侧栏标题与折叠按钮去底色，连接步骤与网页连接改为轻量圆角卡片。浅色/深色主题下分别打开画布、生图、视频与 Agent 侧栏，确认页签、列表选中、历史点击回填、连接/断开仍正常。
 - 配置页面及相关面板组件质感与美感升级：页面背景统一沿用首页 21.6px 点状微粒子网格与大圆角毛玻璃卡片容器；配置面板、渠道卡片、偏好设置、本地代理、定时抓取及存储监控卡片全面升级为生图工作台风格的精致圆角药丸按钮（h-8 / h-7.5 / rounded-full）与微质感轻量分组容器，整体视觉整洁现代、协调一致。
 - 提示词库与我的资产背景视觉统一：页面全面沿用首页的细腻点状微粒子渐变网格（21.6px、淡透明度粒子）及深浅色底色体系（深色 #141413 / 浅色 stone-50/50），内容区域自适应留白，视觉风格全站一致。
 
@@ -32,7 +39,7 @@ description: Implemented changes that still need manual verification
 - 画布节点「@」引用列表与连线交互：点击提示词输入框左上角的「@」按钮弹出节点引用选择列表（顶部支持搜索，左侧支持全部/图片/视频/音频/文本分类筛选，右侧网格展示节点缩略图及状态），点击卡片直接与当前节点连线或取消连线，废弃原画布遮罩全屏点击连线模式；底部在有连接节点时展示缩略参考条并支持添加与移除；工具栏支持上传文件直接新建节点并连线。
 - 画布图片卡片默认比例与平铺设置：通过顶部/侧边添加图片节点时默认规格为 4:3（宽 210、高 158），生图配置默认 size 为 4:3；参数栏平铺展示分辨率（Sparkles）与宽高比（对应比例圆角矩形图标）独立下拉按钮，支持单选与列表几何比例边框示意。
 - 主页画布卡片样式升级：主页「最近作品」卡片重构为类似小云雀/Liblib的视觉风格，自动提取画布中最新生成的图片或视频作为封面展示（无媒体内容时显示极简质感占位），移除节点数/连线数等杂乱信息，仅展示作品名称和最近更新时间，右上角整合悬浮快捷操作菜单（重命名、导出、删除），左上角提供选中态复选框；无作品空页面改用项目 Logo 质感卡片替代生硬图标展示。
-- Agent side panel: opening it should only show how to connect (install the oioi-canvas plugin, start Canvas Agent locally, and the Local URL / token). Chat, skills, logs, history, a composer, and write confirmation must not appear. Canvas writes should run automatically.
+- Agent side panel: opening it should only show connection instructions (start the bridge, register Codex / Claude Code MCP or use the plugin, and enter Local URL / token). Chat, skills, logs, history, a composer, and write confirmation must not appear. Canvas writes should run automatically.
 - Canvas Agent: starting it should only expose the web connection and canvas tool bridge. It must not create or resume Codex conversations, and must not provide chat, skills, thread, or log APIs.
 - Identifiers: browser storage, export, and sync use the `oioi-canvas` app name; Canvas Agent config lives in `~/.oioi-canvas`; the MCP name is `oioi-canvas`.
 The current release needs manual verification in these areas:
@@ -69,7 +76,6 @@ The current release needs manual verification in these areas:
 - Failed multi-image slots: every failed slot, including the current primary slot, should expose retry and delete actions. Retry should update only that slot without replacing an existing successful primary image; delete should remove only that failed slot and update the displayed count.
 - Multi-image resize: resizing the root node while child images are expanded should keep the group expanded and resize normally without triggering nested React updates or an application error.
 - Multi-image alternatives: expanded images should use up to four columns so larger batches stay compact; double-clicking any completed child image should preview that exact image without changing the primary image. Every completed image, including the primary image, should provide an independent download action, while alternatives should also keep clearly legible create-copy and set-primary actions in both themes. Create-copy should add an independent image node to the right of the group, select it, and leave the original image group unchanged.
-- Canvas Agent credential redaction: Codex and Claude CLI stderr containing Bearer tokens, `sk-` keys, explicit API key/token/authorization assignments, ANSI formatting, or credentials split across output chunks should not appear in debug logs in plaintext; ordinary stderr text should remain intact.
 - Image API model parameters: `gpt-image-*` generation and edit requests should omit `response_format`, while `dall-e-*` requests should continue sending `response_format: "b64_json"`.
 - Image URL persistence: canvas and image-workbench generation should download each remote API result only once, validate it as a decodable image, and persist it in IndexedDB; `200` responses containing non-image data should fail, stopping canvas generation during download should not save or apply the result, CORS-blocked but displayable images should keep their original URL without an empty storage key, and plugin calls should still receive Data URLs whenever the remote image is readable.
 - Multi-reference image editing: OpenAI-format edits with more than one reference image should submit files as repeated `image[]` form fields; a single reference should continue using `image`. Newly created OpenAI image scripts should use the same field names. Gemini-format channels and already saved custom scripts are unchanged.
