@@ -11,6 +11,7 @@ data/
 web/dist
 
 **/dist
+canvas-agent/*.tgz
 web/public/plugins
 plugins/canvas/*/dist
 plugins/canvas/*/node_modules

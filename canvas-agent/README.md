@@ -4,7 +4,7 @@
 
 ## 快速开始
 
-新包 `@oioi-npm/canvas-agent` 尚未发布；以下 npx 命令需待新包发布后使用，发布前请按「连接与开发」运行本地源码。
+`@oioi-npm/canvas-agent@0.6.0` 已公开发布到 npm，以下命令可直接使用。Windows PowerShell 中可使用 `npx.cmd` 避免脚本执行策略限制；调试源码时按「连接与开发」启动。
 
 1. 在电脑终端启动 bridge，保持终端运行：
 
@@ -56,4 +56,4 @@ bridge 默认只监听 `127.0.0.1`。每个带正确 token 的网页 Origin 都�
 
 操作指令见 [agent-instructions.md](./agent-instructions.md)，完整文档和待测试变更见仓库 `docs/`，插件入口见 `plugins/oioi-canvas/`。
 
-本包版本独立于根目录 `VERSION`。npm 旧包不会自动迁移到新包名；首次发布须具备 `@oioi-npm` scope 的真实发布权限，并以 public 发布。使用本机已登录的 npm 账号手动发布，按 npm 提示完成双重验证；仓库不提供此包的 GitHub Actions 发布工作流，推送代码不会发布 npm 包。新包仍未发布。
+本包版本独立于根目录 `VERSION`。npm 旧包不会自动迁移到新包名；首次发布须具备 `@oioi-npm` scope 的真实发布权限，并以 public 发布。使用本机已登录的 npm 账号手动发布，按 npm 提示完成双重验证；仓库不提供此包的 GitHub Actions 发布工作流，推送代码不会发布 npm 包。发布前检查编译产物和安装包，并验证 HTTP 与 stdio MCP 两个入口。

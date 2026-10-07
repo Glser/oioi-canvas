@@ -6,6 +6,24 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "web", "run", "dev"],
       "port": 3100
+    },
+    {
+      "name": "web-running",
+      "port": 3100,
+      "url": "http://localhost:3100"
+    },
+    {
+      "name": "web-agent-verification",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "web", "run", "dev", "--", "--port", "3101", "--strictPort"],
+      "port": 3101
+    },
+    {
+      "name": "canvas-agent-verification",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["exec", "--yes", "--registry=https://registry.npmjs.org", "--package=@oioi-npm/canvas-agent@0.6.0", "--", "canvas-agent"],
+      "port": 17371,
+      "url": "http://127.0.0.1:17371"
     }
   ]
 }

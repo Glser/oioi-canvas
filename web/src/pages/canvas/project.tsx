@@ -3066,17 +3066,24 @@ function InfiniteCanvasPage() {
     const handlePromptPanelUploadReference = useCallback(async (targetNodeId: string, file: File) => {
         const targetNode = nodesRef.current.find((n) => n.id === targetNodeId);
         if (!targetNode) return;
-        const pos = { x: targetNode.position.x - 260, y: targetNode.position.y };
+        const targetWidth = targetNode.width;
+        const targetHeight = targetNode.height;
+        const gap = 96;
         let newId = "";
         if (isAudioFile(file)) {
             const audio = await uploadMediaFile(file, "audio");
             const spec = NODE_DEFAULT_SIZE[CanvasNodeType.Audio];
             newId = `audio-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            let x = targetNode.position.x - spec.width - gap;
+            const y = targetNode.position.y + targetHeight / 2 - spec.height / 2;
+            while (nodesRef.current.some((item) => item.id !== targetNode.id && Math.abs(item.position.x - x) < 10 && Math.abs(item.position.y - y) < 10)) {
+                x -= spec.width + gap;
+            }
             const newNode: CanvasNodeData = {
                 id: newId,
                 type: CanvasNodeType.Audio,
                 title: file.name,
-                position: { x: pos.x - spec.width / 2, y: pos.y - spec.height / 2 },
+                position: { x, y },
                 width: spec.width,
                 height: spec.height,
                 metadata: audioMetadata(audio),
@@ -3084,13 +3091,18 @@ function InfiniteCanvasPage() {
             setNodes((prev) => [...prev, newNode]);
         } else if (file.type.startsWith("video/")) {
             const video = await uploadMediaFile(file, "video");
-            const size = fitNodeSize(video.width || 1280, video.height || 720, VIDEO_NODE_MAX_WIDTH, VIDEO_NODE_MAX_HEIGHT);
+            const size = fitNodeSize(video.width || 1280, video.height || 720, targetWidth, targetHeight);
             newId = `video-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            let x = targetNode.position.x - size.width - gap;
+            const y = targetNode.position.y + targetHeight / 2 - size.height / 2;
+            while (nodesRef.current.some((item) => item.id !== targetNode.id && Math.abs(item.position.x - x) < 10 && Math.abs(item.position.y - y) < 10)) {
+                x -= size.width + gap;
+            }
             const newNode: CanvasNodeData = {
                 id: newId,
                 type: CanvasNodeType.Video,
                 title: file.name,
-                position: { x: pos.x - size.width / 2, y: pos.y - size.height / 2 },
+                position: { x, y },
                 width: size.width,
                 height: size.height,
                 metadata: videoMetadata(video),
@@ -3098,13 +3110,18 @@ function InfiniteCanvasPage() {
             setNodes((prev) => [...prev, newNode]);
         } else {
             const image = await uploadImage(file);
-            const size = fitNodeSize(image.width, image.height);
+            const size = fitNodeSize(image.width, image.height, targetWidth, targetHeight);
             newId = `image-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+            let x = targetNode.position.x - size.width - gap;
+            const y = targetNode.position.y + targetHeight / 2 - size.height / 2;
+            while (nodesRef.current.some((item) => item.id !== targetNode.id && Math.abs(item.position.x - x) < 10 && Math.abs(item.position.y - y) < 10)) {
+                x -= size.width + gap;
+            }
             const newNode: CanvasNodeData = {
                 id: newId,
                 type: CanvasNodeType.Image,
                 title: file.name,
-                position: { x: pos.x - size.width / 2, y: pos.y - size.height / 2 },
+                position: { x, y },
                 width: size.width,
                 height: size.height,
                 metadata: imageMetadata(image),

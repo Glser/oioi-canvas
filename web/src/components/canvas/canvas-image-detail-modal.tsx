@@ -29,6 +29,8 @@ import type { CanvasNodeData } from "@/types/canvas";
 interface CanvasImageDetailModalProps {
     node: CanvasNodeData | null;
     imageId?: string | null;
+    imageUrl?: string | null;
+    imageTitle?: string | null;
     open: boolean;
     onClose: () => void;
 }
@@ -36,6 +38,8 @@ interface CanvasImageDetailModalProps {
 export function CanvasImageDetailModal({
     node,
     imageId,
+    imageUrl,
+    imageTitle,
     open,
     onClose,
 }: CanvasImageDetailModalProps) {
@@ -61,7 +65,7 @@ export function CanvasImageDetailModal({
         return null;
     }, [node, imageId]);
 
-    const activeImageUrl = imageItem ? imageItem.content : node?.metadata?.content || null;
+    const activeImageUrl = imageUrl || (imageItem ? imageItem.content : node?.metadata?.content) || null;
 
     useEffect(() => {
         if (open) {
@@ -112,32 +116,32 @@ export function CanvasImageDetailModal({
     };
 
     const handleDownload = () => {
-        if (!activeImageUrl || !node) return;
+        if (!activeImageUrl) return;
         const ext = imageExtension(activeImageUrl);
-        const rawTitle = node.title || "image";
+        const rawTitle = node?.title || imageTitle || "image";
         const fileName = rawTitle.trim().replace(/[^a-zA-Z0-9_\u4e00-\u9fa5-]+/g, "_");
         saveAs(activeImageUrl, `${fileName}.${ext}`);
         message.success(t("canvas.nodeToolbar.downloadImage"));
     };
 
     const handleSaveAsset = () => {
-        if (!activeImageUrl || !node) return;
-        const dataUrl = node.metadata?.storageKey ? "" : activeImageUrl;
+        if (!activeImageUrl) return;
+        const dataUrl = node?.metadata?.storageKey ? "" : activeImageUrl;
         addAsset({
             kind: "image",
-            title: node.metadata?.prompt?.slice(0, 24) || node.title || t("canvas.projectPage.canvasImage"),
+            title: node?.metadata?.prompt?.slice(0, 24) || imageTitle || node?.title || t("canvas.projectPage.canvasImage"),
             coverUrl: activeImageUrl,
             tags: [],
             source: "Canvas",
             data: {
                 dataUrl,
-                storageKey: node.metadata?.storageKey,
-                width: node.metadata?.naturalWidth || node.width,
-                height: node.metadata?.naturalHeight || node.height,
-                bytes: node.metadata?.bytes || (dataUrl ? getDataUrlByteSize(dataUrl) : 0),
-                mimeType: node.metadata?.mimeType || "image/png",
+                storageKey: node?.metadata?.storageKey,
+                width: node?.metadata?.naturalWidth || node?.width || 0,
+                height: node?.metadata?.naturalHeight || node?.height || 0,
+                bytes: node?.metadata?.bytes || (dataUrl ? getDataUrlByteSize(dataUrl) : 0),
+                mimeType: node?.metadata?.mimeType || "image/png",
             },
-            metadata: { source: "canvas", nodeId: node.id, prompt: node.metadata?.prompt },
+            metadata: { source: "canvas", nodeId: node?.id, prompt: node?.metadata?.prompt },
         });
         message.success(t("common.addedToAssets"));
     };
@@ -186,7 +190,7 @@ export function CanvasImageDetailModal({
                     <div className="flex items-center gap-3 min-w-0 pr-4">
                         <div className="size-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50" />
                         <h2 className="text-sm font-semibold truncate max-w-[280px] sm:max-w-md">
-                            {node?.title || t("assets.kinds.image")}
+                            {imageTitle || node?.title || t("assets.kinds.image")}
                         </h2>
                         {width && height ? (
                             <span

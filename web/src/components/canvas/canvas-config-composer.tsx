@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, MouseEvent, PointerEvent } from "react";
-import { Button, Image } from "antd";
+import { createPortal } from "react-dom";
+import { Button } from "antd";
 import { FileText, Group, Image as ImageIcon, Music2, Video, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import i18n from "@/i18n";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { useThemeStore } from "@/stores/use-theme-store";
+import { CanvasImageDetailModal } from "./canvas-image-detail-modal";
 import type { NodeGenerationInput } from "./canvas-node-generation";
 import { CanvasNodeReferenceBar } from "./canvas-node-reference-bar";
 import type { CanvasNodeData } from "@/types/canvas";
@@ -40,7 +42,7 @@ export function CanvasConfigComposer({ nodeId, nodes, value, inputs, connectedNo
     const composingRef = useRef(false);
     const [mention, setMention] = useState<MentionState | null>(null);
     const [activeIndex, setActiveIndex] = useState(0);
-    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [previewInput, setPreviewInput] = useState<NodeGenerationInput | null>(null);
     const tokens = useMemo(() => parseComposerTokens(value), [value]);
     const referenceById = useMemo(() => new Map(inputs.map((input) => [input.nodeId, input])), [inputs]);
     const candidates = useMemo(() => {
@@ -61,7 +63,7 @@ export function CanvasConfigComposer({ nodeId, nodes, value, inputs, connectedNo
                 return;
             }
             const input = referenceById.get(token.nodeId);
-            if (input) editor.append(createReferenceChip(input, inputs, theme, setImagePreview));
+            if (input) editor.append(createReferenceChip(input, inputs, theme, setPreviewInput));
         });
     }, [inputs, referenceById, theme, tokens]);
 
@@ -93,7 +95,7 @@ export function CanvasConfigComposer({ nodeId, nodes, value, inputs, connectedNo
         const editor = editorRef.current;
         if (!editor) return;
         removeActiveMention();
-        const chip = createReferenceChip(input, inputs, theme, setImagePreview);
+        const chip = createReferenceChip(input, inputs, theme, setPreviewInput);
         const space = document.createTextNode(" ");
         const selection = window.getSelection();
         const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
@@ -184,7 +186,9 @@ export function CanvasConfigComposer({ nodeId, nodes, value, inputs, connectedNo
                 />
                 {mention && candidates.length ? <MentionMenu inputs={candidates} allInputs={inputs} activeIndex={Math.min(activeIndex, candidates.length - 1)} theme={theme} onSelect={insertReference} /> : null}
             </div>
-            {imagePreview ? <Image src={imagePreview} alt={t("canvas.composer.imagePreview")} style={{ display: "none" }} preview={{ visible: true, src: imagePreview, onVisibleChange: (visible) => !visible && setImagePreview(null) }} /> : null}
+            {previewInput?.image
+                ? createPortal(<CanvasImageDetailModal imageUrl={previewInput.image.dataUrl} imageTitle={previewInput.title} open onClose={() => setPreviewInput(null)} />, document.body)
+                : null}
         </div>
     );
 
@@ -242,7 +246,7 @@ function ResourcePreview({ input }: { input: NodeGenerationInput }) {
     );
 }
 
-function createReferenceChip(input: NodeGenerationInput, inputs: NodeGenerationInput[], theme: (typeof canvasThemes)[keyof typeof canvasThemes], onImagePreview: (url: string) => void) {
+function createReferenceChip(input: NodeGenerationInput, inputs: NodeGenerationInput[], theme: (typeof canvasThemes)[keyof typeof canvasThemes], onImagePreview: (input: NodeGenerationInput) => void) {
     const wrapper = document.createElement("span");
     wrapper.contentEditable = "false";
     wrapper.dataset.referenceNodeId = input.nodeId;
@@ -252,13 +256,15 @@ function createReferenceChip(input: NodeGenerationInput, inputs: NodeGenerationI
         const image = document.createElement("img");
         image.src = input.image.dataUrl;
         image.alt = input.title;
-        image.className = "size-6 rounded object-cover";
-        wrapper.className = "mx-px inline-flex size-6 items-center justify-center overflow-hidden rounded align-middle";
+        image.className = "block size-full rounded object-cover";
+        wrapper.className = "mx-1 inline-block aspect-square h-[1.15em] overflow-hidden rounded";
+        // align-middle alone sits ~3px below the CJK line-box center; the negative top margin lifts it back.
+        Object.assign(wrapper.style, { verticalAlign: "middle", marginTop: "-5px" } as CSSProperties);
         wrapper.appendChild(image);
         wrapper.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
-            onImagePreview(input.image?.dataUrl || "");
+            onImagePreview(input);
         });
     } else {
         wrapper.title = input.type === "group" ? input.title : input.text || input.title;

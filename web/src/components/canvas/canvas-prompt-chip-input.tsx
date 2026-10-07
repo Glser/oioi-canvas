@@ -1,14 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, MouseEvent, PointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { Image } from "antd";
 import { FileText, Image as ImageIcon, Music2, Video } from "lucide-react";
 
-import i18n from "@/i18n";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { isImeComposing, isPlainEnterKey } from "@/lib/keyboard-event";
 import { useThemeStore } from "@/stores/use-theme-store";
 import type { CanvasResourceReference } from "@/lib/canvas/canvas-resource-references";
+import { CanvasImageDetailModal } from "./canvas-image-detail-modal";
 
 type Props = {
     value: string;
@@ -40,7 +39,7 @@ export function CanvasPromptChipInput({ value, references, onChange, onSubmit, c
     const lastEmittedRef = useRef(value);
     const [mention, setMention] = useState<MentionState | null>(null);
     const [activeIndex, setActiveIndex] = useState(0);
-    const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [previewReference, setPreviewReference] = useState<CanvasResourceReference | null>(null);
 
     const activeReferences = useMemo(() => references.filter((item) => item.active), [references]);
     const referenceByLabel = useMemo(() => new Map(activeReferences.map((item) => [item.label, item])), [activeReferences]);
@@ -67,7 +66,7 @@ export function CanvasPromptChipInput({ value, references, onChange, onSubmit, c
                 return;
             }
             const reference = referenceByLabel.get(token.label);
-            if (reference) editor.append(createReferenceChip(reference, theme, setImagePreview));
+            if (reference) editor.append(createReferenceChip(reference, theme, setPreviewReference));
             else editor.append(document.createTextNode(token.label));
         });
         lastEmittedRef.current = value;
@@ -105,7 +104,7 @@ export function CanvasPromptChipInput({ value, references, onChange, onSubmit, c
         const editor = editorRef.current;
         if (!editor) return;
         removeActiveMention();
-        const chip = createReferenceChip(reference, theme, setImagePreview);
+        const chip = createReferenceChip(reference, theme, setPreviewReference);
         const space = document.createTextNode(" ");
         const selection = window.getSelection();
         const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
@@ -193,7 +192,12 @@ export function CanvasPromptChipInput({ value, references, onChange, onSubmit, c
             {mention && candidates.length ? (
                 <MentionMenu rect={mention.rect} references={candidates} activeIndex={Math.min(activeIndex, candidates.length - 1)} theme={theme} onSelect={insertReference} />
             ) : null}
-            {imagePreview ? <Image src={imagePreview} alt={i18n.t("canvas.composer.imagePreview")} style={{ display: "none" }} preview={{ visible: true, src: imagePreview, onVisibleChange: (visible) => !visible && setImagePreview(null) }} /> : null}
+            {previewReference?.previewUrl
+                ? createPortal(
+                      <CanvasImageDetailModal imageUrl={previewReference.previewUrl} imageTitle={previewReference.title} open onClose={() => setPreviewReference(null)} />,
+                      document.body,
+                  )
+                : null}
         </div>
     );
 }
@@ -251,8 +255,10 @@ function MentionMenu({ rect, references, activeIndex, theme, onSelect }: { rect:
                 >
                     <ReferencePreview reference={reference} />
                     <span className="min-w-0 flex-1">
-                        <span className="block font-medium">{reference.label}</span>
-                        <span className="block truncate opacity-65">{reference.text || reference.title}</span>
+                        <span className="block truncate font-medium">{reference.kind === "image" ? (reference.title || reference.label) : reference.label}</span>
+                        {reference.kind !== "image" && (
+                            <span className="block truncate opacity-65">{reference.text || reference.title}</span>
+                        )}
                     </span>
                 </button>
             ))}
@@ -272,7 +278,7 @@ function ReferencePreview({ reference }: { reference: CanvasResourceReference })
     );
 }
 
-function createReferenceChip(reference: CanvasResourceReference, theme: (typeof canvasThemes)[keyof typeof canvasThemes], onImagePreview: (url: string) => void) {
+function createReferenceChip(reference: CanvasResourceReference, theme: (typeof canvasThemes)[keyof typeof canvasThemes], onImagePreview: (reference: CanvasResourceReference) => void) {
     const wrapper = document.createElement("span");
     wrapper.contentEditable = "false";
     wrapper.dataset.refLabel = reference.label;
@@ -280,13 +286,15 @@ function createReferenceChip(reference: CanvasResourceReference, theme: (typeof 
         const image = document.createElement("img");
         image.src = reference.previewUrl;
         image.alt = reference.title;
-        image.className = "size-6 rounded object-cover";
-        wrapper.className = "mx-px inline-flex size-6 items-center justify-center overflow-hidden rounded align-middle";
+        image.className = "block size-full rounded object-cover";
+        wrapper.className = "mx-1 inline-block aspect-square h-[1.15em] overflow-hidden rounded";
+        // align-middle alone sits ~3px below the CJK line-box center; the negative top margin lifts it back.
+        Object.assign(wrapper.style, { verticalAlign: "middle", marginTop: "-5px" } as CSSProperties);
         wrapper.appendChild(image);
         wrapper.addEventListener("click", (event) => {
             event.preventDefault();
             event.stopPropagation();
-            onImagePreview(reference.previewUrl || "");
+            onImagePreview(reference);
         });
     } else {
         wrapper.className = "mx-px inline-flex h-6 max-w-40 items-center justify-center overflow-hidden rounded-md border px-1 text-xs leading-none align-middle";
