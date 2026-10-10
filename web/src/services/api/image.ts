@@ -196,8 +196,10 @@ function resolveRequestSize(quality: string | undefined, size: string) {
     if (!value || value.toLowerCase() === "auto") return undefined;
     const dimensions = parseImageDimensions(value);
     if (dimensions) {
-        validateImageSize(dimensions.width, dimensions.height);
-        return `${dimensions.width}x${dimensions.height}`;
+        const width = Math.round(dimensions.width / IMAGE_SIZE_STEP) * IMAGE_SIZE_STEP;
+        const height = Math.round(dimensions.height / IMAGE_SIZE_STEP) * IMAGE_SIZE_STEP;
+        validateImageSize(width, height);
+        return `${width}x${height}`;
     }
     if (value.includes(":")) return resolveSize(quality, value);
     throw new Error(apiText("invalidImageSizeFormat"));

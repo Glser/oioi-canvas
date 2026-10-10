@@ -5,6 +5,7 @@ description: 当前版本已实现但仍需人工验证的变更项
 
 # 待测试
 
+- 首页输入框改为 Agent 任务入口：未连接本地 Agent 时「开启创作」按钮置灰并提示先连接，按 Enter 会直接展开 Agent 侧栏引导连接；连接后发送不再在画布里本地构造文本卡片，而是新建画布并把提示词作为待处理任务交给 Agent，画布页自动展开 Agent 侧栏展示该任务，可一键复制带 clientId 的 MCP 指令到原生 Agent 对话执行，也可随时手动清除；Agent 开始操作该画布后待处理任务自动清除。
 - Canvas Agent 发布前验证：更新 npm/Bun 锁定依赖并将 MCP SDK / Express 最低版本提升至修复版本；npm audit 检查为 0 个已知漏洞。桥接测试 10 项通过，2 项 Unix 权限测试在 Windows 跳过，TypeScript 构建成功；实际 tgz 安装包包含 HTTP / stdio MCP 编译产物和指令文件，无旧执行链及凭据。在独立 3101 网页和 17371 bridge 上使用标准 MCP 客户端加载 36 个工具，页面绑定、画布读取、创建文本节点、移动后读取确认、释放绑定均通过；尚未验证原生 Codex / Claude 对话调用、macOS/Linux 和生产 HTTPS 域名。`@oioi-npm/canvas-agent@0.6.0` 已公开发布，latest 指向 0.6.0；从 npm 下载的 tgz 与已验证安装包逐字节一致，公开包的 stdio MCP 初始化并加载 36 个工具成功。已使用 npm 公开包完成本地双向读写复验：36 个工具加载成功，两个独立 MCP 进程的绑定互不继承；在新建测试画布上创建并更新两个文本节点、连线、移动、选区读取、视口调整、快照导出及释放绑定后的拒绝访问均通过。重新加载测试画布后两个节点、连线和 80% 视口仍保留。测试仅使用标准 MCP 客户端模拟 Agent 工具调用，未使用模型 API 或收费生成服务；真实 Codex / Claude 对话、其他平台和生产 HTTPS 连接仍待验收。
 
 - npm 包改名：仓库启动命令、Codex / Claude Code / ZCode MCP 配置、npm/Bun 锁文件和版本检查统一使用 `@oioi-npm/canvas-agent`，MCP 名称 `oioi-canvas`、可执行文件 `canvas-agent` 与配置目录不变。0.6.0 已公开发布，公开包下载与 MCP 工具加载已验证；更新提醒及原生 Agent 的完整使用流程仍待确认。npm 包由本机手动发布，不提供 GitHub Actions 发布工作流，推送代码不会发布 npm 包。

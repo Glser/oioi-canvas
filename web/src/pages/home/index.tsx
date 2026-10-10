@@ -32,7 +32,6 @@ import { readZip } from "@/lib/zip";
 import { setMediaBlob } from "@/services/file-storage";
 import { setImageBlob } from "@/services/image-storage";
 import type { CanvasExportFile } from "@/types/canvas-export";
-import { CanvasNodeType, type CanvasNodeData } from "@/types/canvas";
 import { useAgentStore } from "@/stores/use-agent-store";
 import { fetchPrompts } from "@/services/api/prompts";
 
@@ -48,13 +47,14 @@ export default function IndexPage() {
     const projects = useCanvasStore((state) => state.projects);
     const createProject = useCanvasStore((state) => state.createProject);
     const importProject = useCanvasStore((state) => state.importProject);
-    const updateProject = useCanvasStore((state) => state.updateProject);
 
     const selectedIds = useCanvasUiStore((state) => state.selectedProjectIds);
     const setDeleteIds = useCanvasUiStore((state) => state.setDeleteProjectIds);
 
     const agentConnected = useAgentStore((state) => state.connected);
     const togglePanel = useAgentStore((state) => state.togglePanel);
+    const openAgentPanel = useAgentStore((state) => state.openPanel);
+    const setPendingTask = useAgentStore((state) => state.setPendingTask);
 
     const [inputPrompt, setInputPrompt] = useState("");
     const [quickPrompts, setQuickPrompts] = useState<string[]>([
@@ -79,10 +79,10 @@ export default function IndexPage() {
         });
     }, []);
     const [searchKeyword, setSearchKeyword] = useState("");
-    const [submitting, setSubmitting] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const submittingRef = useRef(false);
 
     useEffect(() => {
         if (!hydrated || homeModeBootstrapped) return;
@@ -112,42 +112,22 @@ export default function IndexPage() {
         navigate(`/canvas/${id}`);
     };
 
-    // 从首页对话框快速启动生成/新建画布
+    // 连接本地 Agent 后才能发送：新建画布并把任务交给 Agent 处理，不在本地构造文本节点
     const handlePromptSubmit = () => {
         const prompt = inputPrompt.trim();
-        if (!prompt || submitting) return;
-
-        setSubmitting(true);
-        try {
-            // 创建一个新画布，以用户输入的前十几个字命名或默认名
-            const title = prompt.length > 20 ? `${prompt.slice(0, 20)}...` : prompt;
-            const newId = createProject(title);
-
-            // 在画布中央放置一个文本节点作为灵感/提示词
-            const initialTextNode: CanvasNodeData = {
-                id: `text-${Date.now()}`,
-                type: CanvasNodeType.Text,
-                title: t("assets.kinds.text"),
-                position: { x: 0, y: 0 },
-                width: 380,
-                height: 220,
-                metadata: {
-                    content: prompt,
-                    prompt: prompt,
-                    status: "success",
-                },
-            };
-
-            updateProject(newId, {
-                nodes: [initialTextNode],
-            });
-
-            navigate(`/canvas/${newId}`);
-        } catch {
-            message.error(t("apiErrors.requestFailed"));
-        } finally {
-            setSubmitting(false);
+        if (!prompt || submittingRef.current) return;
+        if (!agentConnected) {
+            openAgentPanel();
+            message.warning(t("home.agentConnectRequired"));
+            return;
         }
+
+        // 以用户输入的前十几个字命名新画布，任务交由 Agent 在画布中落地
+        submittingRef.current = true;
+        const title = prompt.length > 20 ? `${prompt.slice(0, 20)}...` : prompt;
+        const newId = createProject(title);
+        setPendingTask(prompt);
+        navigate(`/canvas/${newId}?mode=new`);
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -238,7 +218,7 @@ export default function IndexPage() {
                 }}
             />
             {/* 顶部英雄区 & AI 创作交互对话框 (小云雀 / Liblib 融合风格) */}
-            <section className="relative z-10 mx-auto w-full max-w-5xl px-6 pt-16 pb-8 text-center md:pt-[100px] md:pb-12">
+            <section className="relative z-10 mx-auto w-full max-w-5xl px-6 pt-[150px] pb-8 text-center md:pt-[180px] md:pb-12">
                 {/* 装饰渐变光晕背景 */}
                 <div className="pointer-events-none absolute left-1/2 top-4 -translate-x-1/2 -z-10 h-72 w-full max-w-3xl rounded-full bg-gradient-to-tr from-amber-500/10 via-sky-500/10 to-indigo-500/10 blur-3xl dark:from-amber-400/5 dark:via-sky-400/5 dark:to-indigo-500/5" />
 
@@ -260,7 +240,7 @@ export default function IndexPage() {
                             onChange={(e) => setInputPrompt(e.target.value)}
                             onKeyDown={handleKeyDown}
                             rows={5}
-                            placeholder="描述你想要的画面，或构想一个场景、故事... 按 Enter 快速开启画布推演"
+                            placeholder="描述你想要的画面，或构想一个场景、故事... 按 Enter 交给 Agent 开启画布推演"
                             className="flex-1 resize-none bg-transparent px-3 py-2 text-sm text-stone-800 outline-none placeholder:text-stone-400 dark:text-stone-200 dark:placeholder:text-stone-500/80 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
                         />
                         <div className="flex flex-col pt-1 pr-1">
@@ -311,17 +291,20 @@ export default function IndexPage() {
                         {/* 右侧提交与启动按钮 */}
                         <div className="flex items-center gap-2">
                             <span className="hidden text-xs text-stone-400 sm:inline">Enter 发送</span>
-                            <Button
-                                type="primary"
-                                shape="round"
-                                icon={submitting ? undefined : <ArrowUp className="size-4" />}
-                                loading={submitting}
-                                disabled={!inputPrompt.trim()}
-                                onClick={handlePromptSubmit}
-                                className="!h-8 px-4 font-medium"
-                            >
-                                开启创作
-                            </Button>
+                            <Tooltip title={t(agentConnected ? "home.agentSendHint" : "home.agentConnectRequired")}>
+                                <span className="inline-flex">
+                                    <Button
+                                        type="primary"
+                                        shape="round"
+                                        icon={<ArrowUp className="size-4" />}
+                                        disabled={!inputPrompt.trim() || !agentConnected}
+                                        onClick={handlePromptSubmit}
+                                        className="!h-8 px-4 font-medium"
+                                    >
+                                        开启创作
+                                    </Button>
+                                </span>
+                            </Tooltip>
                         </div>
                     </div>
                 </div>

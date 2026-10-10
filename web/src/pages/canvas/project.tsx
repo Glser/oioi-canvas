@@ -170,6 +170,7 @@ function InfiniteCanvasPage() {
     const localAgentEnabled = useAgentStore((state) => state.enabled);
     const fragmentBootstrap = useAgentStore((state) => state.fragmentBootstrap);
     const agentPanelOpen = useAgentStore((state) => state.panelOpen);
+    const pendingAgentTask = useAgentStore((state) => state.pendingTask);
     const toggleAgentPanel = useAgentStore((state) => state.togglePanel);
     const openAgentPanel = useAgentStore((state) => state.openPanel);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -478,8 +479,8 @@ function InfiniteCanvasPage() {
 
     useEffect(() => {
         if (!projectLoaded || !["new", "recent", "choose"].includes(searchParams.get("mode") || "")) return;
-        if (!searchParams.has("agentUrl") && !localAgentEnabled && !fragmentBootstrap) openAgentPanel();
-    }, [fragmentBootstrap, localAgentEnabled, openAgentPanel, projectLoaded, searchParams]);
+        if (!searchParams.has("agentUrl") && (pendingAgentTask || (!localAgentEnabled && !fragmentBootstrap))) openAgentPanel();
+    }, [fragmentBootstrap, localAgentEnabled, openAgentPanel, pendingAgentTask, projectLoaded, searchParams]);
 
     useEffect(() => {
         if (!projectLoaded || applyingHistoryRef.current || historyPausedRef.current) return;

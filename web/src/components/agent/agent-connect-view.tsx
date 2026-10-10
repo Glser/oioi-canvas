@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Input, Tooltip } from "antd";
-import { Copy, KeyRound, Link2, PlugZap } from "lucide-react";
+import { Copy, KeyRound, Link2, PlugZap, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { useCopyText } from "@/hooks/use-copy-text";
@@ -17,7 +17,7 @@ const MCP_COMMANDS = {
 export function AgentConnectView({ onToggleEnabled }: { onToggleEnabled: () => void }) {
     const { t } = useTranslation();
     const theme = canvasThemes[useThemeStore((state) => state.theme)];
-    const { url, token, enabled, connected, connectError, clientId, canvasContext, setAgentState } = useAgentStore();
+    const { url, token, enabled, connected, connectError, clientId, canvasContext, pendingTask, setAgentState } = useAgentStore();
     const [agent, setAgent] = useState<keyof typeof MCP_COMMANDS>("Codex");
     const copyText = useCopyText();
     const targetTitle = canvasContext?.snapshot.title || t("agent.connect.noCanvas");
@@ -37,6 +37,24 @@ export function AgentConnectView({ onToggleEnabled }: { onToggleEnabled: () => v
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-5 pt-1">
             <p className="mb-4 text-xs leading-5" style={{ color: theme.node.muted }}>{t("agent.connect.description")}</p>
             <div className="grid gap-3">
+                {pendingTask ? (
+                    <section className="rounded-2xl border border-black/[0.06] p-3.5 dark:border-white/[0.08]" style={{ background: theme.node.panel }}>
+                        <div className="flex items-center justify-between gap-2">
+                            <h3 className="text-sm font-medium leading-5">{t("agent.connect.pendingTask")}</h3>
+                            <div className="flex items-center gap-1">
+                                <button type="button" className="inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition hover:bg-black/5 dark:hover:bg-white/10" onClick={() => copyText(t("agent.connect.pendingTaskPrompt", { clientId, title: targetTitle, prompt: pendingTask }))}>
+                                    <Copy className="size-3.5" />
+                                    {t("agent.connect.copyTaskPrompt")}
+                                </button>
+                                <button type="button" className="grid size-7 shrink-0 place-items-center rounded-full transition hover:bg-black/5 dark:hover:bg-white/10" aria-label={t("agent.connect.clearTask")} onClick={() => setAgentState({ pendingTask: "" })}>
+                                    <X className="size-3.5" />
+                                </button>
+                            </div>
+                        </div>
+                        <p className="mt-1 text-xs leading-5" style={{ color: theme.node.muted }}>{t("agent.connect.pendingTaskHint")}</p>
+                        <div className="mt-2 max-h-32 overflow-y-auto rounded-xl px-2.5 py-2 text-xs leading-5" style={{ background: theme.node.fill }}>{pendingTask}</div>
+                    </section>
+                ) : null}
                 <section className="rounded-2xl border border-black/[0.06] p-3.5 dark:border-white/[0.08]" style={{ background: theme.node.panel }}>
                     <h3 className="text-sm font-medium leading-5">{t("agent.connect.directTitle")}</h3>
                     <p className="mt-1 text-xs leading-5" style={{ color: theme.node.muted }}>{t("agent.connect.directText")}</p>

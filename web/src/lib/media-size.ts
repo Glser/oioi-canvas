@@ -12,8 +12,8 @@ export const mediaRatioOptions = [
     ] as const;
 
 export const imageSizePresets: Record<string, Record<string, string>> = {
-    "720p": { "1:1": "720x720", "2:3": "720x1080", "3:2": "1080x720", "4:3": "960x720", "3:4": "720x960", "16:9": "1280x720", "9:16": "720x1280", "21:9": "1680x720", "9:21": "720x1680" },
-    "1080p": { "1:1": "1080x1080", "2:3": "1080x1620", "3:2": "1620x1080", "4:3": "1440x1080", "3:4": "1080x1440", "16:9": "1920x1080", "9:16": "1080x1920", "21:9": "2520x1080", "9:21": "1080x2520" },
+    "720p": { "1:1": "720x720", "2:3": "720x1088", "3:2": "1088x720", "4:3": "960x720", "3:4": "720x960", "16:9": "1280x720", "9:16": "720x1280", "21:9": "1680x720", "9:21": "720x1680" },
+    "1080p": { "1:1": "1088x1088", "2:3": "1088x1632", "3:2": "1632x1088", "4:3": "1456x1088", "3:4": "1088x1456", "16:9": "1936x1088", "9:16": "1088x1936", "21:9": "2544x1088", "9:21": "1088x2544" },
     "1k": { "1:1": "1024x1024", "2:3": "1024x1536", "3:2": "1536x1024", "4:3": "1024x768", "3:4": "768x1024", "16:9": "1536x864", "9:16": "864x1536", "21:9": "2016x864", "9:21": "864x2016" },
     "2k": { "1:1": "2048x2048", "2:3": "1360x2048", "3:2": "2048x1360", "4:3": "2048x1536", "3:4": "1536x2048", "16:9": "2048x1152", "9:16": "1152x2048", "21:9": "2688x1152", "9:21": "1152x2688" },
     "4k": { "1:1": "2880x2880", "2:3": "2336x3520", "3:2": "3520x2336", "4:3": "3312x2480", "3:4": "2480x3312", "16:9": "3840x2160", "9:16": "2160x3840", "21:9": "3840x1648", "9:21": "1648x3840" },
@@ -100,10 +100,10 @@ export function computeMediaSize(scale: string, ratio: string) {
     if (preset) return preset;
     const parsed = parseAspectRatio(ratio);
     if (!parsed) return "1080x1080";
-    const base = SCALE_BASE_SHORT_SIDE[normalizedScale] || 1080;
+    const base = normalizedScale === "1080p" ? 1088 : (SCALE_BASE_SHORT_SIDE[normalizedScale] || 1088);
     const isLandscape = parsed.width >= parsed.height;
     const longRatio = isLandscape ? parsed.width / parsed.height : parsed.height / parsed.width;
-    const shortSide = base;
+    const shortSide = Math.round(base / 16) * 16;
     const longSide = Math.round((shortSide * longRatio) / 16) * 16;
     const width = isLandscape ? longSide : shortSide;
     const height = isLandscape ? shortSide : longSide;

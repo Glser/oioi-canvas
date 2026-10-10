@@ -15,12 +15,9 @@ import { canvasThemes } from "@/lib/canvas-theme";
 import { useThemeStore } from "@/stores/use-theme-store";
 import type { AiConfig } from "@/stores/use-config-store";
 import {
-    computeMediaSize,
-    inferMediaRatio,
-    inferMediaScale,
-    mediaRatioOptions,
-    mediaScaleOptions,
-    parseAspectRatio,
+        inferMediaRatio,
+        mediaRatioOptions,
+        parseAspectRatio,
 } from "@/lib/media-size";
 
 type CanvasImageSettingsPopoverProps = {
@@ -50,21 +47,11 @@ export function CanvasImageSettingsPopover({
     const [isOpen, setIsOpen] = useState(false);
     const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
 
-    const activeSize = config.size || "1080p";
-    const rawScale = inferMediaScale(activeSize);
-    const selectedScale = rawScale === "auto" ? "1080p" : rawScale;
+    const activeSize = config.size || "1:1";
     const selectedRatio = inferMediaRatio(activeSize);
 
-    const applySize = (scale: string, ratio: string) => {
-        onConfigChange("size", computeMediaSize(scale, ratio));
-    };
-
-    const handleSelectScale = (scale: string) => {
-        applySize(scale, selectedRatio);
-    };
-
     const handleSelectRatio = (ratio: string) => {
-        applySize(selectedScale, ratio);
+        onConfigChange("size", ratio);
     };
 
     const toggleOpen = () => {
@@ -117,21 +104,15 @@ export function CanvasImageSettingsPopover({
                 className={`canvas-image-settings-trigger inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-input bg-transparent px-3 text-xs font-normal shadow-xs transition hover:bg-black/5 dark:hover:bg-white/10 ${buttonClassName || ""}`}
                 style={{ color: theme.node.text }}
                 onClick={toggleOpen}
-                title={`${t("settingsPanels.image.aspectRatio")}: ${selectedRatio} · ${t("settingsPanels.image.resolution")}: ${formatScaleLabel(selectedScale)}`}
+                title={`${t("settingsPanels.image.aspectRatio")}: ${selectedRatio}`}
             >
-                <div className="flex items-center gap-1.5">
-                    <AspectIcon
-                        width={triggerRatioWidth}
-                        height={triggerRatioHeight}
-                        color="currentColor"
-                        size={16}
-                    />
-                    <span className="font-medium">{selectedRatio}</span>
-                </div>
-                <span className="opacity-35">·</span>
-                <span className="font-medium opacity-80">
-                    {formatScaleLabel(selectedScale)}
-                </span>
+                <AspectIcon
+                    width={triggerRatioWidth}
+                    height={triggerRatioHeight}
+                    color="currentColor"
+                    size={16}
+                />
+                <span className="font-medium">{selectedRatio}</span>
             </button>
 
             {/* 下拉面板 */}
@@ -141,9 +122,7 @@ export function CanvasImageSettingsPopover({
                     anchorRect={anchorRect}
                     theme={theme}
                     placement={placement}
-                    selectedScale={selectedScale}
                     selectedRatio={selectedRatio}
-                    onSelectScale={handleSelectScale}
                     onSelectRatio={handleSelectRatio}
                 />
             ) : null}
@@ -156,18 +135,14 @@ function CombinedImageSettingsDropdown({
     anchorRect,
     theme,
     placement,
-    selectedScale,
     selectedRatio,
-    onSelectScale,
     onSelectRatio,
 }: {
     menuRef: RefObject<HTMLDivElement | null>;
     anchorRect: DOMRect;
     theme: (typeof canvasThemes)[keyof typeof canvasThemes];
     placement: CanvasImageSettingsPopoverProps["placement"];
-    selectedScale: string;
     selectedRatio: string;
-    onSelectScale: (scale: string) => void;
     onSelectRatio: (ratio: string) => void;
 }) {
     const { t } = useTranslation();
@@ -317,35 +292,6 @@ function CombinedImageSettingsDropdown({
                     </div>
                 </div>
 
-                {/* 细分割线 */}
-                <div className="h-px w-full bg-stone-200/60 dark:bg-white/10" />
-
-                {/* 2. 下面是分辨率/画质选择 */}
-                <div>
-                    <div className="mb-2 flex items-center justify-between px-0.5 text-[11px] font-medium opacity-50">
-                        <span>{t("settingsPanels.image.resolution")}</span>
-                        <span className="font-mono text-[10px] opacity-80">{formatScaleLabel(selectedScale)}</span>
-                    </div>
-                    <div className="grid grid-cols-4 gap-1 rounded-xl bg-black/[0.04] p-1 dark:bg-white/[0.06]">
-                        {mediaScaleOptions.map((scale) => {
-                            const isSelected = selectedScale === scale;
-                            return (
-                                <button
-                                    key={scale}
-                                    type="button"
-                                    onClick={() => onSelectScale(scale)}
-                                    className={`flex h-7 cursor-pointer items-center justify-center rounded-lg text-xs transition-all ${
-                                        isSelected
-                                            ? "bg-white font-semibold text-stone-900 shadow-xs dark:bg-stone-800 dark:text-white"
-                                            : "font-normal text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200"
-                                    }`}
-                                >
-                                    {formatScaleLabel(scale)}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
             </div>
         </div>,
         document.body,

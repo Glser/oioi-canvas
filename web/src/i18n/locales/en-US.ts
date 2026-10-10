@@ -352,6 +352,8 @@
         showcaseTitle: "Keep every great result",
         showcaseDescription: "Save reliable prompts, visual references, and generated images so your next creation starts from proven ideas.",
         viewPrompts: "View prompt library",
+        agentConnectRequired: "Connect your local Agent before sending",
+        agentSendHint: "Send and hand the task to your Agent",
     },
     version: {
         viewUpdates: "View release updates",
@@ -635,6 +637,8 @@
             disconnect: "Disconnect", connect: "Connect", localAddress: "Local address", urlPlaceholder: "For example http://127.0.0.1:17371", token: "Connection token", tokenPlaceholder: "Enter the Connect token from the terminal", copyCommand: "Copy command",
             useTitle: "Continue in your Agent chat", useText: "Ask your Agent to list connected pages and bind a target, then describe your task. Rebind after changing canvases; switching tabs does not change the target.",
             currentTarget: "This page: {{title}}", noCanvas: "No canvas open", copyPrompt: "Copy instructions",
+            pendingTask: "Pending task", pendingTaskHint: "The task was handed to your Agent. Copy the instruction into your Agent chat:", copyTaskPrompt: "Copy task instruction", clearTask: "Clear task",
+            pendingTaskPrompt: "Use the oioi-canvas MCP: call canvas_list_clients, find clientId={{clientId}} ({{title}}), then call canvas_bind_client with that clientId and the listed projectId, then complete this task on the canvas: {{prompt}}",
             examplePrompt: "Use the oioi-canvas MCP: call canvas_list_clients, find clientId={{clientId}} ({{title}}), then call canvas_bind_client with that clientId and the listed projectId. Read the canvas and describe its contents. If no canvas is open, list canvases for me to choose, open the selected canvas, then bind again.",
             localOnly: "Open cloud-hosted sites in a browser on this computer too. Keep your token private. This page does not host chats or sync canvases to the cloud.",
         },

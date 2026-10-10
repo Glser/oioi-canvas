@@ -346,7 +346,7 @@ export function CanvasImageDetailModal({
                     {/* Right Panel / Metadata Sidebar */}
                     {showInfo && (
                         <div
-                            className="w-80 sm:w-96 border-l flex flex-col shrink-0 overflow-y-auto thin-scrollbar z-10 transition-all select-text"
+                            className="w-[260px] border-l flex flex-col shrink-0 overflow-y-auto thin-scrollbar z-10 transition-all select-text"
                             style={{
                                 backgroundColor: isDark ? "#141416" : "#fafafa",
                                 borderColor: isDark ? "rgba(255, 255, 255, 0.08)" : "rgba(0, 0, 0, 0.08)",
@@ -403,7 +403,7 @@ export function CanvasImageDetailModal({
                                             <span className="text-zinc-500 flex items-center gap-1.5">
                                                 <Cpu className="size-3.5" /> 模型
                                             </span>
-                                            <span className="font-mono font-medium max-w-[200px] truncate text-right">
+                                            <span className="font-mono font-medium max-w-[130px] truncate text-right" title={node.metadata.model}>
                                                 {node.metadata.model}
                                             </span>
                                         </div>

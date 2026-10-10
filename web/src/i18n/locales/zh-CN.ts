@@ -352,6 +352,8 @@
         showcaseTitle: "沉淀每一次好结果",
         showcaseDescription: "收藏稳定出图的提示词、参考风格和结果图片，让下一次创作从已有经验开始。",
         viewPrompts: "查看提示词库",
+        agentConnectRequired: "请先连接本地 Agent 后再发送",
+        agentSendHint: "发送并把任务交给 Agent 处理",
     },
     version: {
         viewUpdates: "查看版本更新",
@@ -635,6 +637,8 @@
             disconnect: "断开", connect: "连接", localAddress: "本地地址", urlPlaceholder: "例如 http://127.0.0.1:17371", token: "连接 Token", tokenPlaceholder: "填入终端中的 Connect token", copyCommand: "复制命令",
             useTitle: "回到 Agent 对话开始操作", useText: "让 Agent 列出已连接页面并绑定目标，再描述需求。切换画布后需重新绑定，切换标签不会改变目标。",
             currentTarget: "当前页面：{{title}}", noCanvas: "未打开画布", copyPrompt: "复制操作指令",
+            pendingTask: "待处理任务", pendingTaskHint: "任务已交给你的 Agent 处理，复制指令到 Agent 对话中执行：", copyTaskPrompt: "复制任务指令", clearTask: "清除任务",
+            pendingTaskPrompt: "请使用 oioi-canvas MCP：先调用 canvas_list_clients，确认 clientId={{clientId}} 的页面（{{title}}），再调用 canvas_bind_client 绑定该页面和列表中的 projectId，然后在画布中完成这个任务：{{prompt}}",
             examplePrompt: "请使用 oioi-canvas MCP：先调用 canvas_list_clients，确认 clientId={{clientId}} 的页面（{{title}}），再调用 canvas_bind_client 绑定该页面和列表中的 projectId，然后读取画布并说明当前内容。若页面未打开画布，请先列出画布供我选择，打开后重新绑定。",
             localOnly: "公网站点也需在这台电脑的浏览器打开；连接 Token 请勿分享。网页不托管对话或云同步画布。",
         },

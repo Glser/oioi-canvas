@@ -20,6 +20,7 @@ type AgentStoreData = {
     fragmentBootstrap: boolean;
     activity: string;
     connectError: string;
+    pendingTask: string;
 };
 
 type AgentStore = AgentStoreData & {
@@ -28,6 +29,7 @@ type AgentStore = AgentStoreData & {
     closePanel: () => void;
     togglePanel: () => void;
     setCanvasContext: (context: AgentCanvasContext | null) => void;
+    setPendingTask: (task: string) => void;
     connectAgent: (options?: { silent?: boolean }) => void;
     disconnectAgent: (patch?: Partial<AgentStoreData>) => void;
 };
@@ -49,6 +51,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     fragmentBootstrap: false,
     activity: i18n.t("agent.state.ready"),
     connectError: "",
+    pendingTask: "",
     setAgentState: (patch) => set(patch),
     openPanel: () => set({ panelOpen: true, panelMounted: true, panelClosing: false }),
     closePanel: () => {
@@ -60,6 +63,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     },
     togglePanel: () => (get().panelOpen ? get().closePanel() : get().openPanel()),
     setCanvasContext: (canvasContext) => set({ canvasContext }),
+    setPendingTask: (pendingTask) => set({ pendingTask }),
     connectAgent: (options) => {
         const silent = options?.silent ?? false;
         const endpoint = get().url.trim().replace(/\/$/, "");

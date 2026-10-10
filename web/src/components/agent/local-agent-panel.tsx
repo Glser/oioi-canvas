@@ -122,7 +122,10 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
         source.addEventListener("tool_call", (event) => {
             if (!isCurrentConnection()) return;
             const data = parseEventData<AgentPendingToolCall>(event);
-            if (data) void runToolCall(endpoint, token, data, navigate, clientIdRef);
+            if (!data || data.clientId !== clientIdRef.current) return;
+            // Agent 已开始操作当前页面，待处理任务视为已接手
+            if (useAgentStore.getState().pendingTask) setAgentState({ pendingTask: "" });
+            void runToolCall(endpoint, token, data, navigate, clientIdRef);
         });
         source.onerror = () => {
             if (disposed || protocolRejected) return;
