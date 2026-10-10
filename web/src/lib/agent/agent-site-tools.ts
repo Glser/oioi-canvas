@@ -37,18 +37,6 @@ function siteText(key: string, options?: Record<string, unknown>) {
     return i18n.t(`agent.siteTools.${key}`, options);
 }
 
-export const SITE_TOOL_LABELS: Record<SiteToolName, string> = {
-    get canvas_list_projects() { return siteText("canvasList"); },
-    get generation_get_status() { return siteText("generationStatus"); },
-    get workbench_image_get_config() { return siteText("imageConfig"); },
-    get workbench_image_generate() { return siteText("imageGenerate"); },
-    get workbench_video_get_config() { return siteText("videoConfig"); },
-    get workbench_video_generate() { return siteText("videoGenerate"); },
-    get prompts_search() { return siteText("promptSearch"); },
-    get assets_list() { return siteText("assetList"); },
-    get assets_add() { return siteText("assetAdd"); },
-};
-
 type SiteToolInput = Record<string, unknown>;
 type SiteToolContext = { canvasSnapshot?: CanvasAgentSnapshot | null };
 type GenerationStatus = "idle" | "queued" | "running" | "succeeded" | "failed";

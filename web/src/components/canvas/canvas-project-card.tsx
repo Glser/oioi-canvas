@@ -206,7 +206,7 @@ export function CanvasProjectCard({ project }: { project: CanvasProject }) {
                     <input
                         type="checkbox"
                         checked={selected}
-                        onChange={(e) => toggleSelected(project.id, event => e.stopPropagation()) || toggleSelected(project.id, !selected)}
+                        onChange={() => toggleSelected(project.id, !selected)}
                         className="size-3.5 cursor-pointer rounded accent-stone-900 shadow-xs dark:accent-stone-100"
                         aria-label={t("canvas.project.select", { name: project.title })}
                     />

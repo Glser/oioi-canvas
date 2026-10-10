@@ -18,7 +18,7 @@ const qualityOptions = [
 const DIMENSION_STEP = 16;
 
 export const imageQualityOptions = qualityOptions.map((item) => ({ value: item.value, get label() { return i18n.t(`settingsPanels.common.${item.labelKey}`); } }));
-export const imageAspectOptions = mediaRatioOptions.map((item) => ({ value: item.value, label: item.value === "auto" ? i18n.t("settingsPanels.common.auto") : item.value }));
+export const imageAspectOptions = mediaRatioOptions.map((item) => ({ value: item.value, label: item.value }));
 export const imageScaleOptions = mediaScaleOptions.map((value) => ({ value, label: formatScaleLabel(value) }));
 
 type ImageSettingsPanelProps = {
@@ -206,7 +206,7 @@ export function ImageSettingsPanel({
                                                 >
                                                     <div className="flex items-center gap-2.5">
                                                         <AspectIcon width={item.width} height={item.height} color={isSelected ? theme.node.text : theme.node.muted} size={15} />
-                                                        <span>{item.value === "auto" ? t("settingsPanels.common.auto") : item.value}</span>
+                                                        <span>{item.value}</span>
                                                     </div>
                                                     {isSelected ? <Check className="size-3.5 text-indigo-500" /> : null}
                                                 </button>
@@ -247,7 +247,7 @@ export function ImageSettingsPanel({
                                             onMouseDown={(event) => event.stopPropagation()}
                                             onClick={() => selectRatio(item.value)}
                                         >
-                                            <span className="font-medium">{item.value === "auto" ? t("settingsPanels.common.auto") : item.value}</span>
+                                            <span className="font-medium">{item.value}</span>
                                             <AspectIcon width={item.width} height={item.height} color={isSelected ? theme.node.text : theme.node.muted} />
                                         </button>
                                     );

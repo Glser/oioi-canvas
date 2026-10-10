@@ -19,7 +19,7 @@ const videoModeOptions = [
 ];
 
 export const videoResolutionOptions = resolutionOptions.map((item) => ({ value: item.value, label: item.label }));
-export const videoSizeOptions = videoRatioOptions.map((item) => ({ value: item.value, get label() { return item.value === "auto" ? i18n.t("settingsPanels.common.auto") : item.value; } }));
+export const videoSizeOptions = videoRatioOptions.map((item) => ({ value: item.value, get label() { return item.value; } }));
 export const videoSecondsRange = { min: VIDEO_SECONDS_MIN, max: VIDEO_SECONDS_MAX };
 
 type VideoSettingsPanelProps = {
@@ -79,7 +79,7 @@ export function VideoSettingsPanel({ config, onConfigChange, theme, showTitle = 
                                 onClick={() => applySize(resolution, item.value)}
                             >
                                 <SizePreview width={item.width} height={item.height} color={theme.node.text} />
-                                <span>{item.value === "auto" ? t("settingsPanels.common.auto") : item.value}</span>
+                                <span>{item.value}</span>
                             </button>
                         ))}
                     </div>

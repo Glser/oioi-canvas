@@ -186,7 +186,7 @@ export function CanvasConfigComposer({ nodeId, nodes, value, inputs, connectedNo
                 />
                 {mention && candidates.length ? <MentionMenu inputs={candidates} allInputs={inputs} activeIndex={Math.min(activeIndex, candidates.length - 1)} theme={theme} onSelect={insertReference} /> : null}
             </div>
-            {previewInput?.image
+            {previewInput?.type === "image" && previewInput.image
                 ? createPortal(<CanvasImageDetailModal imageUrl={previewInput.image.dataUrl} imageTitle={previewInput.title} open onClose={() => setPreviewInput(null)} />, document.body)
                 : null}
         </div>

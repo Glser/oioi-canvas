@@ -250,7 +250,7 @@ function NodePickerCard({
 
     const Icon = kind === "image" ? ImageIcon : kind === "video" ? Video : kind === "audio" ? Music2 : FileText;
 
-    const isPending = !node.metadata?.content && (node.metadata?.isGenerating || !node.metadata?.storageKey);
+    const isPending = !node.metadata?.content && !node.metadata?.storageKey;
     const title = node.title || (kind === "image" ? "图片" : kind === "video" ? "视频" : kind === "audio" ? "音频" : "文本");
 
     return (

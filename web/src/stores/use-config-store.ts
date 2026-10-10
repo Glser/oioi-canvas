@@ -380,10 +380,6 @@ export function encodeChannelModel(channelId: string, model: string) {
     return `${channelId}${CHANNEL_MODEL_SEPARATOR}${model.trim()}`;
 }
 
-export function isChannelModelValue(value: string) {
-    return value.includes(CHANNEL_MODEL_SEPARATOR);
-}
-
 export function decodeChannelModel(value: string) {
     const index = value.indexOf(CHANNEL_MODEL_SEPARATOR);
     if (index < 0) return null;

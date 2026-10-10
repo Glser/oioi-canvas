@@ -27,7 +27,7 @@ import { useCopyText } from "@/hooks/use-copy-text";
 import type { CanvasNodeData } from "@/types/canvas";
 
 interface CanvasImageDetailModalProps {
-    node: CanvasNodeData | null;
+    node?: CanvasNodeData | null;
     imageId?: string | null;
     imageUrl?: string | null;
     imageTitle?: string | null;

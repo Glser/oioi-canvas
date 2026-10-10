@@ -137,7 +137,6 @@ export function inferVideoRatio(size: string) {
     if (!pixels) return "16:9";
     const target = pixels.width / pixels.height;
     return videoRatioOptions
-        .filter((item) => item.value !== "auto")
         .reduce((best, item) => {
             const current = item.width / item.height;
             const bestOption = videoRatioOptions.find((option) => option.value === best);
