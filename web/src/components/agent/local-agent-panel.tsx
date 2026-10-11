@@ -170,7 +170,7 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
         };
     }, [connected, endpoint, token]);
 
-    const toggleAgentConnection = ({ silent = false }: { silent?: boolean } = {}) => {
+    const toggleAgentConnection = ({ silent = false, token: tokenOverride }: { silent?: boolean; token?: string } = {}) => {
         if (enabled) {
             setAgentState({ enabled: false, connected: false, activity: rt("offline"), connectError: "", fragmentBootstrap: false, silentConnect: false });
             return;
@@ -178,7 +178,7 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
         const urlToken = searchParams.get("agentToken") || "";
         const urlEndpoint = searchParams.get("agentUrl") || "";
         const nextEndpoint = (urlEndpoint || endpoint || DEFAULT_AGENT_URL).trim().replace(/\/$/, "");
-        const nextToken = (urlToken || token.trim()).trim();
+        const nextToken = (urlToken || tokenOverride || token.trim()).trim();
         if (!nextEndpoint) {
             const text = rt("addressRequired");
             if (!silent) {
@@ -264,7 +264,7 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
                     </button>
                 </Tooltip>
             </div>
-            <AgentConnectView onToggleEnabled={() => void toggleAgentConnection()} />
+            <AgentConnectView onToggleEnabled={(options) => void toggleAgentConnection(options)} />
         </>
     );
 }

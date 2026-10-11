@@ -1,27 +1,59 @@
 import { useState } from "react";
-import { Input, Tooltip } from "antd";
+import { Button, Input, Tooltip } from "antd";
 import { Copy, KeyRound, Link2, PlugZap, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { useAgentServiceProbe } from "@/hooks/use-agent-service-probe";
 import { useCopyText } from "@/hooks/use-copy-text";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { useAgentStore } from "@/stores/use-agent-store";
 import { useThemeStore } from "@/stores/use-theme-store";
 
 const AGENT_START_COMMAND = "npx -y @oioi-npm/canvas-agent@latest";
+const AGENT_PROTOCOL_VERSION = 7;
 const MCP_COMMANDS = {
     Codex: "codex mcp add oioi-canvas -- npx -y @oioi-npm/canvas-agent@latest mcp",
     "Claude Code": "claude mcp add --scope user --transport stdio oioi-canvas -- npx -y @oioi-npm/canvas-agent@latest mcp",
 };
 
-export function AgentConnectView({ onToggleEnabled }: { onToggleEnabled: () => void }) {
+export function AgentConnectView({ onToggleEnabled }: { onToggleEnabled: (options?: { token?: string }) => void }) {
     const { t } = useTranslation();
     const theme = canvasThemes[useThemeStore((state) => state.theme)];
     const { url, token, enabled, connected, connectError, clientId, canvasContext, pendingTask, setAgentState } = useAgentStore();
     const [agent, setAgent] = useState<keyof typeof MCP_COMMANDS>("Codex");
+    const [pairCode, setPairCode] = useState("");
+    const [pairing, setPairing] = useState(false);
     const copyText = useCopyText();
+    const { status: serviceStatus, probe } = useAgentServiceProbe(url, AGENT_PROTOCOL_VERSION);
     const targetTitle = canvasContext?.snapshot.title || t("agent.connect.noCanvas");
     const prompt = t("agent.connect.examplePrompt", { clientId, title: targetTitle });
+
+    /** 用终端里的配对码换连接 token，成功后自动填入并连接。 */
+    const handlePair = async () => {
+        const code = pairCode.trim();
+        if (!code || pairing) return;
+        setPairing(true);
+        try {
+            const endpoint = url.trim().replace(/\/$/, "");
+            const response = await fetch(`${endpoint}/pair`, {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ pairCode: code }),
+            });
+            const data = (await response.json()) as { ok?: boolean; token?: string; error?: string };
+            if (!response.ok || !data.ok || !data.token) {
+                setAgentState({ connectError: data.error || t("agent.connect.pairFailed") });
+                return;
+            }
+            setPairCode("");
+            onToggleEnabled({ token: data.token });
+        } catch {
+            setAgentState({ connectError: t("agent.connect.pairFailed") });
+        } finally {
+            setPairing(false);
+            void probe();
+        }
+    };
     const commandBlock = (command: string) => (
         <div className="mt-2 flex items-start gap-2 rounded-xl px-2.5 py-2" style={{ background: theme.node.fill }}>
             <code className="min-w-0 flex-1 break-all text-[11px] leading-5">{command}</code>
@@ -78,18 +110,33 @@ export function AgentConnectView({ onToggleEnabled }: { onToggleEnabled: () => v
                             {enabled ? t("agent.connect.disconnect") : t("agent.connect.connect")}
                         </button>
                     </div>
-                    <p className="mt-1 text-xs leading-5" style={{ color: theme.node.muted }}>{t("agent.connect.connectionText")}</p>
-                    <div className="mt-3 grid gap-2.5">
-                        <label className="grid gap-1.5">
-                            <span className="text-[11px] font-medium" style={{ color: theme.node.muted }}>{t("agent.connect.localAddress")}</span>
-                            <Input className="!h-9 !rounded-xl" prefix={<Link2 className="mr-1 size-3.5" style={{ color: theme.node.faint }} />} value={url} disabled={enabled} onChange={(event) => setAgentState({ url: event.target.value, connectError: "" })} placeholder={t("agent.connect.urlPlaceholder")} />
-                        </label>
-                        <label className="grid gap-1.5">
-                            <span className="text-[11px] font-medium" style={{ color: theme.node.muted }}>{t("agent.connect.token")}</span>
-                            <Input.Password className="!h-9 !rounded-xl" prefix={<KeyRound className="mr-1 size-3.5" style={{ color: theme.node.faint }} />} value={token} disabled={enabled} onChange={(event) => setAgentState({ token: event.target.value, connectError: "" })} placeholder={t("agent.connect.tokenPlaceholder")} />
-                        </label>
-                        {connectError ? <p role="alert" className="text-xs leading-5 text-red-600 dark:text-red-400">{connectError}</p> : null}
-                    </div>
+                    <p className="mt-1 text-xs leading-5" style={{ color: theme.node.muted }}>
+                        {serviceStatus === "outdated" ? t("agent.connect.protocolMismatch") : serviceStatus === "stopped" ? t("agent.connect.serviceStopped") : serviceStatus === "running" ? t("agent.connect.serviceReady") : t("agent.connect.connectionText")}
+                    </p>
+                    {serviceStatus === "running" && !enabled && !token.trim() ? (
+                        <div className="mt-3 grid gap-2.5">
+                            <label className="grid gap-1.5">
+                                <span className="text-[11px] font-medium" style={{ color: theme.node.muted }}>{t("agent.connect.pairCode")}</span>
+                                <div className="flex items-center gap-2">
+                                    <Input className="!h-9 !rounded-xl" value={pairCode} onChange={(event) => setPairCode(event.target.value)} placeholder={t("agent.connect.pairCodePlaceholder")} onPressEnter={() => void handlePair()} maxLength={6} />
+                                    <Button className="!h-9 !rounded-xl" type="primary" loading={pairing} disabled={!pairCode.trim()} onClick={() => void handlePair()}>{t("agent.connect.pairSubmit")}</Button>
+                                </div>
+                            </label>
+                            <p className="text-[11px] leading-5" style={{ color: theme.node.muted }}>{t("agent.connect.pairHint")}</p>
+                        </div>
+                    ) : (
+                        <div className="mt-3 grid gap-2.5">
+                            <label className="grid gap-1.5">
+                                <span className="text-[11px] font-medium" style={{ color: theme.node.muted }}>{t("agent.connect.localAddress")}</span>
+                                <Input className="!h-9 !rounded-xl" prefix={<Link2 className="mr-1 size-3.5" style={{ color: theme.node.faint }} />} value={url} disabled={enabled} onChange={(event) => setAgentState({ url: event.target.value, connectError: "" })} placeholder={t("agent.connect.urlPlaceholder")} />
+                            </label>
+                            <label className="grid gap-1.5">
+                                <span className="text-[11px] font-medium" style={{ color: theme.node.muted }}>{t("agent.connect.token")}</span>
+                                <Input.Password className="!h-9 !rounded-xl" prefix={<KeyRound className="mr-1 size-3.5" style={{ color: theme.node.faint }} />} value={token} disabled={enabled} onChange={(event) => setAgentState({ token: event.target.value, connectError: "" })} placeholder={t("agent.connect.tokenPlaceholder")} />
+                            </label>
+                        </div>
+                    )}
+                    {connectError ? <p role="alert" className="mt-2.5 text-xs leading-5 text-red-600 dark:text-red-400">{connectError}</p> : null}
                 </section>
                 <section className="px-1 pt-1">
                     <h3 className="text-sm font-medium leading-5">{t("agent.connect.useTitle")}</h3>

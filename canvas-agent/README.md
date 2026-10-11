@@ -12,7 +12,7 @@
    npx -y @oioi-npm/canvas-agent@latest
    ```
 
-   终端会输出 `Local URL: http://127.0.0.1:17371` 和 `Connect token`。`@latest` 避免 npx 一直使用旧缓存；排查问题时可在命令后加 `--debug`，日志位于 `~/.oioi-canvas/logs/`，token 与图片 Data URL 会隐藏。
+   终端会输出 `Local URL: http://127.0.0.1:17371` 和一个 6 位 `配对码`。若本机网页（默认 `http://localhost:3100`）已在运行，bridge 会自动用默认浏览器打开画布页并带上连接参数，无需手动复制地址；网页未运行时只打印地址，不弹浏览器。`@latest` 避免 npx 一直使用旧缓存；排查问题时可在命令后加 `--debug`，日志位于 `~/.oioi-canvas/logs/`，token 与图片 Data URL 会隐藏。
 
 2. 给原生 Agent 注册 MCP；已有 oioi-canvas 插件提供 MCP 时跳过，避免重复注册。
 
@@ -30,7 +30,9 @@
 
    默认启动命令仅运行 bridge，`mcp` 子命令仅提供 stdio 工具，两者不是同一个进程。MCP 从 `~/.oioi-canvas/canvas-agent.json` 读取同一地址和 token。
 
-3. 打开网页 Agent 侧栏，填写终端输出的地址/token 并连接，然后回原生 Agent 对话中操作。云端网页也连接你电脑的 loopback 地址，不需要内网穿透；本地网页开发地址通常为 `http://localhost:3100`，它不是 bridge 地址。
+3. 连接网页。网页侧 Agent 面板会轮询检测本机服务：检测到服务后，把终端显示的 6 位配对码填进「配对码」输入框并点「配对并连接」，即可用配对码换回连接 token 并自动连接，不需要复制 36 位 token。自动打开的浏览器页面已完成这一步。服务未运行时面板会提示先启动，并保留手动填写地址/token 的兜底表单。云端网页也连接你电脑的 loopback 地址，不需要内网穿透；本地网页开发地址通常为 `http://localhost:3100`，它不是 bridge 地址。
+
+   配对码只存在 bridge 内存中、不落盘、每次启动重新生成；连续输错 5 次会锁定 60 秒。`/pair` 与 `/config`、`/health` 一样对未授权 Origin 开放，因为首次连接的用户此时还没有进入 Origin 白名单。
 
 ## 目标选择与工具
 
