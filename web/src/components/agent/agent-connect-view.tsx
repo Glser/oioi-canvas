@@ -23,10 +23,13 @@ export function AgentConnectView({ onToggleEnabled }: { onToggleEnabled: (option
     const [agent, setAgent] = useState<keyof typeof MCP_COMMANDS>("Codex");
     const [pairCode, setPairCode] = useState("");
     const [pairing, setPairing] = useState(false);
+    const [showManual, setShowManual] = useState(false);
     const copyText = useCopyText();
     const { status: serviceStatus, probe } = useAgentServiceProbe(url, AGENT_PROTOCOL_VERSION);
     const targetTitle = canvasContext?.snapshot.title || t("agent.connect.noCanvas");
     const prompt = t("agent.connect.examplePrompt", { clientId, title: targetTitle });
+    const savedToken = Boolean(token.trim());
+    const showPairForm = serviceStatus === "running" && !enabled && !savedToken;
 
     /** 用终端里的配对码换连接 token，成功后自动填入并连接。 */
     const handlePair = async () => {
@@ -113,7 +116,8 @@ export function AgentConnectView({ onToggleEnabled }: { onToggleEnabled: (option
                     <p className="mt-1 text-xs leading-5" style={{ color: theme.node.muted }}>
                         {serviceStatus === "outdated" ? t("agent.connect.protocolMismatch") : serviceStatus === "stopped" ? t("agent.connect.serviceStopped") : serviceStatus === "running" ? t("agent.connect.serviceReady") : t("agent.connect.connectionText")}
                     </p>
-                    {serviceStatus === "running" && !enabled && !token.trim() ? (
+                    {savedToken && !enabled ? <p className="mt-2 text-[11px] leading-5" style={{ color: theme.node.muted }}>{t("agent.connect.reconnectHint")}</p> : null}
+                    {showPairForm ? (
                         <div className="mt-3 grid gap-2.5">
                             <label className="grid gap-1.5">
                                 <span className="text-[11px] font-medium" style={{ color: theme.node.muted }}>{t("agent.connect.pairCode")}</span>
@@ -124,7 +128,8 @@ export function AgentConnectView({ onToggleEnabled }: { onToggleEnabled: (option
                             </label>
                             <p className="text-[11px] leading-5" style={{ color: theme.node.muted }}>{t("agent.connect.pairHint")}</p>
                         </div>
-                    ) : (
+                    ) : null}
+                    {showManual ? (
                         <div className="mt-3 grid gap-2.5">
                             <label className="grid gap-1.5">
                                 <span className="text-[11px] font-medium" style={{ color: theme.node.muted }}>{t("agent.connect.localAddress")}</span>
@@ -135,6 +140,9 @@ export function AgentConnectView({ onToggleEnabled }: { onToggleEnabled: (option
                                 <Input.Password className="!h-9 !rounded-xl" prefix={<KeyRound className="mr-1 size-3.5" style={{ color: theme.node.faint }} />} value={token} disabled={enabled} onChange={(event) => setAgentState({ token: event.target.value, connectError: "" })} placeholder={t("agent.connect.tokenPlaceholder")} />
                             </label>
                         </div>
+                    ) : null}
+                    {enabled ? null : (
+                        <button type="button" className="mt-2 text-[11px] leading-5 transition hover:opacity-80" style={{ color: theme.node.muted }} onClick={() => setShowManual((open) => !open)}>{t(showManual ? "agent.connect.hideManual" : "agent.connect.showManual")}</button>
                     )}
                     {connectError ? <p role="alert" className="mt-2.5 text-xs leading-5 text-red-600 dark:text-red-400">{connectError}</p> : null}
                 </section>

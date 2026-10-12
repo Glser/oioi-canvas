@@ -275,7 +275,7 @@ export default function IndexPage() {
                                     />
                                 </Upload>
                             </Tooltip>
-                            <Tooltip title={agentConnected ? "Agent已连接就绪" : "请先在环境启动 Codex Agent"}>
+                            <Tooltip title={t(agentConnected ? "home.agentReady" : "home.agentConnectHint")}>
                                 <Button
                                     type="text"
                                     size="small"
