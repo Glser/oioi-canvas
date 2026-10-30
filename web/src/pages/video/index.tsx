@@ -378,7 +378,33 @@ export default function VideoPage() {
                 </aside>
 
                 {/* Left Creation Control Panel */}
-                <section className="thin-scrollbar flex w-full shrink-0 flex-col rounded-2xl border border-black/[0.06] bg-white/85 p-4 sm:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] backdrop-blur-md dark:border-white/[0.08] dark:bg-stone-900/70 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] lg:h-full lg:w-[420px] lg:overflow-hidden">
+                <section
+                    className={`thin-scrollbar flex w-full shrink-0 flex-col rounded-2xl border p-4 sm:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] backdrop-blur-md transition-colors dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] lg:h-full lg:w-[420px] lg:overflow-hidden ${
+                        isReferenceDragActive
+                            ? "border-stone-900/35 bg-stone-100/85 dark:border-stone-100/25 dark:bg-stone-800/70"
+                            : "border-black/[0.06] bg-white/85 dark:border-white/[0.08] dark:bg-stone-900/70"
+                    }`}
+                    onDragEnter={(event) => {
+                        event.preventDefault();
+                        dragDepthRef.current += 1;
+                        if (event.dataTransfer.types.includes("Files")) setIsReferenceDragActive(true);
+                    }}
+                    onDragOver={(event) => {
+                        event.preventDefault();
+                        event.dataTransfer.dropEffect = "copy";
+                    }}
+                    onDragLeave={(event) => {
+                        event.preventDefault();
+                        dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+                        if (!dragDepthRef.current) setIsReferenceDragActive(false);
+                    }}
+                    onDrop={(event) => {
+                        event.preventDefault();
+                        dragDepthRef.current = 0;
+                        setIsReferenceDragActive(false);
+                        void addReferences(event.dataTransfer.files);
+                    }}
+                >
                     {/* Header */}
                     <div className="flex items-center justify-between gap-3 pb-3 border-b border-stone-100 dark:border-stone-800">
                         <div className="flex items-center gap-2">
@@ -405,34 +431,14 @@ export default function VideoPage() {
                         </div>
                     </div>
 
-                    <div
+                                        <div
                         className={`mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border transition-colors ${
                             isReferenceDragActive
                                 ? "border-stone-900/35 bg-stone-100/80 dark:border-stone-100/25 dark:bg-stone-800/50"
-                                : "border-stone-200/90 bg-white/70 focus-within:border-stone-400 dark:border-stone-800 dark:bg-stone-950/40 dark:focus-within:border-stone-500"
+                                : "border-stone-200/85 bg-white/60 dark:border-stone-700/80 dark:bg-black/20"
                         }`}
-                        onDragEnter={(event) => {
-                            event.preventDefault();
-                            dragDepthRef.current += 1;
-                            if (event.dataTransfer.types.includes("Files")) setIsReferenceDragActive(true);
-                        }}
-                        onDragOver={(event) => {
-                            event.preventDefault();
-                            event.dataTransfer.dropEffect = "copy";
-                        }}
-                        onDragLeave={(event) => {
-                            event.preventDefault();
-                            dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
-                            if (!dragDepthRef.current) setIsReferenceDragActive(false);
-                        }}
-                        onDrop={(event) => {
-                            event.preventDefault();
-                            dragDepthRef.current = 0;
-                            setIsReferenceDragActive(false);
-                            void addReferences(event.dataTransfer.files);
-                        }}
                     >
-                        <div className="flex items-center gap-2 px-2.5 pt-2.5">
+                    <div className="flex items-center gap-2 px-2.5 pt-2.5">
                             <div
                                 className="no-scrollbar flex min-w-0 flex-1 items-center gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain"
                                 onWheel={(event) => {
@@ -507,14 +513,16 @@ export default function VideoPage() {
                             </div>
                         </div>
 
-                        <div className="relative min-h-[132px] flex-1 px-1 pb-1 pt-1.5">
+                    <div className="relative min-h-[132px] flex-1 overflow-hidden">
                             <Input.TextArea
                                 value={prompt}
                                 onChange={(event) => setPrompt(event.target.value)}
                                 rows={5}
                                 variant="borderless"
                                 placeholder={t("videoWorkbench.promptPlaceholder")}
-                                className="!h-full !min-h-[132px] !resize-none !bg-transparent !px-2.5 !pt-1.5 !pb-8 text-sm !text-stone-800 placeholder:!text-stone-400 dark:!text-stone-100"
+                                classNames={{ root: "!border-0 !shadow-none focus-within:!border-0 focus-within:!shadow-none" }}
+                                styles={{ root: { boxShadow: "none", border: "none" }, textarea: { outline: "none", boxShadow: "none" } }}
+                                className="!h-full !min-h-[132px] !resize-none !bg-transparent !px-2.5 !pt-1.5 !pb-8 text-sm !text-stone-800 placeholder:!text-stone-400 dark:!text-stone-100 !border-0 !shadow-none !outline-none focus:!border-0 focus:!shadow-none focus:!outline-none"
                                 onKeyDown={(e) => {
                                     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
                                         e.preventDefault();
@@ -528,18 +536,17 @@ export default function VideoPage() {
                                 <kbd className="inline-flex items-center rounded-md border border-stone-200/80 px-1 py-px font-mono text-[9px] dark:border-stone-700">Enter</kbd>
                             </div>
                         </div>
-
-                        <div className="border-t border-stone-200/70 px-2 pb-2 pt-2 dark:border-stone-800">
-                            <GenerationSettings
-                                config={effectiveConfig}
-                                model={model}
-                                updateConfig={updateConfig}
-                                openConfigDialog={openConfigDialog}
-                                running={running}
-                                canGenerate={canGenerate}
-                                onGenerate={() => void generate()}
-                            />
-                        </div>
+                    </div>
+                    <div className="mt-3 flex min-w-0 flex-col gap-2 border-t border-stone-200/70 pt-3 dark:border-stone-800">
+                        <GenerationSettings
+                            config={effectiveConfig}
+                            model={model}
+                            updateConfig={updateConfig}
+                            openConfigDialog={openConfigDialog}
+                            running={running}
+                            canGenerate={canGenerate}
+                            onGenerate={() => void generate()}
+                        />
                     </div>
                 </section>
 
@@ -632,7 +639,7 @@ function GenerationSettings({
     const { t } = useTranslation();
 
     return (
-        <div className="flex min-w-0 flex-col gap-2">
+        <>
             <div className="flex h-9 min-w-0 items-center rounded-full bg-stone-100/90 p-0.5 dark:bg-white/[0.07]">
                 <div className="min-w-0 flex-1">
                     <ModelPicker
@@ -661,7 +668,7 @@ function GenerationSettings({
             {onGenerate ? (
                 <button
                     type="button"
-                    className="group relative inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-black/10 bg-black/5 px-4 text-sm font-semibold text-black transition-all duration-150 hover:bg-black/10 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
+                    className="group inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-black/10 bg-black/5 px-4 text-sm font-semibold text-black transition-all duration-150 hover:bg-black/10 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
                     disabled={!canGenerate || running}
                     onClick={onGenerate}
                 >
@@ -675,7 +682,7 @@ function GenerationSettings({
                     </span>
                 </button>
             ) : null}
-        </div>
+        </>
     );
 }
 

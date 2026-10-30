@@ -27,36 +27,30 @@ export function AppTopNav() {
     const slug = pathname.split("/").filter(Boolean)[0];
     const activeToolSlug = navigationTools.some((tool) => tool.slug === slug) ? (slug as NavigationToolSlug) : undefined;
 
-    // 全局捕获滚动事件，阈值设定带滞后区间（Hysteresis），防止边界抖动，过渡更加沉稳丝滑
+    // 只有首页整页下滚才收缩导航。生图/视频等工作台的 main、提示词框、结果区滑动都不该触发。
     useEffect(() => {
+        if (pathname !== "/") {
+            setIsScrolled(false);
+            return;
+        }
         let ticking = false;
         const handleScroll = (event: Event) => {
+            const target = event.target;
+            const isDocument = target === document || target === document.documentElement || target === document.body;
+            const isHomeMain = target instanceof HTMLElement && target.tagName === "MAIN";
+            if (!isDocument && !isHomeMain) return;
             if (ticking) return;
             ticking = true;
             requestAnimationFrame(() => {
-                const target = event.target as HTMLElement | Document;
-                let top = 0;
-                if (target === document) {
-                    top = window.scrollY || document.documentElement.scrollTop;
-                } else if (target && "scrollTop" in target) {
-                    top = (target as HTMLElement).scrollTop;
-                }
-                if (top > 32) {
-                    setIsScrolled(true);
-                } else if (top < 12) {
-                    setIsScrolled(false);
-                }
+                const top = isDocument ? window.scrollY || document.documentElement.scrollTop : (target as HTMLElement).scrollTop;
+                if (top > 32) setIsScrolled(true);
+                else if (top < 12) setIsScrolled(false);
                 ticking = false;
             });
         };
 
         window.addEventListener("scroll", handleScroll, true);
         return () => window.removeEventListener("scroll", handleScroll, true);
-    }, []);
-
-    // 路由切换时自动重置滚动状态
-    useEffect(() => {
-        setIsScrolled(false);
     }, [pathname]);
 
     useEffect(() => {
@@ -70,7 +64,7 @@ export function AppTopNav() {
     return (
         <>
             {!hideHeader ? (
-                <header className="absolute inset-x-0 top-0 z-20 flex h-16 items-center justify-center px-4 pointer-events-none transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]">
+                <header className="absolute inset-x-0 top-0 z-20 flex h-16 items-center justify-center px-4 pointer-events-none">
                     {/* 移动端菜单与徽标 (窄屏展示) */}
                     <div className="flex md:hidden w-full items-center justify-between pointer-events-auto">
                         <button
@@ -96,8 +90,8 @@ export function AppTopNav() {
                     {/* 桌面端：一体化毛玻璃悬浮岛屿 (基于 CSS Grid 0fr->1fr 物理级平滑伸缩) */}
                     <div
                         className={cn(
-                            "hidden md:flex items-center gap-1.5 rounded-full border border-black/[0.08] bg-white/80 p-1.5 shadow-[0_4px_24px_rgba(0,0,0,0.06)] backdrop-blur-xl pointer-events-auto transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform dark:border-white/[0.12] dark:bg-stone-900/75 dark:shadow-[0_4px_28px_rgba(0,0,0,0.45)]",
-                            isCompact ? "scale-[0.98] shadow-[0_8px_32px_rgba(0,0,0,0.12)]" : ""
+                            "hidden md:flex items-center rounded-full border border-black/[0.08] bg-white/80 p-1.5 shadow-[0_4px_24px_rgba(0,0,0,0.06)] backdrop-blur-xl pointer-events-auto transition-[gap,box-shadow] duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] dark:border-white/[0.12] dark:bg-stone-900/75 dark:shadow-[0_4px_28px_rgba(0,0,0,0.45)]",
+                            isCompact ? "gap-1 shadow-[0_8px_32px_rgba(0,0,0,0.12)]" : "gap-1.5",
                         )}
                     >
                         {/* 1. 项目 Logo */}
@@ -124,23 +118,26 @@ export function AppTopNav() {
                                         <Link
                                             to={`/${tool.slug}`}
                                             className={cn(
-                                                "relative flex h-8.5 items-center justify-center rounded-full text-[13px] font-medium select-none transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
-                                                isCompact ? "w-8.5 px-0" : "px-3.5",
+                                                "relative flex h-8.5 min-w-8.5 items-center justify-center rounded-full px-2.5 text-[13px] font-medium select-none transition-colors duration-300",
                                                 active
                                                     ? "bg-white text-stone-950 shadow-[0_2px_8px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] dark:bg-stone-800 dark:text-stone-50 dark:shadow-[0_2px_12px_rgba(0,0,0,0.35)]"
                                                     : "text-stone-600 hover:text-stone-950 hover:bg-black/[0.03] dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-white/[0.04]",
                                             )}
                                             aria-label={titleText}
                                         >
-                                            <Icon className={cn("size-4 shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]", active ? "scale-105" : "opacity-75")} />
-                                            {/* 使用 Grid 0fr <-> 1fr 实现真正丝滑、零抖动、零溢出的文字展开/收拢 */}
+                                            <Icon className={cn("size-4 shrink-0", active ? "scale-105" : "opacity-75")} />
                                             <div
                                                 className={cn(
-                                                    "grid transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
-                                                    isCompact ? "grid-cols-[0fr] opacity-0" : "grid-cols-[1fr] opacity-100 ml-2"
+                                                    "grid transition-[grid-template-columns] duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]",
+                                                    isCompact ? "grid-cols-[0fr]" : "grid-cols-[1fr]",
                                                 )}
                                             >
-                                                <span className="overflow-hidden whitespace-nowrap min-w-0 pointer-events-none">
+                                                <span
+                                                    className={cn(
+                                                        "min-w-0 overflow-hidden whitespace-nowrap pl-2 pointer-events-none transition-opacity duration-300 ease-out",
+                                                        isCompact ? "opacity-0" : "opacity-100 delay-100",
+                                                    )}
+                                                >
                                                     {titleText}
                                                 </span>
                                             </div>
@@ -158,22 +155,26 @@ export function AppTopNav() {
                                 type="button"
                                 onClick={togglePanel}
                                 className={cn(
-                                    "group flex h-8.5 items-center justify-center rounded-full text-[13px] font-medium transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
-                                    isCompact ? "w-8.5 px-0" : "px-3",
+                                    "group flex h-8.5 min-w-8.5 items-center justify-center rounded-full px-2.5 text-[13px] font-medium transition-colors duration-300",
                                     panelOpen
                                         ? "bg-purple-500/15 text-purple-600 dark:bg-purple-500/25 dark:text-purple-300 font-semibold"
                                         : "text-stone-600 hover:bg-black/[0.04] hover:text-stone-950 dark:text-stone-300 dark:hover:bg-white/[0.08] dark:hover:text-stone-100",
                                 )}
                                 aria-label={t(panelOpen ? "topNav.closeAgent" : "topNav.openAgent")}
                             >
-                                <Bot className="size-4 shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-110" />
+                                <Bot className="size-4 shrink-0 transition-transform duration-300 group-hover:scale-110" />
                                 <div
                                     className={cn(
-                                        "grid transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
-                                        isCompact ? "grid-cols-[0fr] opacity-0" : "grid-cols-[1fr] opacity-100 ml-1.5"
+                                        "grid transition-[grid-template-columns] duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]",
+                                        isCompact ? "grid-cols-[0fr]" : "grid-cols-[1fr]",
                                     )}
                                 >
-                                    <span className="overflow-hidden whitespace-nowrap min-w-0 pointer-events-none">
+                                    <span
+                                        className={cn(
+                                            "min-w-0 overflow-hidden whitespace-nowrap pl-1.5 pointer-events-none transition-opacity duration-300 ease-out",
+                                            isCompact ? "opacity-0" : "opacity-100 delay-100",
+                                        )}
+                                    >
                                         Agent
                                     </span>
                                 </div>

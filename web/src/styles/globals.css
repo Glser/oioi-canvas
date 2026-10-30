@@ -120,6 +120,13 @@
 @layer base {
     * {
         @apply border-border outline-ring/50;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+    *::-webkit-scrollbar {
+        display: none;
+        width: 0;
+        height: 0;
     }
     html,
     body {
@@ -131,6 +138,8 @@
     }
     textarea {
         resize: none;
+        /* Chrome 的 scrollbar-width: thin 会走系统条并带出上下箭头，这里只用自定义细条 */
+        scrollbar-width: auto;
     }
     textarea::-webkit-resizer {
         display: none;
@@ -226,47 +235,88 @@
         font-weight: 700;
     }
 
-    .thin-scrollbar {
-        scrollbar-color: rgba(120, 113, 108, 0.45) transparent;
-        scrollbar-width: thin;
+    .thin-scrollbar,
+    .hover-scrollbar,
+    .no-scrollbar {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
     }
 
-    .thin-scrollbar::-webkit-scrollbar {
-        height: 4px;
+    .thin-scrollbar::-webkit-scrollbar,
+    .hover-scrollbar::-webkit-scrollbar,
+    .no-scrollbar::-webkit-scrollbar {
+        display: none;
+        width: 0;
+        height: 0;
+    }
+
+    textarea,
+    textarea.thin-scrollbar,
+    textarea.hover-scrollbar,
+    textarea.no-scrollbar {
+        scrollbar-width: auto;
+        -ms-overflow-style: auto;
+    }
+
+    textarea::-webkit-scrollbar,
+    textarea.thin-scrollbar::-webkit-scrollbar,
+    textarea.hover-scrollbar::-webkit-scrollbar,
+    textarea.no-scrollbar::-webkit-scrollbar {
+        display: block;
         width: 4px;
-    }
-
-    .thin-scrollbar::-webkit-scrollbar-thumb {
-        background: rgba(120, 113, 108, 0.45);
-        border-radius: 999px;
-    }
-
-    .hover-scrollbar {
-        scrollbar-color: transparent transparent;
-        scrollbar-width: thin;
-    }
-
-    .hover-scrollbar:hover {
-        scrollbar-color: rgba(120, 113, 108, 0.5) transparent;
-    }
-
-    .hover-scrollbar::-webkit-scrollbar {
-        height: 6px;
-        width: 6px;
-    }
-
-    .hover-scrollbar::-webkit-scrollbar-thumb {
+        height: 4px;
         background: transparent;
-        border-radius: 999px;
     }
 
-    .hover-scrollbar:hover::-webkit-scrollbar-track {
-        background: rgba(120, 113, 108, 0.12);
-        border-radius: 999px;
+    textarea::-webkit-scrollbar-button,
+    textarea::-webkit-scrollbar-button:start:decrement,
+    textarea::-webkit-scrollbar-button:end:increment,
+    textarea::-webkit-scrollbar-button:vertical:start:increment,
+    textarea::-webkit-scrollbar-button:vertical:end:decrement,
+    textarea::-webkit-scrollbar-button:vertical:decrement,
+    textarea::-webkit-scrollbar-button:vertical:increment,
+    textarea::-webkit-scrollbar-button:horizontal:decrement,
+    textarea::-webkit-scrollbar-button:horizontal:increment,
+    textarea.thin-scrollbar::-webkit-scrollbar-button {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        background: transparent !important;
+        border: none !important;
     }
 
-    .hover-scrollbar:hover::-webkit-scrollbar-thumb {
-        background: rgba(120, 113, 108, 0.5);
+    textarea::-webkit-scrollbar-track,
+    textarea.thin-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    textarea::-webkit-scrollbar-thumb,
+    textarea.thin-scrollbar::-webkit-scrollbar-thumb {
+        background-color: rgb(168 162 158 / 0.45);
+        border-radius: 999px;
+        border: none;
+    }
+
+    textarea::-webkit-scrollbar-corner,
+    textarea.thin-scrollbar::-webkit-scrollbar-corner {
+        background: transparent;
+    }
+
+    .dark textarea::-webkit-scrollbar-thumb,
+    .dark textarea.thin-scrollbar::-webkit-scrollbar-thumb {
+        background-color: rgb(214 211 209 / 0.35);
+    }
+
+    @supports not selector(::-webkit-scrollbar) {
+        textarea,
+        textarea.thin-scrollbar {
+            scrollbar-width: thin;
+            scrollbar-color: rgb(168 162 158 / 0.45) transparent;
+        }
+        .dark textarea,
+        .dark textarea.thin-scrollbar {
+            scrollbar-color: rgb(214 211 209 / 0.35) transparent;
+        }
     }
 
     .hover-scrollbar-hint {

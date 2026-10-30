@@ -241,7 +241,7 @@ export default function IndexPage() {
                             onKeyDown={handleKeyDown}
                             rows={5}
                             placeholder="描述你想要的画面，或构想一个场景、故事... 按 Enter 交给 Agent 开启画布推演"
-                            className="flex-1 resize-none bg-transparent px-3 py-2 text-sm text-stone-800 outline-none placeholder:text-stone-400 dark:text-stone-200 dark:placeholder:text-stone-500/80 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                            className="flex-1 resize-none bg-transparent px-3 py-2 text-sm text-stone-800 outline-none placeholder:text-stone-400 dark:text-stone-200 dark:placeholder:text-stone-500/80"
                         />
                         <div className="flex flex-col pt-1 pr-1">
                             <Tooltip title="展开大窗口编辑">

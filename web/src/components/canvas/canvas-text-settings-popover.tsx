@@ -71,11 +71,11 @@ export function CanvasTextSettingsPopover({
             : "medium";
 
     return (
-        <div className="relative inline-flex min-w-0">
+        <>
             <button
                 ref={buttonRef}
                 type="button"
-                className={`canvas-text-settings-trigger inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-input bg-transparent px-3 text-xs font-normal shadow-xs transition hover:bg-black/5 dark:hover:bg-white/10 ${buttonClassName || ""}`}
+                className={`canvas-text-settings-trigger inline-flex h-8 min-w-0 cursor-pointer items-center gap-1.5 rounded-full border border-input bg-transparent px-3 text-xs font-normal shadow-xs transition hover:bg-black/5 dark:hover:bg-white/10 ${buttonClassName || ""}`}
                 style={{ color: theme.node.text }}
                 onClick={() => setOpen((current) => !current)}
                 title={`${t("canvas.controls.reasoning")}: ${reasoningEffortLabel(currentEffort)}`}
@@ -95,7 +95,7 @@ export function CanvasTextSettingsPopover({
                     onConfigChange={onConfigChange}
                 />
             ) : null}
-        </div>
+        </>
     );
 }
 

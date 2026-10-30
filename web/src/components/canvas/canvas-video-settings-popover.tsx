@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Slider } from "antd";
 
+import { AspectIcon } from "@/components/image-settings-panel";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { useThemeStore } from "@/stores/use-theme-store";
 import type { AiConfig } from "@/stores/use-config-store";
@@ -83,16 +84,16 @@ export function CanvasVideoSettingsPopover({
     const triggerRatioHeight = ratioOption?.height || parsedRatio?.height || 9;
 
     return (
-        <div className="relative inline-flex min-w-0">
+        <>
             <button
                 ref={buttonRef}
                 type="button"
-                className={`canvas-video-settings-trigger inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-input bg-transparent px-3 text-xs font-normal shadow-xs transition hover:bg-black/5 dark:hover:bg-white/10 ${buttonClassName || ""}`}
+                className={`canvas-video-settings-trigger inline-flex h-8 min-w-0 cursor-pointer items-center gap-1.5 rounded-full border border-input bg-transparent px-3 text-xs font-normal shadow-xs transition hover:bg-black/5 dark:hover:bg-white/10 ${buttonClassName || ""}`}
                 style={{ color: theme.node.text }}
                 onClick={() => setOpen((current) => !current)}
                 title={`${videoSizeLabel(config.size)} · ${videoResolutionLabel(config.vquality)} · ${videoSecondsLabel(config.videoSeconds)} · ${videoModeLabel(config.videoMode)}`}
             >
-                <VideoAspectIcon width={triggerRatioWidth} height={triggerRatioHeight} color="currentColor" />
+                <AspectIcon width={triggerRatioWidth} height={triggerRatioHeight} color="currentColor" size={16} />
                 <span className="truncate inline-flex items-center gap-1">
                     <span className="font-medium">{videoSizeLabel(config.size)}</span>
                     <span className="opacity-35">·</span>
@@ -115,7 +116,7 @@ export function CanvasVideoSettingsPopover({
                     onConfigChange={onConfigChange}
                 />
             ) : null}
-        </div>
+        </>
     );
 }
 
@@ -212,7 +213,7 @@ function VideoSettingsDropdown({
                                     }`}
                                     onClick={() => applySize(resolution, item.value)}
                                 >
-                                    <VideoAspectIcon width={item.width} height={item.height} color="currentColor" />
+                                    <AspectIcon width={item.width} height={item.height} color="currentColor" size={16} />
                                     <span>{item.value}</span>
                                 </button>
                             );
@@ -301,29 +302,5 @@ function VideoSettingsDropdown({
             </div>
         </div>,
         document.body,
-    );
-}
-
-function VideoAspectIcon({ width, height, color = "currentColor" }: { width: number; height: number; color?: string }) {
-    const size = 16;
-    const maxDimension = Math.max(width, height);
-    const rectWidth = Math.max(5, Math.round((width / maxDimension) * (size - 3)));
-    const rectHeight = Math.max(5, Math.round((height / maxDimension) * (size - 3)));
-    const x = Math.round((size - rectWidth) / 2);
-    const y = Math.round((size - rectHeight) / 2);
-
-    return (
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} fill="none" className="shrink-0">
-            <rect
-                x={x}
-                y={y}
-                width={rectWidth}
-                height={rectHeight}
-                rx={2.5}
-                stroke={color}
-                strokeWidth={1.5}
-                fill="none"
-            />
-        </svg>
     );
 }
