@@ -5,7 +5,7 @@ description: Frontend-first local development
 
 # Local Development
 
-The main application lives in `web/`. The browser sends AI requests directly to the user's OpenAI-compatible endpoint.
+The main application lives in `web/`. Flow connects directly to New API by default; standalone development can use manually configured model channels.
 
 ## Start the frontend
 
@@ -15,7 +15,7 @@ bun install
 bun run dev
 ```
 
-Open `http://localhost:3000`, then enter your `Base URL`, `API Key`, and model names in Settings. Prompt sources and WebDAV are also accessed directly by the browser.
+Open `http://localhost:3100`. For standalone development, set `VITE_NEW_API_ENABLED=false` in `web/.env.local`, restart Vite, then configure your endpoint and models in Settings. For Flow login integration, follow [New API Integration](/docs/development/newapi-integration); the production login Cookie is not assumed to work from plain HTTP localhost. Prompt sources and WebDAV are also accessed directly by the browser.
 
 ## Start the documentation site
 

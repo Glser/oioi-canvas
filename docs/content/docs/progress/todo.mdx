@@ -5,3 +5,6 @@ description: Planned follow-up work
 
 # TODO
 
+- Flow 上线联调：New API 精确允许 `https://flow.oioi.lat` 的带凭据 CORS 与 refresh/logout 来源，登录页允许受控 `/auth/callback` 外部回跳并覆盖 2FA/OAuth；配置用户 auto 候选组、渠道和计价，部署 Flow SPA 回退后完成真实登录、模型目录及生成验收。具体契约见「开发文档 → New API 接入」。本次仅修改 Flow，未修改或部署 New API。
+- 若运营要求跨设备首次使用只创建一把 auto Key，在 New API 增加按用户原子取得或创建令牌的幂等接口；当前 Flow 同源标签页 Web Locks 不提供跨设备互斥。
+

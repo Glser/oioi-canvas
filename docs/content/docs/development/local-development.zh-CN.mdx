@@ -5,7 +5,7 @@ description: 前端优先的本地开发方式
 
 # 本地开发
 
-当前主应用以 `web/` 前端为主，AI 请求由浏览器前台直连用户自己的 OpenAI 兼容接口。
+当前主应用位于 `web/`，Flow 默认由浏览器直连 New API。独立开发时也可以关闭该接入，使用原有手动渠道配置。
 
 ## 1. 启动前端
 
@@ -18,12 +18,14 @@ bun run dev
 前端默认访问：
 
 ```text
-http://localhost:3000
+http://localhost:3100
 ```
 
 ## 2. 配置模型
 
-打开右上角配置弹窗，填写自己的 `Base URL`、`API Key` 和模型名。第三方提示词和 WebDAV 都由浏览器前端直连。
+独立开发时，在 `web/.env.local` 设置 `VITE_NEW_API_ENABLED=false` 并重启 Vite，然后在右上角配置弹窗填写自己的 `Base URL`、`API Key` 和模型名。第三方提示词和 WebDAV 都由浏览器前端直连。
+
+需要联调 Flow 登录时，先按 [New API 接入](/docs/development/newapi-integration) 完成跨域与回跳配置；不要假定线上登录 Cookie 能直接用于普通 HTTP localhost。
 
 ## 3. 启动文档站
 

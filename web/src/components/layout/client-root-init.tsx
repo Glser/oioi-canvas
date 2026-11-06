@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next";
 
 import { useConfigStore } from "@/stores/use-config-store";
 import { usePromptSourceScheduler } from "@/hooks/use-prompt-source-scheduler";
+import { NEW_API_ENABLED } from "@/constant/env";
+import { useNewApiStore } from "@/stores/use-newapi-store";
 
 export function ClientRootInit({ children }: { children: ReactNode }) {
     const { message } = App.useApp();
@@ -14,6 +16,17 @@ export function ClientRootInit({ children }: { children: ReactNode }) {
     const openConfigDialog = useConfigStore((state) => state.openConfigDialog);
 
     usePromptSourceScheduler();
+
+    useEffect(() => {
+        if (!NEW_API_ENABLED) return;
+        const connect = () => void useNewApiStore.getState().connect().catch(() => {});
+        if (window.location.pathname !== "/auth/callback") connect();
+        const resume = () => {
+            if (document.visibilityState === "visible" && useNewApiStore.getState().session) connect();
+        };
+        document.addEventListener("visibilitychange", resume);
+        return () => document.removeEventListener("visibilitychange", resume);
+    }, []);
 
     useEffect(() => {
         if (handledConfigParams.current) return;
@@ -27,6 +40,7 @@ export function ClientRootInit({ children }: { children: ReactNode }) {
         searchParams.delete("apiKey");
         searchParams.delete("apikey");
         window.history.replaceState(null, "", `${window.location.pathname}${searchParams.size ? `?${searchParams}` : ""}${window.location.hash}`);
+        if (NEW_API_ENABLED) return;
         const result = importChannelCredentials({ baseUrl, apiKey });
         openConfigDialog(false, "channels");
         if (result.status === "created") message.success(t("config.importedChannelCreated", { name: result.channelName }));

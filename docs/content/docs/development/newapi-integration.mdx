@@ -1,0 +1,116 @@
+---
+title: New API 接入
+description: Flow 登录、auto 令牌、模型列表与生成请求的接入契约
+---
+
+# New API 接入
+
+Flow 的运营地址为 `https://flow.oioi.lat`，浏览器直接请求 `https://api.oioi.lat`。本次只修改画布仓库；New API 源码、线上配置与部署均未修改。真实跨站登录需要先完成下文的 New API 配合项。
+
+## Flow 配置
+
+`web/.env.example` 提供以下构建环境变量：
+
+```env
+VITE_NEW_API_ENABLED=true
+VITE_NEW_API_URL=https://api.oioi.lat
+```
+
+默认启用 New API 接入。需要独立开发原有手动渠道功能时，将 `VITE_NEW_API_ENABLED` 设为 `false`。Vite 环境变量属于公开前端配置，不应填写账户密码或 Key。
+
+## 登录与调用流程
+
+1. 页面启动时通过 Refresh Cookie 恢复 New API 登录，登录凭证仅驻留内存。匿名用户仍可查看本地画布；生成前需要登录。
+2. 点击配置页或右上角的账户入口，进入 New API 的 `/sign-in` 页面完成登录、注册及既有二次验证流程。Flow 不收集账户密码。
+3. 登录目标为 `https://flow.oioi.lat/auth/callback?state=…`。state 为本次跳转的随机关联值，Flow 在当前标签页的 sessionStorage 中校验并消费一次；回调 URL 不携带 Token 或 Key。
+4. Flow 回调页恢复会话，分页查找**当前用户**的 `group=auto` 令牌。只复用启用、未过期且令牌额度可用的 Key；不依赖名称查找。
+5. 找不到可用令牌时，先确认账户存在 auto 候选组，再创建名称为 `Flow`、`group=auto`、`unlimited_quota=true`、`expired_time=-1` 的令牌。不单独限制令牌额度，也不设到期时间；仍受账户余额、分组权限与 New API 的计费规则约束。
+6. 通过专用接口读取完整 Key，再使用该 Key 请求 `/v1/models`。令牌列表中的脱敏 key 不参与调用。
+7. 既有文本、图片、视频、音频服务在发起请求前取得当前会话的配置，使用模型 Key 直连 New API。登录凭证不作为模型 Key 使用，不自动重放失败的生成请求。
+
+创建失败时保留服务端原因，例如令牌数量已达上限；不删除其他令牌，也不修改或重新启用已有令牌。用户可在账户与模型面板点击「重新获取」。同一页面的并发连接会合并；支持 Web Locks 的浏览器会在 Flow 同源标签页之间串行查找和创建。现有通用令牌 API 不提供跨设备的原子取得或创建契约，多设备同时首次使用仍可能生成多把 Key；若运营要求每用户严格唯一，需要 New API 增加服务端幂等接口。
+
+`auto` 是 New API 已有的自动选组机制，不是需要新建的普通固定计价组。管理员应配置该用户可访问的 auto 候选组，并为相应组开放渠道、模型与计价。实际选组与结算由 New API 决定。
+
+## 本期接口契约
+
+| 接口 | 凭证 | 用途 |
+| --- | --- | --- |
+| `POST /api/user/auth/refresh` | API 域 Refresh Cookie；已知会话附带 `X-Auth-Session` | 恢复或刷新登录 |
+| `POST /api/user/auth/logout` | Refresh Cookie、登录 Bearer、`X-Auth-Session` | 撤销当前共享登录会话 |
+| `GET /api/token/?p=…` | 登录 Bearer | 分页查找当前用户令牌 |
+| `GET /api/token/auto-groups` | 登录 Bearer | 创建前检查 auto 候选组 |
+| `POST /api/token/` | 登录 Bearer | 没有可用 auto Key 时创建 |
+| `POST /api/token/:id/key` | 登录 Bearer | 取得完整模型 Key |
+| `GET /v1/models` | 模型 Key | 读取实际可用模型 |
+| 既有生成与任务接口 | 同一个模型 Key | 生成、流式响应、视频轮询等 |
+
+账户接口按 `success: false` 与 HTTP 状态共同判定失败。会话过期才进入未登录状态；网络失败显示连接错误，不伪装成未登录。会话 SID 冲突时清除旧身份并显示错误，由用户重新获取，不自动重放请求。
+
+## New API 必须配合的改动
+
+### 1. 精确跨域与 Cookie 来源
+
+对上述账户与令牌接口，以及必要的预检请求，精确允许 `https://flow.oioi.lat`。携带 Cookie 的接口不能返回 `Access-Control-Allow-Origin: *`。响应至少满足：
+
+```http
+Access-Control-Allow-Origin: https://flow.oioi.lat
+Access-Control-Allow-Credentials: true
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+Access-Control-Allow-Headers: Authorization, Content-Type, X-Auth-Session
+Vary: Origin
+```
+
+CORS 头需覆盖实际响应，包括认证失败与业务错误响应；OPTIONS 不要求先登录。可以在 New API 或反向代理实现，避免同一响应叠加两套 CORS 头。不得将任意请求 Origin 直接回显为受信任来源。无 Cookie 的模型接口可保留原有 CORS 策略。
+
+生产会话设置需要包含真实 API Origin 与 Flow Origin：
+
+```env
+SESSION_COOKIE_SECURE=true
+SESSION_COOKIE_TRUSTED_URL=https://api.oioi.lat,https://flow.oioi.lat
+```
+
+`SESSION_COOKIE_TRUSTED_URL` 只配置 refresh/logout 的 Origin 校验，不会代替 CORS。保持 API 域现有 HttpOnly、Secure、host-only Refresh Cookie；无需把 Cookie Domain 放大到 `.oioi.lat`。两个 HTTPS 子域同站但跨源，Flow 使用 `credentials: include` 请求 API 域的 Cookie，不能读取该 Cookie 或 API 域的会话提示 Cookie。
+
+### 2. 受控跨站登录回跳
+
+本地核对的 New API `web/src/features/auth/lib/auth-redirect.ts` 目前只允许同源地址。需要保留现有同源规则，并额外允许唯一外部回调：
+
+```text
+https://flow.oioi.lat/auth/callback
+```
+
+校验 URL 的协议、完整 origin、pathname，以及不包含 userinfo；允许携带 Flow 生成的 state 查询参数，不允许任意 Flow 路径、子域或其他网站作为外部回跳。外部目标返回完整 URL，现有同源目标继续返回相对路径。
+
+同时检查以下消费位置，确保已经校验的外部 URL 使用真正的整页导航返回 Flow，并在密码登录、已登录用户访问登录页、2FA 与 OAuth 完成后均保留该回调：
+
+- `web/src/features/auth/hooks/use-auth-redirect.ts`
+- `web/src/routes/(auth)/sign-in.tsx`
+- `web/src/routes/(auth)/oauth.tsx`
+- `web/src/routes/oauth/$provider.tsx`
+
+Flow 回调不要求 New API 生成任何新的授权 Token；其作用是导航回来，再由 API 域的 Refresh Cookie 恢复身份。
+
+### 3. 分组与接口权限
+
+为目标用户配置可用的 auto 候选组，并确认候选组有已启用的模型渠道与计费配置。普通已登录用户应可访问上表列出的令牌接口；Flow 不持有管理员凭据。用户令牌数上限与额度限制仍由 New API 的既有规则处理。
+
+### 4. Flow 部署与开发环境
+
+静态站点需对 `/auth/callback` 和既有画布路由启用 SPA 回退到 `index.html`；回调不经由后端兑换授权码。账户响应与完整 Key 响应禁止 CDN 或共享缓存。生成链路沿用现有超时、轮询和并发配置，本次未调整边界值。
+
+`http://localhost:3100` 与线上 API 不是同站，不能直接假定线上 SameSite Cookie 在本地开发中可用。完整登录联调应通过受信任的 HTTPS Flow 域名进行；如需额外测试域名，必须在 New API 中精确配置相应的 CORS、Cookie 来源与回调白名单。独立调试画布可以暂时关闭 New API 接入。
+
+## 模型适配与数据边界
+
+账户面板显示 `/v1/models` 返回的完整模型目录。创作选择器结合模型名称和 `supported_endpoint_types` 识别图片、视频、文本、音频；已知不匹配当前协议的模型不出现在相应选择器中。当前文本沿用 Responses 或 Gemini，图片和视频沿用项目既有 OpenAI 兼容或 Gemini 实现，音频沿用现有语音合成接口。模型目录不等于完整参数能力清单，未知自定义模型名称及具体尺寸、参考图、视频规格仍需按实际上架模型验收；本期不展示或承诺统一预估价格。
+
+自动取得的 Key 和 Access Token 只驻留内存，不写入配置 store、配置导出或作品数据。Token 管理请求用登录 Bearer，模型请求用模型 Key，均不携带 Cookie；只有刷新和退出请求需要 Cookie。Flow 模式不使用本地代理或自定义模型脚本传递自动取得的 Key。
+
+切回页面时重新确认会话，生成前也会检查 Access Token 是否到期；已确认账户变更或退出时取消旧会话请求，并拒绝旧账户的生成配置。普通模型 Key 不会因登录会话退出自动撤销；要禁止该 Key 后续使用，应在 New API 令牌管理中禁用或删除。两域之间也没有即时退出广播。
+
+画布、素材与历史继续保存在当前浏览器，并沿用已有 WebDAV 同步功能；没有新增云同步或账户间本地数据隔离。退出账户不会删除本地作品，同一浏览器切换账户仍能看到该浏览器已有内容。
+
+## 验收
+
+本仓库的 `web/tests/newapi.test.ts` 使用模拟响应验证凭证分离、分页筛选、创建参数、失败不重试、会话失效取消请求与回调校验，不调用线上登录或收费模型。实际登录回跳、CORS、New API 分组与真实模型生成需完成服务端配合后再联调。

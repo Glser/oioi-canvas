@@ -4,6 +4,8 @@ import { persist } from "zustand/middleware";
 import { nanoid } from "nanoid";
 
 import i18n from "@/i18n";
+import { NEW_API_BASE_URL, NEW_API_CHANNEL_ID, NEW_API_ENABLED } from "@/constant/env";
+import { useNewApiStore, type NewApiRuntimeState } from "@/stores/use-newapi-store";
 
 export type ApiCallFormat = "openai" | "gemini";
 export type ModelCapability = "image" | "video" | "text" | "audio";
@@ -13,6 +15,7 @@ export type ChannelModel = {
     name: string;
     capability: ModelCapability;
     script?: string;
+    apiFormat?: ApiCallFormat;
 };
 
 export type ModelChannel = {
@@ -25,6 +28,8 @@ export type ModelChannel = {
 };
 
 export type AiConfig = {
+    newApiUserId?: number;
+    newApiSessionId?: string;
     channelMode: "remote" | "local";
     baseUrl: string;
     apiKey: string;
@@ -185,7 +190,7 @@ export function resolveModelForCapability(config: AiConfig, currentModel: string
     const fallbackModel = capability === "image" ? defaultConfig.imageModel : capability === "video" ? defaultConfig.videoModel : capability === "audio" ? defaultConfig.audioModel : defaultConfig.textModel;
     if (currentModel && modelMatchesCapability(config, currentModel, capability)) return currentModel;
     if (defaultModel && modelMatchesCapability(config, defaultModel, capability)) return defaultModel;
-    return fallbackModel;
+    return config.channelMode === "remote" ? selectableModelsByCapability(config, capability)[0] || "" : fallbackModel;
 }
 
 export function selectableModelsByCapability(config: AiConfig, capability?: ModelCapability) {
@@ -195,10 +200,15 @@ export function selectableModelsByCapability(config: AiConfig, capability?: Mode
 
 /** The user script (if any) attached to a model; empty string means use the system default call. */
 export function resolveModelScript(config: AiConfig, value: string) {
+    if (NEW_API_ENABLED) return "";
     return findChannelModel(config, value)?.model.script?.trim() || "";
 }
 
 function isAiConfigReady(config: AiConfig, model: string) {
+    if (NEW_API_ENABLED) {
+        const state = useNewApiStore.getState();
+        return state.status === "ready" && config.newApiUserId === state.session?.user.id && config.newApiSessionId === state.session?.session.sid && Boolean(findChannelModel(config, model));
+    }
     const channel = resolveModelChannel(config, model);
     return Boolean(model.trim() && channel.baseUrl.trim() && channel.apiKey.trim());
 }
@@ -282,7 +292,53 @@ export const useConfigStore = create<ConfigStore>()(
 
 export function useEffectiveConfig() {
     const config = useConfigStore((state) => state.config);
-    return useMemo(() => ({ ...config, channelMode: "local" as const }), [config]);
+    const session = useNewApiStore((state) => state.session);
+    const apiKey = useNewApiStore((state) => state.apiKey);
+    const models = useNewApiStore((state) => state.models);
+    const status = useNewApiStore((state) => state.status);
+    return useMemo(() => buildEffectiveConfig(config, { session, apiKey, models, status }), [config, session, apiKey, models, status]);
+}
+
+export function getEffectiveConfig() {
+    return buildEffectiveConfig(useConfigStore.getState().config, useNewApiStore.getState());
+}
+
+function buildEffectiveConfig(config: AiConfig, state: NewApiRuntimeState): AiConfig {
+    if (!NEW_API_ENABLED) return { ...config, channelMode: "local" };
+    const models: ChannelModel[] = state.models.flatMap((model) => {
+        const endpoints = model.supported_endpoint_types || [];
+        const capability: ModelCapability = endpoints.includes("openai-video") ? "video" : endpoints.includes("image-generation") ? "image" : /banana/i.test(model.id) ? "image" : guessCapability(model.id);
+        const endpoint = capability === "image" ? "image-generation" : capability === "video" ? "openai-video" : "openai-response";
+        const apiFormat: ApiCallFormat = endpoints.includes(endpoint) || !endpoints.includes("gemini") ? "openai" : "gemini";
+        if (endpoints.length && capability !== "audio" && !endpoints.includes(endpoint) && !endpoints.includes("gemini")) return [];
+        if (capability === "audio" && apiFormat === "gemini") return [];
+        const entry: ChannelModel = { name: model.id, capability, apiFormat };
+        return [entry];
+    });
+    const channel: ModelChannel = { id: NEW_API_CHANNEL_ID, name: "oioi", baseUrl: NEW_API_BASE_URL, apiKey: state.status === "ready" ? state.apiKey : "", apiFormat: "openai", models };
+    const pick = (capability: ModelCapability, value: string) => {
+        const name = modelOptionName(value);
+        const model = models.find((item) => item.name === name && item.capability === capability) || models.find((item) => item.capability === capability);
+        return model ? encodeChannelModel(channel.id, model.name) : "";
+    };
+    const imageModel = pick("image", config.imageModel);
+    return {
+        ...config,
+        channelMode: "remote",
+        newApiUserId: state.session?.user.id,
+        newApiSessionId: state.session?.session.sid,
+        baseUrl: NEW_API_BASE_URL,
+        apiKey: channel.apiKey,
+        apiFormat: "openai",
+        channels: [channel],
+        models: modelOptionsFromChannels([channel]),
+        model: imageModel,
+        imageModel,
+        videoModel: pick("video", config.videoModel),
+        textModel: pick("text", config.textModel),
+        audioModel: pick("audio", config.audioModel),
+        proxyEnabled: false,
+    };
 }
 
 /** Normalize a mixed list of raw model names or model objects into deduped ChannelModel entries. */
@@ -414,13 +470,27 @@ export function normalizeModelOptionValue(value: string | undefined, channels: M
 }
 
 export function resolveModelChannel(config: AiConfig, value: string) {
+    if (NEW_API_ENABLED) {
+        const matched = findChannelModel(config, value);
+        if (!matched || matched.channel.id !== NEW_API_CHANNEL_ID) throw new Error("该模型不在当前账户的可用列表中，请重新选择");
+        return matched.channel;
+    }
     const decoded = decodeChannelModel(value);
     const model = decoded?.model || value;
     const matched = decoded ? config.channels.find((channel) => channel.id === decoded.channelId) : config.channels.find((channel) => channel.models.some((item) => item.name === model));
     return matched || config.channels[0] || createModelChannel({ id: "default", name: i18n.t("config.channels.defaultName"), baseUrl: config.baseUrl, apiKey: config.apiKey, apiFormat: config.apiFormat, models: config.models.map(modelOptionName).map((name) => ({ name, capability: guessCapability(name) })) });
 }
 
-export function resolveModelRequestConfig(config: AiConfig, value: string) {
+export function resolveModelRequestConfig(config: AiConfig, value: string): AiConfig {
+    if (NEW_API_ENABLED) {
+        const state = useNewApiStore.getState();
+        if (state.status !== "ready" || !state.session || config.newApiUserId !== state.session.user.id || config.newApiSessionId !== state.session.session.sid) throw new Error("登录状态已变化，请重新选择模型后再试");
+        const name = modelOptionName(value);
+        const effective = buildEffectiveConfig(config, state);
+        const model = effective.channels[0].models.find((item) => item.name === name);
+        if (!model) throw new Error("该模型当前不可用，请重新选择");
+        return { ...config, model: name, baseUrl: NEW_API_BASE_URL, apiKey: state.apiKey, apiFormat: model.apiFormat || "openai" };
+    }
     const channel = resolveModelChannel(config, value);
     return {
         ...config,
@@ -429,6 +499,11 @@ export function resolveModelRequestConfig(config: AiConfig, value: string) {
         apiKey: channel.apiKey,
         apiFormat: channel.apiFormat,
     };
+}
+
+export async function prepareModelRequestConfig(config: AiConfig, value: string) {
+    if (NEW_API_ENABLED) await useNewApiStore.getState().ensureReady();
+    return resolveModelRequestConfig(config, value);
 }
 
 function normalizeChannels(config: AiConfig) {
@@ -484,6 +559,7 @@ export function normalizeLocalProxyUrl(value: string) {
 
 /** Prefix an outgoing request with the local forwarding proxy so the browser is not blocked by CORS. */
 export function withLocalProxy(url: string) {
+    if (NEW_API_ENABLED) return url;
     const { proxyEnabled, proxyUrl } = useConfigStore.getState().config;
     if (!proxyEnabled || !/^https?:\/\//i.test(url)) return url;
     const base = normalizeLocalProxyUrl(proxyUrl);

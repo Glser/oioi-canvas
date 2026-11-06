@@ -9,12 +9,14 @@ import { ChannelEditorDrawer } from "@/components/layout/channel-editor-drawer";
 import { ConfigLocalProxy } from "@/components/layout/config-local-proxy";
 import { ConfigPromptSources } from "@/components/layout/config-prompt-sources";
 import { ConfigLocalStorage } from "@/components/layout/config-local-storage";
+import { NewApiAccountPanel } from "@/components/layout/newapi-account-panel";
+import { NEW_API_ENABLED } from "@/constant/env";
 import type { AppLocale } from "@/i18n";
 import { exportAppConfig, importAppConfig } from "@/services/config-file";
 import { syncAppDataToWebdav, type AppSyncDomainKey, type AppSyncProgressEvent } from "@/services/app-sync";
 import { testWebdavConnection, WEBDAV_MANIFEST_FILE_NAME } from "@/services/webdav-sync";
 import { audioFormatOptions, audioVoiceOptions, normalizeAudioSpeedValue } from "@/lib/audio-generation";
-import { createModelChannel, modelOptionsFromChannels, normalizeModelOptionValue, selectableModelsByCapability, useConfigStore, type AiConfig, type ApiCallFormat, type ConfigTabKey, type ModelCapability, type ModelChannel } from "@/stores/use-config-store";
+import { createModelChannel, modelOptionsFromChannels, normalizeModelOptionValue, selectableModelsByCapability, useConfigStore, useEffectiveConfig, type AiConfig, type ApiCallFormat, type ConfigTabKey, type ModelCapability, type ModelChannel } from "@/stores/use-config-store";
 
 type ModelGroup = {
     capability: ModelCapability;
@@ -58,6 +60,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
     const [webdavSyncStatus, setWebdavSyncStatus] = useState("");
     const [webdavDomainProgress, setWebdavDomainProgress] = useState(createWebdavDomainProgress);
     const config = useConfigStore((state) => state.config);
+    const effectiveConfig = useEffectiveConfig();
     const webdav = useConfigStore((state) => state.webdav);
     const updateConfig = useConfigStore((state) => state.updateConfig);
     const updateWebdavConfig = useConfigStore((state) => state.updateWebdavConfig);
@@ -74,7 +77,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
     };
 
     const finishConfig = () => {
-        const ready = config.channels.some((channel) => channel.baseUrl.trim() && channel.apiKey.trim() && channel.models.length);
+        const ready = effectiveConfig.channels.some((channel) => channel.baseUrl.trim() && channel.apiKey.trim() && channel.models.length);
         setConfigDialogOpen(false);
         if (!ready) return;
         message.success(t(shouldPromptContinue ? "config.savedContinue" : "config.saved"));
@@ -165,7 +168,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
     return (
         <>
             <div className="mb-2 flex flex-wrap items-center justify-between gap-3 border-b border-black/[0.06] pb-3 dark:border-white/[0.08]">
-                <div className="text-xs text-stone-500">{t("config.fileSecurity")}</div>
+                <div className="text-xs text-stone-500">{NEW_API_ENABLED ? "账户登录凭证与自动获取的调用令牌不包含在配置文件中。" : t("config.fileSecurity")}</div>
                 <div className="flex gap-2">
                     <Button className="!h-8 !rounded-full !px-3.5 !text-xs font-medium" icon={<Upload className="size-3.5" />} onClick={() => configInputRef.current?.click()}>
                         {t("config.import")}
@@ -182,8 +185,8 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                 items={[
                     {
                         key: "channels",
-                        label: t("config.tabs.channels"),
-                        children: (
+                        label: NEW_API_ENABLED ? "账户与模型" : t("config.tabs.channels"),
+                        children: NEW_API_ENABLED ? <NewApiAccountPanel /> : (
                             <div>
                                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                                     <div className="text-xs text-stone-500">{t("config.channels.description")}</div>
@@ -219,6 +222,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                     {
                         key: "local-proxy",
                         label: t("config.tabs.localProxy"),
+                        disabled: NEW_API_ENABLED,
                         children: <ConfigLocalProxy />,
                     },
                     {
@@ -231,7 +235,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                                         {modelGroups.map((group) => (
                                             <Form.Item key={group.modelKey} label={<span className="text-xs font-medium text-stone-600 dark:text-stone-300">{t(group.labelKey)}</span>} className="mb-0">
-                                                <ModelPicker config={config} value={config[group.modelKey]} onChange={(model) => updateConfig(group.modelKey, model)} capability={group.capability} fullWidth />
+                                                <ModelPicker config={effectiveConfig} value={effectiveConfig[group.modelKey]} onChange={(model) => updateConfig(group.modelKey, model)} capability={group.capability} fullWidth />
                                             </Form.Item>
                                         ))}
                                     </div>

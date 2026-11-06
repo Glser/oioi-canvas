@@ -10,6 +10,7 @@ import ImagePage from "@/pages/image";
 import NotFound from "@/pages/not-found";
 import PromptsPage from "@/pages/prompts";
 import VideoPage from "@/pages/video";
+import AuthCallbackPage from "@/pages/auth/callback";
 
 function RedirectCanvasIndex() {
     const location = useLocation();
@@ -17,6 +18,7 @@ function RedirectCanvasIndex() {
 }
 
 export const router = createBrowserRouter([
+    { path: "/auth/callback", element: <AuthCallbackPage /> },
     {
         element: (
             <UserLayout>

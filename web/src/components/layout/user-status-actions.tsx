@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { Tooltip } from "antd";
-import { BookOpen, Keyboard, Puzzle, Settings2 } from "lucide-react";
+import { BookOpen, Keyboard, Puzzle, Settings2, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
@@ -9,6 +9,8 @@ import { changeAppLocale, type AppLocale } from "@/i18n";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { useConfigStore } from "@/stores/use-config-store";
 import { useThemeStore } from "@/stores/use-theme-store";
+import { NEW_API_ENABLED } from "@/constant/env";
+import { useNewApiStore } from "@/stores/use-newapi-store";
 
 type UserStatusActionsProps = {
     showConfig?: boolean;
@@ -22,6 +24,7 @@ export function UserStatusActions({ showConfig = true, variant = "default", onOp
     const theme = useThemeStore((state) => state.theme);
     const setTheme = useThemeStore((state) => state.setTheme);
     const openConfigDialog = useConfigStore((state) => state.openConfigDialog);
+    const accountName = useNewApiStore((state) => state.session?.user.display_name || state.session?.user.username);
     const canvasTheme = canvasThemes[theme];
     const naturalIconClass = "inline-flex size-7.5 shrink-0 cursor-pointer items-center justify-center rounded-full text-stone-600 transition-all duration-200 hover:bg-black/5 hover:text-stone-950 dark:text-stone-300 dark:hover:bg-white/10 dark:hover:text-white [&_svg]:size-4";
     const iconStyle: CSSProperties | undefined = variant === "canvas" ? { color: canvasTheme.node.text } : undefined;
@@ -38,6 +41,13 @@ export function UserStatusActions({ showConfig = true, variant = "default", onOp
 
     return (
         <div className={containerClass}>
+            {NEW_API_ENABLED ? (
+                <Tooltip title={accountName || "登录 / 注册"}>
+                    <button type="button" className={naturalIconClass} style={iconStyle} onClick={() => openConfigDialog(false, "channels")} aria-label={accountName ? `账户：${accountName}` : "登录 / 注册"}>
+                        <UserRound className="size-4" />
+                    </button>
+                </Tooltip>
+            ) : null}
             {onOpenPlugins ? (
                 <button type="button" className={naturalIconClass} style={iconStyle} onClick={onOpenPlugins} aria-label={t("topNav.plugins")} title={t("topNav.plugins")}>
                     <Puzzle className="size-4" />

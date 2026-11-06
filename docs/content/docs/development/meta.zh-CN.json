@@ -4,6 +4,7 @@
   "defaultOpen": true,
   "pages": [
     "local-development",
+    "newapi-integration",
     "canvas-data-structure",
     "local-codex-canvas"
   ]
