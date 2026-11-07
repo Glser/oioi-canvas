@@ -5,7 +5,7 @@ description: Flow 登录、auto 令牌、模型列表与生成请求的接入契
 
 # New API 接入
 
-Flow 的运营地址为 `https://flow.oioi.lat`，浏览器直接请求 `https://api.oioi.lat`。本次只修改画布仓库；New API 源码、线上配置与部署均未修改。真实跨站登录需要先完成下文的 New API 配合项。
+Flow 的运营地址为 `https://flow.oioi.lat`，浏览器直接请求 `https://api.oioi.lat`。New API 配套源码已在独立仓库实现精确 CORS、受控回跳及登录/注册/2FA/OAuth 目标传递；线上配置和部署尚未执行。真实跨站登录需要部署配套版本并完成下文配置。
 
 ## Flow 配置
 
@@ -74,13 +74,13 @@ SESSION_COOKIE_TRUSTED_URL=https://api.oioi.lat,https://flow.oioi.lat
 
 ### 2. 受控跨站登录回跳
 
-本地核对的 New API `web/src/features/auth/lib/auth-redirect.ts` 目前只允许同源地址。需要保留现有同源规则，并额外允许唯一外部回调：
+配套 New API `web/src/features/auth/lib/auth-redirect.ts` 已保留原有同源规则，并额外允许唯一外部回调：
 
 ```text
 https://flow.oioi.lat/auth/callback
 ```
 
-校验 URL 的协议、完整 origin、pathname，以及不包含 userinfo；允许携带 Flow 生成的 state 查询参数，不允许任意 Flow 路径、子域或其他网站作为外部回跳。外部目标返回完整 URL，现有同源目标继续返回相对路径。
+校验 URL 的协议、完整 origin、pathname，以及不包含 userinfo；要求携带 Flow 生成的非空 state 查询参数且不包含 fragment，不允许任意 Flow 路径、子域或其他网站作为外部回跳。外部目标返回完整 URL，现有同源目标继续返回相对路径。
 
 同时检查以下消费位置，确保已经校验的外部 URL 使用真正的整页导航返回 Flow，并在密码登录、已登录用户访问登录页、2FA 与 OAuth 完成后均保留该回调：
 
@@ -88,6 +88,7 @@ https://flow.oioi.lat/auth/callback
 - `web/src/routes/(auth)/sign-in.tsx`
 - `web/src/routes/(auth)/oauth.tsx`
 - `web/src/routes/oauth/$provider.tsx`
+- 注册页及登录/注册表单的 `redirect` 传递，以及二次验证取消后返回登录的目标保留
 
 Flow 回调不要求 New API 生成任何新的授权 Token；其作用是导航回来，再由 API 域的 Refresh Cookie 恢复身份。
 
