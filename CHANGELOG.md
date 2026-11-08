@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- [修复] New API 的 `category=chat` 模型按 Chat Completions 端点纳入文本模型列表，并使用对应文本请求协议。
+
 - [新增] GitHub Actions 自动构建当前开发分支并推送 Flow 镜像至阿里云 ACR，部署配置改为拉取独立镜像。
 
 - [优化] 简化本地 Agent 连接指引，按服务状态展示启动、配对和使用入口，首次配置与连接详情可折叠，并明确创作任务需复制到本地 Agent 执行。

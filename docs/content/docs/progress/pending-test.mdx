@@ -6,6 +6,8 @@ description: Implemented changes that still need manual verification
 
 # Pending Tests
 
+- New API 聊天模型文本节点：`category=chat` 且 `supported_endpoint_types` 包含 `openai` 时，模型应出现在文本模型选择器，并通过 `/v1/chat/completions` 请求；Responses 模型继续使用 `/v1/responses`。待实际账户模型目录和文本节点生成验收。
+
 - Flow 阿里云镜像发布：复用 New API 的 ACR 实例与凭据名称，当前开发分支推送自动构建，也可手动指定分支、标签或提交；构建 linux/amd64 镜像并发布 latest 与实际源码提交的 12 位 SHA 标签。默认 Compose 改为拉取 glser/oioi-canvas。GitHub 仓库已配置 ACR_USERNAME / ACR_PASSWORD，首次手动 Action 已完成镜像构建并成功推送至 ACR；服务器拉取启动和生产域名回调仍待验收，未执行本地构建或测试。
 
 - Agent 连接面板文案统一为「在 Agent 中对话，画布展示执行结果。」；启动与 MCP 注册命令和复制按钮并排展示，长命令在侧栏内自动换行并完整显示，待确认窄屏无横向溢出及复制操作。

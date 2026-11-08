@@ -16,6 +16,7 @@ export type ChannelModel = {
     capability: ModelCapability;
     script?: string;
     apiFormat?: ApiCallFormat;
+    textEndpoint?: "chat" | "responses";
 };
 
 export type ModelChannel = {
@@ -24,6 +25,7 @@ export type ModelChannel = {
     baseUrl: string;
     apiKey: string;
     apiFormat: ApiCallFormat;
+    textEndpoint?: "chat" | "responses";
     models: ChannelModel[];
 };
 
@@ -34,6 +36,7 @@ export type AiConfig = {
     baseUrl: string;
     apiKey: string;
     apiFormat: ApiCallFormat;
+    textEndpoint?: "chat" | "responses";
     channels: ModelChannel[];
     model: string;
     imageModel: string;
@@ -308,12 +311,15 @@ function buildEffectiveConfig(config: AiConfig, state: NewApiRuntimeState): AiCo
     if (!NEW_API_ENABLED) return { ...config, channelMode: "local" };
     const models: ChannelModel[] = state.models.flatMap((model) => {
         const endpoints = (model.supported_endpoint_types || []).map((endpoint) => endpoint === "videos" ? "openai-video" : endpoint);
-        const capability = NEW_API_CATEGORY_CAPABILITIES.get(model.category?.trim() || "") ?? (endpoints.includes("openai-video") ? "video" : endpoints.includes("image-generation") ? "image" : /banana/i.test(model.id) ? "image" : guessCapability(model.id));
-        const endpoint = capability === "image" ? "image-generation" : capability === "video" ? "openai-video" : "openai-response";
+        const category = model.category?.trim().toLowerCase() || "";
+        const capability = NEW_API_CATEGORY_CAPABILITIES.get(category) ?? (endpoints.includes("openai-video") ? "video" : endpoints.includes("image-generation") ? "image" : /banana/i.test(model.id) ? "image" : guessCapability(model.id));
+        const responseEndpoint = endpoints.includes("openai-response") ? "openai-response" : endpoints.includes("openai-response-compact") ? "openai-response-compact" : "";
+        const endpoint = capability === "image" ? "image-generation" : capability === "video" ? "openai-video" : responseEndpoint || "openai";
         const apiFormat: ApiCallFormat = endpoints.includes(endpoint) || !endpoints.includes("gemini") ? "openai" : "gemini";
+        const textEndpoint = capability === "text" && apiFormat === "openai" ? category === "chat" && endpoints.includes("openai") ? "chat" : endpoint === "openai" ? "chat" : "responses" : undefined;
         if (endpoints.length && capability !== "audio" && !endpoints.includes(endpoint) && !endpoints.includes("gemini")) return [];
         if (capability === "audio" && apiFormat === "gemini") return [];
-        const entry: ChannelModel = { name: model.id, capability, apiFormat };
+        const entry: ChannelModel = { name: model.id, capability, apiFormat, ...(textEndpoint ? { textEndpoint } : {}) };
         return [entry];
     });
     const channel: ModelChannel = { id: NEW_API_CHANNEL_ID, name: "oioi", baseUrl: NEW_API_BASE_URL, apiKey: state.status === "ready" ? state.apiKey : "", apiFormat: "openai", models };
@@ -490,7 +496,7 @@ export function resolveModelRequestConfig(config: AiConfig, value: string): AiCo
         const effective = buildEffectiveConfig(config, state);
         const model = effective.channels[0].models.find((item) => item.name === name);
         if (!model) throw new Error("该模型当前不可用，请重新选择");
-        return { ...config, model: name, baseUrl: NEW_API_BASE_URL, apiKey: state.apiKey, apiFormat: model.apiFormat || "openai" };
+        return { ...config, model: name, baseUrl: NEW_API_BASE_URL, apiKey: state.apiKey, apiFormat: model.apiFormat || "openai", textEndpoint: model.textEndpoint };
     }
     const channel = resolveModelChannel(config, value);
     return {
@@ -499,6 +505,7 @@ export function resolveModelRequestConfig(config: AiConfig, value: string): AiCo
         baseUrl: channel.baseUrl,
         apiKey: channel.apiKey,
         apiFormat: channel.apiFormat,
+        textEndpoint: channel.textEndpoint,
     };
 }
 

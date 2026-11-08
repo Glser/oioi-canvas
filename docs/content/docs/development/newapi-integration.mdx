@@ -105,7 +105,7 @@ Flow 回调不要求 New API 生成任何新的授权 Token；其作用是导航
 
 ## 模型适配与数据边界
 
-账户面板显示 `/v1/models` 返回的完整模型目录，并通过账户凭证请求 `/api/pricing`，按模型名补充 `category`，不会把仅在分类目录出现的模型加入可用列表。创作选择器优先使用分类标识：`chat` 对应文本，`image`、`video`、`audio` 对应图片、视频、音频；分类未设置、无法识别或分类接口不可用时，再结合 `supported_endpoint_types` 和模型名称判断，其中 `videos` 按 `openai-video` 处理。分类标识不代替协议支持，已知不匹配当前协议的模型不出现在相应选择器中。当前文本沿用 Responses 或 Gemini，图片和视频沿用项目既有 OpenAI 兼容或 Gemini 实现，音频沿用现有语音合成接口。模型目录不等于完整参数能力清单，未知自定义模型名称及具体尺寸、参考图、视频规格仍需按实际上架模型验收；本期不展示或承诺统一预估价格。
+账户面板显示 `/v1/models` 返回的完整模型目录，并通过账户凭证请求 `/api/pricing`，按模型名补充 `category`，不会把仅在分类目录出现的模型加入可用列表。创作选择器优先使用分类标识：`chat` 对应文本，`image`、`video`、`audio` 对应图片、视频、音频；分类未设置、无法识别或分类接口不可用时，再结合 `supported_endpoint_types` 和模型名称判断，其中 `videos` 按 `openai-video` 处理。文本模型若支持 `openai` 端点，Flow 使用 `/v1/chat/completions`；若支持 `openai-response` 或 `openai-response-compact`，使用对应的 Responses 请求。分类标识不代替协议支持，已知不匹配当前协议的模型不出现在相应选择器中。图片和视频沿用项目既有 OpenAI 兼容或 Gemini 实现，音频沿用现有语音合成接口。模型目录不等于完整参数能力清单，未知自定义模型名称及具体尺寸、参考图、视频规格仍需按实际上架模型验收；本期不展示或承诺统一预估价格。
 
 自动取得的 Key 和 Access Token 只驻留内存，不写入配置 store、配置导出或作品数据。Token 管理请求用登录 Bearer，模型请求用模型 Key，均不携带 Cookie；只有刷新和退出请求需要 Cookie。Flow 模式不使用本地代理或自定义模型脚本传递自动取得的 Key。
 
