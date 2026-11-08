@@ -6,6 +6,8 @@ description: Implemented changes that still need manual verification
 
 # Pending Tests
 
+- Flow 阿里云镜像发布：复用 New API 的 ACR 实例与凭据名称，当前开发分支推送自动构建，也可手动指定分支、标签或提交；构建 linux/amd64 镜像并发布 latest 与实际源码提交的 12 位 SHA 标签。默认 Compose 改为拉取 glser/oioi-canvas。需先配置当前 GitHub 仓库的 ACR_USERNAME / ACR_PASSWORD 并准备镜像仓库，再验收 Action 构建推送、服务器拉取启动和生产域名回调；未执行本地构建或测试。
+
 - Agent 连接面板文案统一为「在 Agent 中对话，画布展示执行结果。」；启动与 MCP 注册命令和复制按钮并排展示，长命令在侧栏内自动换行并完整显示，待确认窄屏无横向溢出及复制操作。
 
 - 本地 Agent 连接指引：保留原生 Codex / Claude Code 管理会话的 MCP 桥接方式，面板改为扁平布局；未启动显示启动命令，已启动显示配对或已保存连接入口，连接后突出复制到本地 Agent 的指令。首次 MCP 接入可折叠，默认 Codex；地址、Token、clientId 与断开操作收进连接设置，配对失败或凭证失效时可重新配对。待执行任务明确尚未发送，连接后才能复制执行指令。独立浏览器页面已检查离线提示，并通过模拟服务与连接状态检查配对输入、失败重试、重新配对、已连接及待执行任务显示；已检查中英文、浅深主题与窄屏，修复侧栏超出窄屏的问题。未执行构建或测试套件；真实首次配置、正常配对、会话恢复、原生 Agent 调用与生产域名连接仍待验收。

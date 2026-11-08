@@ -113,15 +113,18 @@ bun run dev
 
 ### Docker 运行
 
+先按 [Docker 部署文档](docs/content/docs/overview/docker.mdx) 配置 GitHub Actions 的阿里云凭据并发布镜像；私有仓库需先在服务器执行 `docker login`。
+
 ```bash
-git clone git@github.com:basketikun/infinite-canvas.git
-cd infinite-canvas
+git clone --branch feat/local-agent-mcp-bridge https://github.com/Glser/oioi-canvas.git
+cd oioi-canvas
+docker compose pull
 docker compose up -d
 ```
 
 运行后默认端口3000，可访问 `http://localhost:3000`。
 
-首次打开后进入右上角配置，填入自己的 OpenAI 兼容 `Base URL` 和 `API Key`。
+Flow 模式从右上角登录 New API，自动取得当前用户的 auto Key；上线前需完成 [New API 跨域与登录回跳配置](docs/content/docs/development/newapi-integration.mdx)。
 
 如果默认的OpenAI接口调用方式与您的API不同，可自定义生图/视频脚本调用。
 

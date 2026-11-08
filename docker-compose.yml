@@ -1,6 +1,6 @@
 services:
   app:
-    image: ghcr.io/basketikun/infinite-canvas:latest
+    image: crpi-pd9pvjyewqjvbrn0.cn-beijing.personal.cr.aliyuncs.com/glser/oioi-canvas:latest
     container_name: infinite-canvas
     ports:
       - "3000:3000"

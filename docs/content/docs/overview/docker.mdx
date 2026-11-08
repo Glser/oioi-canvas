@@ -1,62 +1,74 @@
 ---
-title: Docker Deployment
-description: Deploy Infinite Canvas with Docker Compose
+title: Docker 部署
+description: 通过 GitHub Actions 构建 Flow 镜像并发布到阿里云 ACR
 ---
 
-# Docker Deployment
+# Docker 部署
 
-## Use the published image
+Flow 使用 Vite 构建静态前端，由 Nginx 提供页面，浏览器直接请求 New API。默认 Compose 从阿里云 ACR 拉取本项目镜像。
+
+## GitHub Actions 发布
+
+镜像仓库：
+
+```text
+crpi-pd9pvjyewqjvbrn0.cn-beijing.personal.cr.aliyuncs.com/glser/oioi-canvas
+```
+
+首次发布前完成以下配置：
+
+1. 在 New API 使用的阿里云北京个人版实例中创建 `glser/oioi-canvas` 镜像仓库。
+2. 在 `Glser/oioi-canvas` 仓库的 **Settings → Secrets and variables → Actions** 中添加 `ACR_USERNAME`、`ACR_PASSWORD`，分别填写阿里云镜像登录用户名和密码。可以使用 New API 的同一套镜像登录凭据，但 GitHub 仓库之间不会自动共享 Secrets。
+3. 确认仓库允许运行 GitHub Actions。
+
+推送 `feat/local-agent-mcp-bridge` 分支后，`.github/workflows/docker-image.yml` 自动构建并推送 `linux/amd64` 镜像；切换运营分支时需同步调整该文件的 `push.branches`。
+
+也可以在 **Actions → Docker image → Run workflow** 中选择 `feat/local-agent-mcp-bridge` 分支手动运行。`git_ref` 留空构建所选分支，也可指定本仓库的其他分支、标签或提交。工作流沿用已有文件，可在默认分支尚未合并改动时通过所选分支运行。
+
+每次成功发布同时更新 `latest` 和实际源码提交的 12 位 SHA 标签。手动构建其他提交也会更新 `latest`；需要固定版本时使用 SHA 标签。构建结果摘要提供完整镜像地址、源码提交和镜像摘要。此流程只发布镜像，不会自动更新服务器。
+
+## 服务器拉取与启动
 
 ```bash
-git clone git@github.com:basketikun/infinite-canvas.git
-cd infinite-canvas
+git clone --branch feat/local-agent-mcp-bridge https://github.com/Glser/oioi-canvas.git
+cd oioi-canvas
+```
+
+私有镜像需先在服务器交互登录：
+
+```bash
+docker login crpi-pd9pvjyewqjvbrn0.cn-beijing.personal.cr.aliyuncs.com
+```
+
+镜像发布成功后启动：
+
+```bash
+docker compose pull
 docker compose up -d
 ```
 
-Open `http://localhost:3000`.
+默认端口为 `3000`，已有服务占用时先调整 Compose 左侧宿主机端口。后续更新同样执行 `docker compose pull` 和 `docker compose up -d`；回退版本时，将 Compose 的镜像标签由 `latest` 改为目标提交的 SHA 标签再执行上述命令。
 
-## Build locally
+将 `flow.oioi.lat` 配置 HTTPS 并反向代理到容器映射端口。容器的 `nginx.conf` 已包含 SPA 路由回退，部署时需保留，以支持 `/auth/callback` 和画布路由直接访问。镜像发布、静态资源加载和生产域名登录链路仍需实际部署验收。
+
+## New API 配合
+
+当前代码默认开启 New API 接入并直连 `https://api.oioi.lat`。`VITE_NEW_API_ENABLED` 与 `VITE_NEW_API_URL` 属于构建时配置，仅在运行容器时设置同名变量不会改变已有前端产物。线上不使用本地联调的 `3002` 端口。
+
+正式开放前，按 [New API 接入](/docs/development/newapi-integration) 配置精确 CORS、可信 Cookie 来源、受控登录回跳、用户 auto 候选组、渠道与计价。
+
+画布、我的素材和生成历史主要保存在用户浏览器，不会因为部署容器而获得云同步。自动取得的账户凭证和模型 Key 仅驻留内存，详见接入文档。
+
+## 从源码构建
+
+需要在服务器或本机自行构建时使用：
 
 ```bash
 docker compose -f docker-compose.local.yml up -d --build
 ```
 
-## Documentation image
+## 文档站与统计
 
-The documentation in `docs/` is a separate Next.js standalone application with server capabilities.
+`docs/` 中的文档站是独立的 Next.js 应用，沿用该目录的 Compose 配置单独部署，不包含在 Flow 主站镜像中。
 
-```bash
-cd docs
-docker compose up -d
-```
-
-To build it from the current source:
-
-```bash
-cd docs
-docker compose -f docker-compose.local.yml up -d --build
-```
-
-The main application container only runs Next.js. Canvases, My Assets, generation history, and API keys are stored in the browser by default, while prompt repositories are fetched directly by the frontend. No persistent data volume is required for this data.
-
-## Optional analytics
-
-No analytics are enabled by default. A deployment can enable GA4, Baidu Analytics, or both at runtime:
-
-| Variable | Description |
-| --- | --- |
-| `ANALYTICS_GA4_ID` | Google Analytics 4 measurement ID (`G-XXXX`) |
-| `ANALYTICS_BAIDU_ID` | Baidu site ID, the hash after `hm.js?` |
-
-```yaml
-services:
-  app:
-    image: ghcr.io/basketikun/infinite-canvas:latest
-    ports:
-      - "3000:3000"
-    environment:
-      ANALYTICS_GA4_ID: G-XXXXXXXXXX
-      ANALYTICS_BAIDU_ID: e8263761cc5c32f5f7a855b8203b965a
-```
-
-SPA route changes automatically report page views to enabled providers. Only configure analytics IDs on sites you control, and do not commit them to the repository.
+统计默认关闭，需要时可在主站 Compose 的 `environment` 中设置 `ANALYTICS_GA4_ID` 或 `ANALYTICS_BAIDU_ID`，容器启动时生成统计配置；仅填写自己管理的站点 ID。
