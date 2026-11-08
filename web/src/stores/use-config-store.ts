@@ -152,6 +152,7 @@ type ConfigStore = {
 };
 
 const VIDEO_KEYWORDS = ["video", "sora", "veo", "kling", "wan", "hailuo"];
+const NEW_API_CATEGORY_CAPABILITIES = new Map<string, ModelCapability>([["chat", "text"], ["image", "image"], ["video", "video"], ["audio", "audio"]]);
 
 export function boolConfig(value: string, fallback: boolean) {
     return value ? value === "true" : fallback;
@@ -306,8 +307,8 @@ export function getEffectiveConfig() {
 function buildEffectiveConfig(config: AiConfig, state: NewApiRuntimeState): AiConfig {
     if (!NEW_API_ENABLED) return { ...config, channelMode: "local" };
     const models: ChannelModel[] = state.models.flatMap((model) => {
-        const endpoints = model.supported_endpoint_types || [];
-        const capability: ModelCapability = endpoints.includes("openai-video") ? "video" : endpoints.includes("image-generation") ? "image" : /banana/i.test(model.id) ? "image" : guessCapability(model.id);
+        const endpoints = (model.supported_endpoint_types || []).map((endpoint) => endpoint === "videos" ? "openai-video" : endpoint);
+        const capability = NEW_API_CATEGORY_CAPABILITIES.get(model.category?.trim() || "") ?? (endpoints.includes("openai-video") ? "video" : endpoints.includes("image-generation") ? "image" : /banana/i.test(model.id) ? "image" : guessCapability(model.id));
         const endpoint = capability === "image" ? "image-generation" : capability === "video" ? "openai-video" : "openai-response";
         const apiFormat: ApiCallFormat = endpoints.includes(endpoint) || !endpoints.includes("gemini") ? "openai" : "gemini";
         if (endpoints.length && capability !== "audio" && !endpoints.includes(endpoint) && !endpoints.includes("gemini")) return [];

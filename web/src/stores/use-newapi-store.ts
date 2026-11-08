@@ -40,7 +40,7 @@ async function obtainToken(session: NewApiSession, signal: AbortSignal) {
         }
         if (!token) throw new Error("未取得可用的 auto 令牌，请在账户中心检查后重新获取");
         const apiKey = await readNewApiTokenKey(session, token.id, signal);
-        const models = await fetchNewApiModels(apiKey, signal);
+        const models = await fetchNewApiModels(apiKey, session, signal);
         return { token, apiKey, models };
     };
     return navigator.locks ? navigator.locks.request(`oioi-flow:token:${session.user.id}`, { signal }, obtain) : obtain();

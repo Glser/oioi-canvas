@@ -21,6 +21,7 @@ beforeEach(() => {
         if (path === "/api/token/?p=1") return page([token]);
         if (path === "/api/token/12/key") return ok({ key: "model-secret" });
         if (path === "/v1/models") return ok([{ id: "gpt-image-2", supported_endpoint_types: ["image-generation"] }]);
+        if (path === "/api/pricing") return ok([]);
         if (path === "/api/user/auth/logout") return ok({});
         throw new Error(`Unexpected request: ${path}`);
     };
@@ -43,12 +44,32 @@ afterEach(async () => {
 
 test("separates login credentials from the model key and omits cookies on token/model requests", async () => {
     await Promise.all([useNewApiStore.getState().connect(), useNewApiStore.getState().connect()]);
-    expect(calls.map((call) => call.path)).toEqual(["/api/user/auth/refresh", "/api/token/?p=1", "/api/token/12/key", "/v1/models"]);
+    expect(calls.map((call) => call.path)).toEqual(["/api/user/auth/refresh", "/api/token/?p=1", "/api/token/12/key", "/v1/models", "/api/pricing"]);
     expect(calls[0].options.credentials).toBe("include");
     expect(new Headers(calls[1].options.headers).get("Authorization")).toBe("Bearer login-secret");
     expect(new Headers(calls[3].options.headers).get("Authorization")).toBe("Bearer sk-model-secret");
+    expect(new Headers(calls[4].options.headers).get("Authorization")).toBe("Bearer login-secret");
     expect(calls.slice(1).every((call) => call.options.credentials === "omit")).toBe(true);
     expect(useNewApiStore.getState().status).toBe("ready");
+});
+
+test("enriches only key-visible models with the explicit New API category", async () => {
+    const baseHandler = handler;
+    handler = (path, options) => path === "/api/pricing" ? ok([
+        { model_name: "gpt-image-2", category: " video " },
+        { model_name: "not-visible-to-key", category: "image" },
+    ]) : baseHandler(path, options);
+    await useNewApiStore.getState().connect();
+    expect(useNewApiStore.getState().models).toEqual([{ id: "gpt-image-2", category: "video", supported_endpoint_types: ["image-generation"] }]);
+});
+
+test("keeps endpoint metadata when the optional category catalog is unavailable", async () => {
+    const baseHandler = handler;
+    handler = (path, options) => path === "/api/pricing" ? fail(403, "pricing is disabled") : baseHandler(path, options);
+    await useNewApiStore.getState().connect();
+    expect(useNewApiStore.getState().status).toBe("ready");
+    expect(useNewApiStore.getState().models[0].supported_endpoint_types).toEqual(["image-generation"]);
+    expect(useNewApiStore.getState().models[0].category).toBeUndefined();
 });
 
 test("searches subsequent pages and excludes other users, disabled, expired, and exhausted tokens", async () => {

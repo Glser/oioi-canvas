@@ -7,7 +7,7 @@ export type NewApiSession = {
     user: NewApiUser;
     session: { sid: string };
 };
-export type NewApiModel = { id: string; supported_endpoint_types?: string[] };
+export type NewApiModel = { id: string; category?: string; supported_endpoint_types?: string[] };
 export type NewApiToken = {
     id: number;
     user_id: number;
@@ -105,10 +105,17 @@ export async function readNewApiTokenKey(session: NewApiSession, tokenId: number
     return data.key.startsWith("sk-") ? data.key : `sk-${data.key}`;
 }
 
-export async function fetchNewApiModels(apiKey: string, signal: AbortSignal) {
-    const data = await request<NewApiModel[]>("/v1/models", authOptions(apiKey, signal));
+export async function fetchNewApiModels(apiKey: string, session: NewApiSession, signal: AbortSignal) {
+    const [data, metadata] = await Promise.all([
+        request<NewApiModel[]>("/v1/models", authOptions(apiKey, signal)),
+        request<Array<{ model_name: string; category?: string }>>("/api/pricing", authOptions(session.access_token, signal)).catch((error) => {
+            if (signal.aborted) throw error;
+            return [];
+        }),
+    ]);
     if (!Array.isArray(data) || data.some((model) => typeof model.id !== "string" || !model.id)) throw new Error("模型列表格式异常，请检查 New API 版本");
-    return [...new Map(data.map((model) => [model.id, model])).values()].sort((a, b) => a.id.localeCompare(b.id));
+    const categories = new Map((Array.isArray(metadata) ? metadata : []).filter((model) => typeof model?.model_name === "string" && typeof model.category === "string").map((model) => [model.model_name, model.category?.trim()]));
+    return [...new Map(data.map((model) => [model.id, { ...model, category: categories.get(model.id) || model.category }])).values()].sort((a, b) => a.id.localeCompare(b.id));
 }
 
 export function startNewApiLogin() {

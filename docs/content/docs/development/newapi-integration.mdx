@@ -43,6 +43,7 @@ VITE_NEW_API_URL=https://api.oioi.lat
 | `POST /api/token/` | 登录 Bearer | 没有可用 auto Key 时创建 |
 | `POST /api/token/:id/key` | 登录 Bearer | 取得完整模型 Key |
 | `GET /v1/models` | 模型 Key | 读取实际可用模型 |
+| `GET /api/pricing` | 登录 Bearer | 补充可用模型的分类，失败时退回端点和名称识别 |
 | 既有生成与任务接口 | 同一个模型 Key | 生成、流式响应、视频轮询等 |
 
 账户接口按 `success: false` 与 HTTP 状态共同判定失败。会话过期才进入未登录状态；网络失败显示连接错误，不伪装成未登录。会话 SID 冲突时清除旧身份并显示错误，由用户重新获取，不自动重放请求。
@@ -104,7 +105,7 @@ Flow 回调不要求 New API 生成任何新的授权 Token；其作用是导航
 
 ## 模型适配与数据边界
 
-账户面板显示 `/v1/models` 返回的完整模型目录。创作选择器结合模型名称和 `supported_endpoint_types` 识别图片、视频、文本、音频；已知不匹配当前协议的模型不出现在相应选择器中。当前文本沿用 Responses 或 Gemini，图片和视频沿用项目既有 OpenAI 兼容或 Gemini 实现，音频沿用现有语音合成接口。模型目录不等于完整参数能力清单，未知自定义模型名称及具体尺寸、参考图、视频规格仍需按实际上架模型验收；本期不展示或承诺统一预估价格。
+账户面板显示 `/v1/models` 返回的完整模型目录，并通过账户凭证请求 `/api/pricing`，按模型名补充 `category`，不会把仅在分类目录出现的模型加入可用列表。创作选择器优先使用分类标识：`chat` 对应文本，`image`、`video`、`audio` 对应图片、视频、音频；分类未设置、无法识别或分类接口不可用时，再结合 `supported_endpoint_types` 和模型名称判断，其中 `videos` 按 `openai-video` 处理。分类标识不代替协议支持，已知不匹配当前协议的模型不出现在相应选择器中。当前文本沿用 Responses 或 Gemini，图片和视频沿用项目既有 OpenAI 兼容或 Gemini 实现，音频沿用现有语音合成接口。模型目录不等于完整参数能力清单，未知自定义模型名称及具体尺寸、参考图、视频规格仍需按实际上架模型验收；本期不展示或承诺统一预估价格。
 
 自动取得的 Key 和 Access Token 只驻留内存，不写入配置 store、配置导出或作品数据。Token 管理请求用登录 Bearer，模型请求用模型 Key，均不携带 Cookie；只有刷新和退出请求需要 Cookie。Flow 模式不使用本地代理或自定义模型脚本传递自动取得的 Key。
 
