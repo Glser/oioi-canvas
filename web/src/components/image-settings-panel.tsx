@@ -4,12 +4,13 @@ import { mediaRatioOptions, mediaScaleOptions } from "@/lib/media-size";
 export function formatScaleLabel(value: string) {
     if (value === "720p") return "720P";
     if (value === "1080p") return "1080P";
+    if (value === "1k") return "1K";
     if (value === "2k") return "2K";
     if (value === "4k") return "4K";
     return value.toUpperCase();
 }
 
-export const imageQualityOptions = ["auto", "high", "medium", "low"].map((value) => ({
+export const imageQualityOptions = ["auto", "low", "medium", "high"].map((value) => ({
     value,
     get label() {
         return i18n.t(`settingsPanels.common.${value}`);
@@ -17,6 +18,13 @@ export const imageQualityOptions = ["auto", "high", "medium", "low"].map((value)
 }));
 export const imageAspectOptions = mediaRatioOptions.map((item) => ({ value: item.value, label: item.value }));
 export const imageScaleOptions = mediaScaleOptions.map((value) => ({ value, label: formatScaleLabel(value) }));
+export const imageResolutionOptions = ["auto", "1k", "2k", "4k"].map((value) => ({
+    value,
+    get label() {
+        return value === "auto" ? i18n.t("settingsPanels.common.auto") : formatScaleLabel(value);
+    },
+}));
+export const imageCountOptions = ["1", "2", "3", "4"];
 
 export function AspectIcon({ width, height, color, size = 22, className }: { width: number; height: number; color: string; size?: number; className?: string }) {
     if (!width || !height) {

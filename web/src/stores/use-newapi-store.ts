@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 import { NEW_API_ENABLED } from "@/constant/env";
-import { createNewApiAutoToken, fetchNewApiModels, findNewApiAutoToken, getNewApiAutoGroups, logoutNewApiSession, NewApiError, readNewApiTokenKey, refreshNewApiSession, type NewApiModel, type NewApiSession, type NewApiToken } from "@/services/api/newapi";
+import { createNewApiAutoToken, fetchNewApiModels, fetchNewApiStatus, findNewApiAutoToken, getNewApiAutoGroups, logoutNewApiSession, NewApiError, normalizeNewApiDocsLink, readNewApiTokenKey, refreshNewApiSession, type NewApiModel, type NewApiSession, type NewApiToken } from "@/services/api/newapi";
 
 type NewApiStore = {
     status: "idle" | "loading" | "anonymous" | "ready" | "error";
@@ -9,15 +9,18 @@ type NewApiStore = {
     token: NewApiToken | null;
     apiKey: string;
     models: NewApiModel[];
+    docsLink: string;
     error: string;
     connect: () => Promise<void>;
+    loadStatus: () => Promise<void>;
     ensureReady: () => Promise<void>;
     logout: () => Promise<void>;
 };
 
-export type NewApiRuntimeState = Pick<NewApiStore, "status" | "session" | "apiKey" | "models">;
+export type NewApiRuntimeState = Pick<NewApiStore, "status" | "session" | "apiKey" | "models" | "docsLink">;
 
 let pending: Promise<void> | null = null;
+let pendingStatus: Promise<void> | null = null;
 let signingOut: Promise<void> | null = null;
 let revision = 0;
 let identityController = new AbortController();
@@ -52,7 +55,23 @@ export const useNewApiStore = create<NewApiStore>((set, get) => ({
     token: null,
     apiKey: "",
     models: [],
+    docsLink: "",
     error: "",
+    loadStatus: () => {
+        if (!NEW_API_ENABLED) return Promise.resolve();
+        if (pendingStatus) return pendingStatus;
+        const operation = (async () => {
+            try {
+                const status = await fetchNewApiStatus();
+                set({ docsLink: normalizeNewApiDocsLink(status?.docs_link) });
+            } catch {
+                set({ docsLink: "" });
+            }
+        })();
+        pendingStatus = operation;
+        void operation.finally(() => { if (pendingStatus === operation) pendingStatus = null; });
+        return operation;
+    },
     connect: () => {
         if (!NEW_API_ENABLED) return Promise.resolve();
         if (signingOut) return signingOut;

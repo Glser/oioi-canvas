@@ -2,9 +2,10 @@ import { useEffect, useRef, useState, type RefObject, type ChangeEvent } from "r
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
-import { AspectIcon } from "@/components/image-settings-panel";
+import { AspectIcon, formatScaleLabel, imageCountOptions, imageQualityOptions, imageResolutionOptions } from "@/components/image-settings-panel";
 import { canvasThemes } from "@/lib/canvas-theme";
-import { inferMediaRatio, mediaRatioOptions, parseAspectRatio } from "@/lib/media-size";
+import { getGenerationCount } from "@/lib/canvas/canvas-generation-helpers";
+import { imageSizePresets, inferMediaRatio, inferMediaScale, mediaRatioOptions, parseAspectRatio, parsePixelSize } from "@/lib/media-size";
 import { useThemeStore } from "@/stores/use-theme-store";
 import type { AiConfig } from "@/stores/use-config-store";
 
@@ -15,6 +16,30 @@ type CanvasImageSettingsPopoverProps = {
     buttonClassName?: string;
     placement?: "topLeft" | "top" | "topRight" | "bottomLeft" | "bottom" | "bottomRight";
 };
+
+const segmentedButtonClass = (selected: boolean) =>
+    `flex h-7 cursor-pointer items-center justify-center rounded-lg text-xs transition-all ${
+        selected
+            ? "bg-white font-semibold text-stone-900 shadow-xs dark:bg-stone-800 dark:text-white"
+            : "font-normal text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200"
+    }`;
+
+function normalizeImageQuality(value: string | undefined) {
+    const quality = (value || "auto").trim().toLowerCase();
+    return imageQualityOptions.some((item) => item.value === quality) ? quality : "auto";
+}
+
+function normalizeImageResolution(size: string | undefined) {
+    const value = (size || "").trim();
+    if (!value || value.toLowerCase() === "auto" || parseAspectRatio(value) || !parsePixelSize(value)) return "auto";
+    const scale = inferMediaScale(value);
+    return imageResolutionOptions.some((item) => item.value === scale) ? scale : "auto";
+}
+
+function resolveImageSize(resolution: string, ratio: string) {
+    if (!ratio || resolution === "auto") return ratio || "1:1";
+    return imageSizePresets[resolution]?.[ratio] || ratio;
+}
 
 export function CanvasImageSettingsPopover({
     config,
@@ -30,6 +55,9 @@ export function CanvasImageSettingsPopover({
     const [isOpen, setIsOpen] = useState(false);
     const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null);
     const selectedRatio = inferMediaRatio(config.size || "1:1");
+    const selectedQuality = normalizeImageQuality(config.quality);
+    const selectedResolution = normalizeImageResolution(config.size);
+    const selectedCount = String(getGenerationCount(config.count));
 
     useEffect(() => {
         onOpenChange?.(isOpen);
@@ -58,13 +86,16 @@ export function CanvasImageSettingsPopover({
     const parsedCurrentRatio = parseAspectRatio(selectedRatio);
     const triggerRatioWidth = parsedCurrentRatio?.width || 1;
     const triggerRatioHeight = parsedCurrentRatio?.height || 1;
+    const resolutionLabel = selectedResolution === "auto" ? t("settingsPanels.common.auto") : formatScaleLabel(selectedResolution);
+    const qualityLabel = t(`settingsPanels.common.${selectedQuality}`);
+    const countLabel = t("settingsPanels.image.images", { count: Number(selectedCount) });
 
     return (
         <>
             <button
                 ref={buttonRef}
                 type="button"
-                className={`canvas-image-settings-trigger inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-input bg-transparent px-3 text-xs font-normal shadow-xs transition hover:bg-black/5 dark:hover:bg-white/10 ${buttonClassName || ""}`}
+                className={`canvas-image-settings-trigger inline-flex h-8 min-w-0 cursor-pointer items-center gap-1.5 rounded-full border border-input bg-transparent px-3 text-xs font-normal shadow-xs transition hover:bg-black/5 dark:hover:bg-white/10 ${buttonClassName || ""}`}
                 style={{ color: theme.node.text }}
                 onClick={() => {
                     if (isOpen) setIsOpen(false);
@@ -73,10 +104,18 @@ export function CanvasImageSettingsPopover({
                         setIsOpen(true);
                     }
                 }}
-                title={`${t("settingsPanels.image.aspectRatio")}: ${selectedRatio}`}
+                title={`${t("settingsPanels.image.aspectRatio")}: ${selectedRatio} · ${t("settingsPanels.image.resolution")}: ${resolutionLabel} · ${t("settingsPanels.image.count")}: ${countLabel} · ${t("settingsPanels.image.quality")}: ${qualityLabel}`}
             >
                 <AspectIcon width={triggerRatioWidth} height={triggerRatioHeight} color="currentColor" size={16} />
-                <span className="font-medium">{selectedRatio}</span>
+                <span className="inline-flex min-w-0 items-center gap-1 truncate text-xs font-medium">
+                    <span>{selectedRatio}</span>
+                    <span className="opacity-35 font-medium">·</span>
+                    <span>{resolutionLabel}</span>
+                    <span className="opacity-35 font-medium">·</span>
+                    <span>{countLabel}</span>
+                    <span className="opacity-35 font-medium">·</span>
+                    <span>{qualityLabel}</span>
+                </span>
             </button>
             {isOpen && anchorRect ? (
                 <CombinedImageSettingsDropdown
@@ -85,7 +124,13 @@ export function CanvasImageSettingsPopover({
                     theme={theme}
                     placement={placement}
                     selectedRatio={selectedRatio}
-                    onSelectRatio={(ratio) => onConfigChange("size", ratio)}
+                    selectedResolution={selectedResolution}
+                    selectedQuality={selectedQuality}
+                    selectedCount={selectedCount}
+                    onSelectRatio={(ratio) => onConfigChange("size", resolveImageSize(selectedResolution, ratio))}
+                    onSelectResolution={(resolution) => onConfigChange("size", resolveImageSize(resolution, selectedRatio))}
+                    onSelectQuality={(quality) => onConfigChange("quality", quality)}
+                    onSelectCount={(count) => onConfigChange("count", count)}
                 />
             ) : null}
         </>
@@ -98,14 +143,26 @@ function CombinedImageSettingsDropdown({
     theme,
     placement,
     selectedRatio,
+    selectedResolution,
+    selectedQuality,
+    selectedCount,
     onSelectRatio,
+    onSelectResolution,
+    onSelectQuality,
+    onSelectCount,
 }: {
     menuRef: RefObject<HTMLDivElement | null>;
     anchorRect: DOMRect;
     theme: (typeof canvasThemes)[keyof typeof canvasThemes];
     placement: CanvasImageSettingsPopoverProps["placement"];
     selectedRatio: string;
+    selectedResolution: string;
+    selectedQuality: string;
+    selectedCount: string;
     onSelectRatio: (ratio: string) => void;
+    onSelectResolution: (resolution: string) => void;
+    onSelectQuality: (quality: string) => void;
+    onSelectCount: (count: string) => void;
 }) {
     const { t } = useTranslation();
     const width = 276;
@@ -151,6 +208,7 @@ function CombinedImageSettingsDropdown({
         : anchorRect.left + width > window.innerWidth - margin
           ? window.innerWidth - width - margin
           : Math.max(margin, Math.min(window.innerWidth - width - margin, anchorRect.left));
+    const resolutionLabel = selectedResolution === "auto" ? t("settingsPanels.common.auto") : formatScaleLabel(selectedResolution);
 
     return createPortal(
         <div
@@ -174,54 +232,106 @@ function CombinedImageSettingsDropdown({
             onMouseDown={(event) => event.stopPropagation()}
             onClick={(event) => event.stopPropagation()}
         >
-            <div className="mb-2 flex items-center justify-between px-0.5 text-[11px] font-medium opacity-50">
-                <span>{t("settingsPanels.image.aspectRatio")}</span>
-                <span className="font-mono text-[10px] opacity-80">{selectedRatio}</span>
-            </div>
-            <div className="grid grid-cols-3 gap-1.5">
-                {mediaRatioOptions.map((item) => {
-                    const isSelected = selectedRatio === item.value;
-                    return (
-                        <button
-                            key={item.value}
-                            type="button"
-                            className={`group flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg border text-xs font-medium transition-all ${
-                                isSelected
-                                    ? "border-stone-400/80 bg-black/5 text-stone-900 shadow-xs dark:border-white/30 dark:bg-white/10 dark:text-white"
-                                    : "border-transparent bg-black/[0.02] text-stone-600 hover:bg-black/5 dark:bg-white/[0.04] dark:text-stone-300 dark:hover:bg-white/8"
+            <div className="space-y-3">
+                <div>
+                    <div className="mb-2 flex items-center justify-between px-0.5 text-xs font-medium opacity-50">
+                        <span>{t("settingsPanels.image.aspectRatio")}</span>
+                        <span className="text-xs font-medium opacity-70">{selectedRatio}</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                        {mediaRatioOptions.map((item) => {
+                            const isSelected = selectedRatio === item.value;
+                            return (
+                                <button
+                                    key={item.value}
+                                    type="button"
+                                    className={`group flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg border text-xs font-medium transition-all ${
+                                        isSelected
+                                            ? "border-stone-400/80 bg-black/5 text-stone-900 shadow-xs dark:border-white/30 dark:bg-white/10 dark:text-white"
+                                            : "border-transparent bg-black/[0.02] text-stone-600 hover:bg-black/5 dark:bg-white/[0.04] dark:text-stone-300 dark:hover:bg-white/8"
+                                    }`}
+                                    onClick={() => onSelectRatio(item.value)}
+                                >
+                                    <AspectIcon width={item.width} height={item.height} color="currentColor" size={16} />
+                                    <span>{item.value}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <div className="mt-2 flex items-center gap-2 rounded-lg bg-black/[0.03] px-2.5 py-1.5 dark:bg-white/[0.04]">
+                        <span className="shrink-0 text-xs font-medium opacity-50">{t("settingsPanels.image.customRatio")}</span>
+                        <input
+                            type="text"
+                            inputMode="text"
+                            placeholder={t("settingsPanels.image.customRatioPlaceholder")}
+                            value={customInput}
+                            onChange={handleCustomInputChange}
+                            onBlur={handleCustomInputBlur}
+                            onKeyDown={(event) => {
+                                if (event.key === "Enter") {
+                                    handleCustomInputBlur();
+                                    (event.target as HTMLInputElement).blur();
+                                }
+                            }}
+                            className={`h-6 min-w-0 flex-1 rounded border bg-transparent px-2 font-mono text-xs outline-none transition-all placeholder:text-xs placeholder:opacity-40 ${
+                                !isPresetRatio && customInput === selectedRatio
+                                    ? "border-stone-400/80 text-stone-900 dark:border-white/30 dark:text-white"
+                                    : "border-transparent focus:border-stone-300 dark:focus:border-white/20"
                             }`}
-                            onClick={() => onSelectRatio(item.value)}
-                        >
-                            <AspectIcon width={item.width} height={item.height} color="currentColor" size={16} />
-                            <span>{item.value}</span>
-                        </button>
-                    );
-                })}
-            </div>
-            <div className="mt-2 flex items-center gap-2 rounded-lg bg-black/[0.03] px-2.5 py-1.5 dark:bg-white/[0.04]">
-                <span className="shrink-0 text-[11px] font-medium opacity-60">自定义</span>
-                <input
-                    type="text"
-                    inputMode="text"
-                    placeholder="如 16:10、4:5"
-                    value={customInput}
-                    onChange={handleCustomInputChange}
-                    onBlur={handleCustomInputBlur}
-                    onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                            handleCustomInputBlur();
-                            (event.target as HTMLInputElement).blur();
-                        }
-                    }}
-                    className={`h-6 min-w-0 flex-1 rounded border bg-transparent px-2 font-mono text-xs outline-none transition-all placeholder:text-[11px] placeholder:opacity-40 ${
-                        !isPresetRatio && customInput === selectedRatio
-                            ? "border-stone-400/80 text-stone-900 dark:border-white/30 dark:text-white"
-                            : "border-transparent focus:border-stone-300 dark:focus:border-white/20"
-                    }`}
-                />
-                {!isPresetRatio ? (
-                    <span className="shrink-0 rounded-full bg-stone-900/10 px-1.5 py-0.5 text-[10px] font-medium text-stone-700 dark:bg-white/10 dark:text-stone-300">已生效</span>
-                ) : null}
+                        />
+                        {!isPresetRatio ? (
+                            <span className="shrink-0 rounded-full bg-stone-900/10 px-1.5 py-0.5 text-xs font-medium text-stone-700 dark:bg-white/10 dark:text-stone-300">{t("settingsPanels.image.customRatioApplied")}</span>
+                        ) : null}
+                    </div>
+                </div>
+
+                <div className="h-px w-full bg-stone-200/60 dark:bg-white/10" />
+
+                <div>
+                    <div className="mb-2 flex items-center justify-between px-0.5 text-xs font-medium opacity-50">
+                        <span>{t("settingsPanels.image.resolution")}</span>
+                        <span className="text-xs font-medium opacity-70">{resolutionLabel}</span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1 rounded-xl bg-black/[0.04] p-1 dark:bg-white/[0.06]">
+                        {imageResolutionOptions.map((item) => (
+                            <button key={item.value} type="button" onClick={() => onSelectResolution(item.value)} className={segmentedButtonClass(selectedResolution === item.value)}>
+                                {item.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="h-px w-full bg-stone-200/60 dark:bg-white/10" />
+
+                <div>
+                    <div className="mb-2 flex items-center justify-between px-0.5 text-xs font-medium opacity-50">
+                        <span>{t("settingsPanels.image.count")}</span>
+                        <span className="text-xs font-medium opacity-70">{t("settingsPanels.image.images", { count: Number(selectedCount) })}</span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1 rounded-xl bg-black/[0.04] p-1 dark:bg-white/[0.06]">
+                        {imageCountOptions.map((value) => (
+                            <button key={value} type="button" onClick={() => onSelectCount(value)} className={segmentedButtonClass(selectedCount === value)}>
+                                {value}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="h-px w-full bg-stone-200/60 dark:bg-white/10" />
+
+                <div>
+                    <div className="mb-2 flex items-center justify-between px-0.5 text-xs font-medium opacity-50">
+                        <span>{t("settingsPanels.image.quality")}</span>
+                        <span className="text-xs font-medium opacity-70">{t(`settingsPanels.common.${selectedQuality}`)}</span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-1 rounded-xl bg-black/[0.04] p-1 dark:bg-white/[0.06]">
+                        {imageQualityOptions.map((item) => (
+                            <button key={item.value} type="button" onClick={() => onSelectQuality(item.value)} className={segmentedButtonClass(selectedQuality === item.value)}>
+                                {item.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
             </div>
         </div>,
         document.body,

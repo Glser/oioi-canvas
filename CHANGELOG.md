@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- [调整] 文档入口改为读取 New API 后台配置的 docs_link，不再使用本地默认文档地址。
+
+- [优化] 生图设置补充分辨率、生成张数和质量分段选择，工作台底部触发器同步展示当前参数。
+
 - [修复] New API 的 `category=chat` 模型按 Chat Completions 端点纳入文本模型列表，并使用对应文本请求协议。
 
 - [新增] GitHub Actions 自动构建当前开发分支并推送 Flow 镜像至阿里云 ACR，部署配置改为拉取独立镜像。

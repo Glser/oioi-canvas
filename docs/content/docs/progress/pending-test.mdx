@@ -6,6 +6,7 @@ description: Implemented changes that still need manual verification
 
 # Pending Tests
 
+- Docs entry: on startup, request New API `/api/status` and use `docs_link`. When the admin has configured a valid URL, the top docs button and canvas menu should open it; if it is missing, invalid, or the request fails, hide the docs entry and do not fall back to docs.canvas.best. Confirm both configured and unconfigured cases.
 - New API 聊天模型文本节点：`category=chat` 且 `supported_endpoint_types` 包含 `openai` 时，模型应出现在文本模型选择器，并通过 `/v1/chat/completions` 请求；Responses 模型继续使用 `/v1/responses`。待实际账户模型目录和文本节点生成验收。
 
 - Flow 阿里云镜像发布：复用 New API 的 ACR 实例与凭据名称，当前开发分支推送自动构建，也可手动指定分支、标签或提交；构建 linux/amd64 镜像并发布 latest 与实际源码提交的 12 位 SHA 标签。默认 Compose 改为拉取 glser/oioi-canvas。GitHub 仓库已配置 ACR_USERNAME / ACR_PASSWORD，首次手动 Action 已完成镜像构建并成功推送至 ACR；服务器拉取启动和生产域名回调仍待验收，未执行本地构建或测试。
@@ -22,7 +23,7 @@ description: Implemented changes that still need manual verification
 
 - Flow / New API 接入：默认浏览器直连 `api.oioi.lat`，右上角账户入口与配置页支持跳转 New API 登录、state 回调、会话恢复及共享会话退出；先分页查找当前用户启用、未过期且有可用额度的 auto 令牌，没有时按已确认规则创建 Flow 令牌（不单独限制额度、不设到期时间，仍受账户余额及分组权限约束）。完整 Key 通过专用接口读取，仅保存在内存；账户面板可搜索模型目录，现有文本、图片、视频、音频生成接入同一 Key。确认刷新和切换账户后不会继续使用旧凭证，配置与作品导出不包含自动取得的 Key。接口模拟验证 10 项通过，覆盖凭证分离、分页、创建与失败处理、会话撤销和回调校验；未做语法检查、构建、真实登录或收费生成。需先按开发文档「New API 接入」完成 API 端的精确 CORS、可信 Cookie 来源、跨站回调白名单与 auto 候选组配置，再验收真实登录、2FA/OAuth 回跳、模型分类和各类模型调用。New API 配套代码已在本地实现，线上配置与部署未执行；跨设备首次创建不保证严格唯一，浏览器本地作品仍按原有空间共享。
 
-- 生图工作台：底部不再显示 1/2/4 张数按钮，生成按钮也不再出现 ×N；每次生成 1 张。模型名占据左侧剩余空间，右侧比例按钮略加宽，避免去掉张数后留白发空。
+- Image workbench: the bottom settings popover now uses segmented controls for aspect ratio, resolution, image count, and quality, matching the video workbench style. The trigger shows the current values. Resolution options are Auto / 1K / 2K / 4K, count options are 1 / 2 / 3 / 4, and quality options are Auto / Low / Medium / High. Image count should actually generate that many images. Confirm light/dark themes, narrow-width truncation, and selected state after reopening.
 - 生图和视频工作台：提示词输入区（参考图 + 文本框）应有圆角细边框围住，两侧不应显得空旷；标题和底部生成按钮仍在外层面板，不再套第三层卡片。
 - 文本输入框：提示词等 textarea 溢出时应出现一条细圆角滚动条，没有上下端点按钮；页面其他区域仍不显示滚动条。
 - 顶部导航栏：首页滚动收缩/展开时应平滑过渡，文字逐渐收进图标，不应出现宽度突然跳变。

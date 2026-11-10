@@ -19,6 +19,7 @@ export function ClientRootInit({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         if (!NEW_API_ENABLED) return;
+        void useNewApiStore.getState().loadStatus();
         const connect = () => void useNewApiStore.getState().connect().catch(() => {});
         if (window.location.pathname !== "/auth/callback") connect();
         const resume = () => {

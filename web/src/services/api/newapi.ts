@@ -118,6 +118,22 @@ export async function fetchNewApiModels(apiKey: string, session: NewApiSession, 
     return [...new Map(data.map((model) => [model.id, { ...model, category: categories.get(model.id) || model.category }])).values()].sort((a, b) => a.id.localeCompare(b.id));
 }
 
+export function fetchNewApiStatus(signal?: AbortSignal) {
+    return request<{ docs_link?: string }>("/api/status", { signal });
+}
+
+export function normalizeNewApiDocsLink(value: string | undefined) {
+    const trimmed = value?.trim();
+    if (!trimmed) return "";
+    const href = /^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : trimmed.startsWith("//") ? `https:${trimmed}` : `https://${trimmed}`;
+    try {
+        const url = new URL(href);
+        return url.protocol === "http:" || url.protocol === "https:" ? url.href : "";
+    } catch {
+        return "";
+    }
+}
+
 export function startNewApiLogin() {
     const state = crypto.randomUUID();
     sessionStorage.setItem("oioi-flow:auth-state", state);

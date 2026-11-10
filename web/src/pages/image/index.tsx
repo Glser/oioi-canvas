@@ -6,6 +6,7 @@ import { saveAs } from "file-saver";
 import { useTranslation } from "react-i18next";
 
 import { CanvasImageSettingsPopover } from "@/components/canvas/canvas-image-settings-popover";
+import { getGenerationCount } from "@/lib/canvas/canvas-generation-helpers";
 import { ModelPicker } from "@/components/model-picker";
 import { PromptSelectDialog } from "@/components/prompts/prompt-select-dialog";
 import { AssetPickerModal, type InsertAssetPayload } from "@/components/canvas/asset-picker-modal";
@@ -105,7 +106,7 @@ export default function ImagePage() {
 
     const model = effectiveConfig.imageModel || effectiveConfig.model;
     const canGenerate = Boolean(prompt.trim());
-    const generationCount = 1;
+    const generationCount = getGenerationCount(effectiveConfig.count);
 
     useEffect(() => {
         if (!running || !startedAt) return;
@@ -297,7 +298,7 @@ export default function ImagePage() {
             openConfigDialog(true);
             return null;
         }
-        return { text, config: { ...effectiveConfig, model, count: "1" }, references: [...references] };
+        return { text, config: { ...effectiveConfig, model, count: String(generationCount) }, references: [...references] };
     };
 
     const runGenerationSlot = async (index: number, snapshot: { text: string; config: AiConfig; references: ReferenceImage[] }) => {
@@ -634,11 +635,14 @@ function GenerationSettings({
                     />
                 </div>
                 <span className="mx-0.5 h-4 w-px shrink-0 bg-stone-300/80 dark:bg-white/10" />
-                <CanvasImageSettingsPopover
-                    config={config}
-                    buttonClassName="!h-8 !min-w-[4.5rem] !justify-center !rounded-full !border-0 !bg-transparent !px-3 !shadow-none hover:!bg-black/5 dark:!border-0 dark:hover:!bg-white/10"
-                    onConfigChange={(key, value) => updateConfig(key, value)}
-                />
+                <div className="min-w-0 shrink-0 max-w-[58%]">
+                    <CanvasImageSettingsPopover
+                        config={config}
+                        placement="top"
+                        buttonClassName="!h-8 !w-full !justify-start !rounded-full !border-0 !bg-transparent !px-2.5 !shadow-none hover:!bg-black/5 dark:!border-0 dark:hover:!bg-white/10"
+                        onConfigChange={(key, value) => updateConfig(key, value)}
+                    />
+                </div>
             </div>
             {onGenerate ? (
                 <button

@@ -1,5 +1,3 @@
-export const DOCS_URL = import.meta.env.VITE_DOC_URL || "https://docs.canvas.best";
-
 export const NEW_API_ENABLED = import.meta.env.VITE_NEW_API_ENABLED !== "false";
 export const NEW_API_BASE_URL = (import.meta.env.VITE_NEW_API_URL || "https://api.oioi.lat").replace(/\/+$/, "");
 export const NEW_API_CHANNEL_ID = "newapi-auto";
