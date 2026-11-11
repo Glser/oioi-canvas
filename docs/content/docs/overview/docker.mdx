@@ -49,7 +49,7 @@ docker compose up -d
 
 默认端口为 `3000`，已有服务占用时先调整 Compose 左侧宿主机端口。后续更新同样执行 `docker compose pull` 和 `docker compose up -d`；回退版本时，将 Compose 的镜像标签由 `latest` 改为目标版本号或提交 SHA 标签再执行上述命令。
 
-将 `flow.oioi.lat` 配置 HTTPS 并反向代理到容器映射端口。容器的 `nginx.conf` 已包含 SPA 路由回退，部署时需保留，以支持 `/auth/callback` 和画布路由直接访问。镜像发布、静态资源加载和生产域名登录链路仍需实际部署验收。
+将 `flow.oioi.lat` 配置 HTTPS 并反向代理到容器映射端口。容器的 `nginx.conf` 已包含 SPA 路由回退，部署时需保留，以支持 `/auth/callback` 和画布路由直接访问。v1.0.2 已完成澳洲服务器镜像部署、静态资源与 SPA 基础路由验证；生产域名的真实账户登录链路仍需业务验收。
 
 ## New API 配合
 

@@ -6,7 +6,7 @@ description: Implemented changes that still need manual verification
 
 # Pending Tests
 
-- v1.0.2 发布：版本号以澳洲服务器已运行的 v1.0.1 为基准递增；GitHub Actions 增加 VERSION 镜像标签及版本标签元数据，同时保留 SHA 与 latest。服务器部署使用版本镜像并保留旧容器用于回退，生产生成、登录与浏览器本地数据仍需实际验收。
+- v1.0.2 发布已完成：代码提交 `1d1f8cd737a8c726c9a290231978160e155ccdf0` 与 tag `v1.0.2` 已推送，GitHub Actions `43044369023` 成功构建并发布阿里云版本、SHA 与 latest 镜像；澳洲服务器已运行 `oioi-flow-v1.0.2`，镜像摘要为 `sha256:d1e5ea374d84728e06509822f0000932443fecbcad6ffebf53205950b2e4cc05`。保留原端口、网络、重启策略及文件描述符限制，旧容器 `oioi-flow-v1.0.1` 已停止保留，部署前配置与容器信息备份在服务器 `/opt/oioi-flow/releases/v1.0.2/`。已验证镜像版本与提交、SPA 路由、静态资源、公网首页与生图页，隔离浏览器未发现运行错误或服务端 5xx；真实登录、收费生成与浏览器本地数据仍待用户验收，未执行本地构建或类型检查。
 
 - `gemini-image` 端点支持：`category=image` 且声明 `gemini-image` 的模型可用于生图；同时声明多个图片端点时优先采用该专用端点，文生图与图生图均走 Gemini `generateContent`，保留网关模型别名。该端点不作为聊天、视频或音频协议使用。隔离浏览器已拦截并确认 `nano-banana-2` 四张文生图发出四次请求、单张参考图生成一次，均携带 `4:3 + 2K`；参数面板隐藏质量选项，原 `gemini` 与 `image-generation` 路由保持正确，无页面运行错误。未调用真实模型，未执行构建或类型检查；真实网关转发待验收。已检查 todo，无对应条目需要迁移，线上联调待办保留。
 
@@ -90,7 +90,7 @@ description: Implemented changes that still need manual verification
 - Docs entry: on startup, request New API `/api/status` and use `docs_link`. When the admin has configured a valid URL, the top docs button and canvas menu should open it; if it is missing, invalid, or the request fails, hide the docs entry and do not fall back to docs.canvas.best. Confirm both configured and unconfigured cases.
 - New API 聊天模型文本节点：`category=chat` 且 `supported_endpoint_types` 包含 `openai` 时，模型应出现在文本模型选择器，并通过 `/v1/chat/completions` 请求；Responses 模型继续使用 `/v1/responses`。待实际账户模型目录和文本节点生成验收。
 
-- Flow 阿里云镜像发布：复用 New API 的 ACR 实例与凭据名称，当前开发分支推送自动构建，也可手动指定分支、标签或提交；构建 linux/amd64 镜像并发布 latest 与实际源码提交的 12 位 SHA 标签。默认 Compose 改为拉取 glser/oioi-canvas。GitHub 仓库已配置 ACR_USERNAME / ACR_PASSWORD，首次手动 Action 已完成镜像构建并成功推送至 ACR；服务器拉取启动和生产域名回调仍待验收，未执行本地构建或测试。
+- Flow 阿里云镜像发布：复用 New API 的 ACR 实例与凭据名称，当前开发分支推送自动构建，也可手动指定分支、标签或提交；构建 linux/amd64 镜像并发布 VERSION、latest 与实际源码提交的 12 位 SHA 标签。默认 Compose 改为拉取 glser/oioi-canvas。GitHub 仓库已配置 ACR_USERNAME / ACR_PASSWORD，首次手动 Action 已完成镜像构建并成功推送至 ACR；服务器拉取启动、静态资源及回调页面基础路由已在 v1.0.2 发布中验证，真实生产账户登录回跳仍待验收；未执行本地构建或测试套件。
 
 - Agent 连接面板文案统一为「在 Agent 中对话，画布展示执行结果。」；启动与 MCP 注册命令和复制按钮并排展示，长命令在侧栏内自动换行并完整显示，待确认窄屏无横向溢出及复制操作。
 
