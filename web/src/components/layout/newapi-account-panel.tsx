@@ -62,7 +62,7 @@ export function NewApiAccountPanel() {
                             {visibleModels.map((model) => <li key={model.id} className="py-3 text-sm break-all">{model.id}</li>)}
                         </ul>
                     ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={models.length ? "没有匹配的模型" : "当前令牌没有可用模型，请联系管理员检查分组和模型权限"} />}
-                    <p className="text-xs text-muted-foreground">此处列出令牌有权调用的模型；创作界面按模型名称和接口信息分组，仅展示当前已适配的能力。</p>
+                    <p className="text-xs text-muted-foreground">此处列出令牌有权调用的模型；创作界面按网关配置的能力分类与端点筛选，缺少分类或端点时不会显示为可选模型。</p>
                 </section>
             ) : null}
         </div>

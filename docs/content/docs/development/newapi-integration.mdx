@@ -43,7 +43,7 @@ VITE_NEW_API_URL=https://api.oioi.lat
 | `POST /api/token/` | 登录 Bearer | 没有可用 auto Key 时创建 |
 | `POST /api/token/:id/key` | 登录 Bearer | 取得完整模型 Key |
 | `GET /v1/models` | 模型 Key | 读取实际可用模型 |
-| `GET /api/pricing` | 登录 Bearer | 补充可用模型的分类和端点，失败时仅使用模型目录已有元数据 |
+| `GET /api/pricing` | 登录 Bearer | 读取可用模型的分类和端点；失败时明确报告连接错误，保留登录身份 |
 | 既有生成与任务接口 | 同一个模型 Key | 生成、流式响应、视频轮询等 |
 
 账户接口按 `success: false` 与 HTTP 状态共同判定失败。会话过期才进入未登录状态；网络失败显示连接错误，不伪装成未登录。会话 SID 冲突时清除旧身份并显示错误，由用户重新获取，不自动重放请求。
@@ -52,7 +52,7 @@ VITE_NEW_API_URL=https://api.oioi.lat
 
 ### 1. 精确跨域与 Cookie 来源
 
-对上述账户与令牌接口，以及必要的预检请求，精确允许 `https://flow.oioi.lat`。携带 Cookie 的接口不能返回 `Access-Control-Allow-Origin: *`。响应至少满足：
+对上述账户与令牌接口、`GET /api/pricing`、`GET /api/status` 及其预检请求，精确允许 `https://flow.oioi.lat`。模型分类接口是创作目录的必要依赖，不能只为登录与令牌路由配置 CORS。携带 Cookie 的接口不能返回 `Access-Control-Allow-Origin: *`。响应至少满足：
 
 ```http
 Access-Control-Allow-Origin: https://flow.oioi.lat
@@ -62,7 +62,7 @@ Access-Control-Allow-Headers: Authorization, Content-Type, X-Auth-Session
 Vary: Origin
 ```
 
-CORS 头需覆盖实际响应，包括认证失败与业务错误响应；OPTIONS 不要求先登录。可以在 New API 或反向代理实现，避免同一响应叠加两套 CORS 头。不得将任意请求 Origin 直接回显为受信任来源。无 Cookie 的模型接口可保留原有 CORS 策略。
+CORS 头需覆盖实际 GET 响应，包括认证失败与业务错误响应；仅 OPTIONS 通过不能证明跨域可用。OPTIONS 不要求先登录。可以在 New API 或反向代理实现，避免同一响应叠加两套 CORS 头。不得将任意请求 Origin 直接回显为受信任来源。无 Cookie 的模型接口可保留原有 CORS 策略。
 
 生产会话设置需要包含真实 API Origin 与 Flow Origin：
 
@@ -105,7 +105,7 @@ Flow 回调不要求 New API 生成任何新的授权 Token；其作用是导航
 
 ## 模型适配与数据边界
 
-账户面板显示 `/v1/models` 返回的完整模型目录，并通过账户凭证请求 `/api/pricing`，按模型名补充 `category` 和 `supported_endpoint_types`，不会把仅在计价目录出现的模型加入可用列表。创作选择器要求已知分类：`chat` 对应文本，`image`、`video`、`audio` 对应图片、视频、音频；缺少或未知分类不会按模型名称猜测。分类接口不可用时，仅使用 `/v1/models` 已提供的元数据。
+账户面板显示 `/v1/models` 返回的完整模型目录，并通过账户凭证请求 `/api/pricing`，按模型名补充 `category` 和 `supported_endpoint_types`，不会把仅在计价目录出现的模型加入可用列表。创作选择器要求已知分类：`chat` 对应文本，`image`、`video`、`audio` 对应图片、视频、音频；缺少或未知分类不会按模型名称猜测。分类接口不可用时显示明确连接错误并保留登录身份，不再静默忽略；用户修复网关配置后可点击「重新获取」。
 
 分类还必须匹配已实现的端点：文本依次选择 `openai`（`/v1/chat/completions`）、`openai-response`（`/v1/responses`）、`gemini`（`streamGenerateContent`）；图片优先选择专用 `gemini-image`（`generateContent`），其次选择 `image-generation` 或 `gemini`（`generateContent`）；`gemini-image` 仅用于 `image` 分类，文生图和图生图均映射到现有 Gemini 协议；视频选择 `openai-video`（含 `videos`）或 `gemini`（`predictLongRunning`）；音频仅使用 `audio` 分类下的 OpenAI 语音合成接口。缺少端点、仅支持 `openai-response-compact` 或其他未实现协议时不出现在创作选择器。各生成服务发送前再次校验模型能力；视频无可用模型时不回退到图片模型。
 

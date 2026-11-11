@@ -54,7 +54,7 @@ export function GenerationSettings() {
                     placeholder={t("settingsPanels.model.select")}
                     options={Array.from(new Set(models)).map((value) => ({ value, label: modelOptionLabel(config, value) }))}
                     onChange={(value) => updateConfig("imageModel", value)}
-                    notFoundContent={<Button type="text" block className="!justify-start" onClick={() => { setModelOpen(false); openConfigDialog(false); }}>{t("imageWorkbench.configureModels")}</Button>}
+                    notFoundContent={<Button type="text" block className="!justify-start" onClick={() => { setModelOpen(false); openConfigDialog(false); }}>{config.newApiUserId ? "暂无可选生图模型，查看账户连接" : t("imageWorkbench.configureModels")}</Button>}
                 />
             </div>
             <Popover

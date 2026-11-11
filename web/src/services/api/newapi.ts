@@ -110,7 +110,7 @@ export async function fetchNewApiModels(apiKey: string, session: NewApiSession, 
         request<NewApiModel[]>("/v1/models", authOptions(apiKey, signal)),
         request<Array<{ model_name: string; category?: string; supported_endpoint_types?: string[] }>>("/api/pricing", authOptions(session.access_token, signal)).catch((error) => {
             if (signal.aborted) throw error;
-            return [];
+            throw new Error("模型分类读取失败，请检查网关 /api/pricing 的访问权限与跨域配置，然后重新获取模型");
         }),
     ]);
     if (!Array.isArray(data) || data.some((model) => typeof model.id !== "string" || !model.id)) throw new Error("模型列表格式异常，请检查 New API 版本");

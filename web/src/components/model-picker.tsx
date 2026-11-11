@@ -95,7 +95,7 @@ export function ModelPicker({ config, value, onChange, capability, className, fu
 }
 
 function emptyModelLabel(config: AiConfig, capability?: ModelCapability) {
-    if (config.channelMode === "remote") return config.models.length ? "当前没有适配此能力的模型" : "登录账户后选择可用模型";
+    if (config.channelMode === "remote") return config.newApiUserId ? "当前没有适配此能力的模型，请检查账户连接与模型配置" : "登录账户后选择可用模型";
     const label = capability ? i18n.t(`settingsPanels.model.capabilities.${capability}`) : "";
     if (capability && config.models.length) return i18n.t("settingsPanels.model.assign", { capability: label });
     return config.models.length ? i18n.t("settingsPanels.model.noMatch", { capability: label }) : i18n.t("settingsPanels.model.addFirst");

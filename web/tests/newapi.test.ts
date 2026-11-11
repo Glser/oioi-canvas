@@ -63,13 +63,29 @@ test("enriches only key-visible models with the explicit New API category", asyn
     expect(useNewApiStore.getState().models).toEqual([{ id: "gpt-image-2", category: "video", supported_endpoint_types: ["image-generation"] }]);
 });
 
-test("keeps endpoint metadata when the optional category catalog is unavailable", async () => {
+test("reports an unavailable category catalog without treating a logged-in account as ready", async () => {
     const baseHandler = handler;
     handler = (path, options) => path === "/api/pricing" ? fail(403, "pricing is disabled") : baseHandler(path, options);
+    await expect(useNewApiStore.getState().connect()).rejects.toThrow("模型分类读取失败");
+    expect(useNewApiStore.getState().status).toBe("error");
+    expect(useNewApiStore.getState().session?.user.id).toBe(session.user.id);
+    expect(useNewApiStore.getState().models).toEqual([]);
+    expect(useNewApiStore.getState().apiKey).toBe("");
+    handler = baseHandler;
     await useNewApiStore.getState().connect();
     expect(useNewApiStore.getState().status).toBe("ready");
-    expect(useNewApiStore.getState().models[0].supported_endpoint_types).toEqual(["image-generation"]);
-    expect(useNewApiStore.getState().models[0].category).toBeUndefined();
+});
+
+test("reports a CORS or network failure while reading model categories", async () => {
+    const baseHandler = handler;
+    handler = (path, options) => {
+        if (path === "/api/pricing") throw new TypeError("Failed to fetch");
+        return baseHandler(path, options);
+    };
+    await expect(useNewApiStore.getState().connect()).rejects.toThrow("跨域配置");
+    expect(useNewApiStore.getState().status).toBe("error");
+    expect(useNewApiStore.getState().session?.user.id).toBe(session.user.id);
+    expect(useNewApiStore.getState().models).toEqual([]);
 });
 
 test("searches subsequent pages and excludes other users, disabled, expired, and exhausted tokens", async () => {
