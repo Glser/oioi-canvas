@@ -5,6 +5,6 @@ description: Planned follow-up work
 
 # TODO
 
-- Flow 线上业务联调：核对 New API 配套版本、精确 CORS、受控回跳、Secure Cookie、refresh/logout 可信来源、用户 auto 候选组、渠道和计价，完成真实登录、注册、2FA/OAuth、模型目录及收费生成验收。Flow v1.0.2 已部署澳洲服务器，SPA 回退、静态资源及公网基础访问已验证并记录于待测试；New API 线上配置和业务链路尚未在本次发布中验收，具体契约见「开发文档 → New API 接入」。
+- Flow 线上业务联调：核对 New API 配套版本、受控回跳、Secure Cookie、refresh/logout 可信来源、用户 auto 候选组、渠道和计价，完成真实登录、注册、2FA/OAuth、模型目录及收费生成验收。Flow v1.0.3 已部署澳洲服务器，SPA 回退、静态资源及公网基础访问已验证；分类与站点元数据接口的精确 CORS 已修复并验证，生产页面结合真实分类接口和模拟身份已通过模型选择及失败重试验收。真实账户、其他鉴权接口跨域和收费业务链路仍待验收，具体契约见「开发文档 → New API 接入」，发布证据见待测试。
 - 若运营要求跨设备首次使用只创建一把 auto Key，在 New API 增加按用户原子取得或创建令牌的幂等接口；当前 Flow 同源标签页 Web Locks 不提供跨设备互斥。
 
