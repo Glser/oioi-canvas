@@ -1,4 +1,5 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { theme as antdTheme } from "antd";
+import { useEffect, useId, useMemo, useState, type CSSProperties } from "react";
 import { Cpu } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -23,6 +24,7 @@ type ModelPickerProps = {
 
 export function ModelPicker({ config, value, onChange, capability, className, fullWidth = false, placeholder, onMissingConfig, hideChevron, side = "bottom", contentClassName }: ModelPickerProps) {
     const { t } = useTranslation();
+    const { token } = antdTheme.useToken();
     const pickerId = useId();
     const [open, setOpen] = useState(false);
     const options = useMemo(() => Array.from(new Set([...(config.channelMode === "local" && !capability ? [value] : []), ...selectableModelsByCapability(config, capability)].filter((model): model is string => Boolean(model)))), [capability, config, value]);
@@ -65,6 +67,7 @@ export function ModelPicker({ config, value, onChange, capability, className, fu
             </SelectTrigger>
             <SelectContent
                 data-canvas-no-zoom
+                style={{ "--popover": token.colorBgElevated, "--popover-foreground": token.colorText, "--foreground": token.colorText, "--border": token.colorBorder, "--accent": token.controlItemBgActive, "--accent-foreground": token.colorText, "--muted-foreground": token.colorTextSecondary } as CSSProperties}
                 className={cn("z-[1200] w-64 max-w-[calc(100vw-24px)] rounded-xl border border-border/70 bg-popover p-1 shadow-xl", contentClassName)}
                 position="popper"
                 align="start"

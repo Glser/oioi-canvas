@@ -1,0 +1,9 @@
+.page { display: flex; flex-direction: column; overflow: hidden; }
+.header { flex-shrink: 0; }
+.columns { display: grid; grid-template-columns: 228px minmax(0, 1fr); gap: 12px; flex: 1; min-height: 0; overflow: hidden; }
+.filters, .results { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: thin; scrollbar-color: var(--wb-border) transparent; }
+.results { position: relative; padding: 0 4px 16px; }
+.search { position: sticky; top: 0; z-index: 2; padding-bottom: 20px; background: var(--wb-bg); }
+@media (max-width: 767px) {
+    .columns { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, min(25dvh, 200px)) minmax(0, 1fr); }
+}

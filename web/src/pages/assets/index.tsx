@@ -1,3 +1,4 @@
+import styles from "@/components/layout/workbench.module.css";
 import { Copy, Download, PencilLine, Search, Trash2, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { App, Button, Card, Drawer, Empty, Form, Image, Input, Modal, Pagination, Select, Space, Tag, Typography } from "antd";
@@ -8,7 +9,6 @@ import { useCopyText } from "@/hooks/use-copy-text";
 import { formatBytes, readFileAsDataUrl } from "@/lib/image-utils";
 import { getMediaBlob } from "@/services/file-storage";
 import { getImageBlob, getImagePreviewRevision, subscribeImagePreviews, uploadImage } from "@/services/image-storage";
-import { cn } from "@/lib/utils";
 import { assetCoverUrl, useAssetStore, type Asset, type AssetKind, type ImageAsset } from "@/stores/use-asset-store";
 import { exportAssets, readAssetPackage } from "./asset-transfer";
 
@@ -194,28 +194,21 @@ export default function AssetsPage() {
     };
 
     return (
-        <div className="relative flex h-full flex-col overflow-hidden bg-stone-50/50 text-stone-950 dark:bg-[#141413] dark:text-stone-100">
-            {/* 低调柔和的点状粒子网格背景 (沿用首页 21.6px 间隔与细腻低亮粒子) */}
-            <div
-                className="pointer-events-none absolute inset-0 z-0 text-stone-900/[0.18] dark:text-[#f4f4f4]/[0.19]"
-                style={{
-                    backgroundImage: "radial-gradient(circle, currentColor 0.72px, transparent 0.87px)",
-                    backgroundSize: "21.6px 21.6px",
-                }}
-            />
-            <main className="relative z-10 min-h-0 flex-1 overflow-y-auto px-6 pt-20 pb-12">
+        <div className="h-full overflow-hidden">
+            <main className={styles.library}>
+                <div className={`${styles.panel} flex min-h-full flex-col`}>
                 <div className="pb-8">
-                    <div className="mx-auto max-w-5xl text-center">
-                        <h1 className="text-4xl font-semibold tracking-tight text-stone-950 dark:text-stone-100">{t("assets.title")}</h1>
-                        <p className="mt-3 text-sm text-stone-500 dark:text-stone-400">{t("assets.description")}</p>
+                    <div className={styles.libraryHeader}>
+                        <h1 className="text-base font-semibold tracking-tight text-foreground">{t("assets.title")}</h1>
+                        <p className="mt-3 text-sm text-muted-foreground">{t("assets.description")}</p>
                     </div>
 
-                    <div className="mx-auto mt-8 w-full max-w-2xl">
+                    <div className="mt-4 w-full sm:max-w-xl">
                         <Input.Search
                             className="w-full"
                             size="large"
                             allowClear
-                            prefix={<Search className="size-4 text-stone-400" />}
+                            prefix={<Search className="size-4 text-muted-foreground" />}
                             value={keyword}
                             placeholder={t("assets.search")}
                             onChange={(event) => {
@@ -229,16 +222,16 @@ export default function AssetsPage() {
                         />
                     </div>
 
-                    <div className="mx-auto mt-6 grid max-w-6xl gap-3 text-left">
+                    <div className="mt-4 grid gap-3 text-left">
                         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="grid gap-2 sm:grid-cols-[56px_minmax(0,1fr)] sm:items-center">
-                                <div className="text-xs font-medium text-stone-500 dark:text-stone-400">{t("assets.type")}</div>
+                                <div className="text-xs font-medium text-muted-foreground">{t("assets.type")}</div>
                                 <div className="flex flex-wrap gap-2">
                                     {kindOptions.map((option) => (
                                         <Tag.CheckableTag
                                             key={option}
                                             checked={kindFilter === option}
-                                            className={cn("prompt-filter-tag", kindFilter === option && "is-active")}
+                                            className={styles.filterTag}
                                             onChange={() => {
                                                 setPage(1);
                                                 setKindFilter(option);
@@ -250,42 +243,36 @@ export default function AssetsPage() {
                                 </div>
                             </div>
                             <div className="flex flex-wrap gap-4">
-                                <button
-                                    type="button"
-                                    className="cursor-pointer text-sm font-medium text-stone-700 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:underline dark:text-stone-300"
+                                <Button type="text"
                                     onClick={() => void exportAllAssets()}
                                 >
                                     {t("assets.export")}
-                                </button>
-                                <button
-                                    type="button"
-                                    className="cursor-pointer text-sm font-medium text-stone-700 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:underline dark:text-stone-300"
+                                </Button>
+                                <Button type="text"
                                     onClick={() => assetInputRef.current?.click()}
                                 >
                                     {t("assets.import")}
-                                </button>
-                                <button
-                                    type="button"
-                                    className="cursor-pointer text-sm font-medium text-stone-700 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:underline dark:text-stone-300"
+                                </Button>
+                                <Button type="primary"
                                     onClick={openCreate}
                                 >
                                     {t("assets.add")}
-                                </button>
+                                </Button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="mx-auto flex max-w-7xl flex-col gap-5">
-                    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="flex flex-1 flex-col gap-5">
+                    <div className={styles.collectionGrid}>
                         {visibleAssets.map((asset) => (
                             <AssetCard key={asset.id} asset={asset} onOpen={() => setPreviewAsset(asset)} onEdit={() => openEdit(asset)} onCopy={copyAssetText} onDownload={downloadImage} onDelete={() => setDeletingAsset(asset)} />
                         ))}
                     </div>
 
-                    {!visibleAssets.length ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("assets.empty")} className="py-20" /> : null}
+                    {!visibleAssets.length ? <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("assets.empty")} className="!m-0 flex flex-1 flex-col items-center justify-center py-12" /> : null}
 
-                    <div className="flex justify-center">
+                    <div className="mt-auto flex justify-center pt-4">
                         <Pagination
                             current={page}
                             pageSize={pageSize}
@@ -298,6 +285,7 @@ export default function AssetsPage() {
                             }}
                         />
                     </div>
+                </div>
                 </div>
             </main>
 
@@ -341,7 +329,7 @@ export default function AssetsPage() {
                             </Form.Item>
                         ) : (
                             <Form.Item label={t("assets.fields.imageContent")} required>
-                                <div className="rounded-lg border border-dashed border-stone-300 p-4 dark:border-stone-700">
+                                <div className="rounded-lg border border-dashed border-border p-4">
                                     <Button icon={<Upload className="size-4" />} onClick={() => imageInputRef.current?.click()}>
                                         {t("assets.selectImageFile")}
                                     </Button>
@@ -358,13 +346,13 @@ export default function AssetsPage() {
                             </Form.Item>
                         )}
                     </Form>
-                    <div className="rounded-xl border border-stone-200 bg-stone-50 p-4 dark:border-stone-800 dark:bg-stone-950">
+                    <div className="rounded-xl border border-border bg-muted p-4">
                         <Typography.Text strong>{t("assets.preview")}</Typography.Text>
-                        <div className="mt-3 overflow-hidden rounded-lg border border-stone-200 bg-background dark:border-stone-800">
+                        <div className="mt-3 overflow-hidden rounded-lg border border-border bg-background">
                             {coverUrl || imageDraft?.dataUrl ? (
                                 <img src={coverUrl || imageDraft?.dataUrl} alt="" className="aspect-[4/3] w-full object-cover" />
                             ) : (
-                                <div className="flex aspect-[4/3] items-center justify-center bg-stone-100 p-5 text-center text-sm text-stone-500 dark:bg-stone-900">{content || t("assets.noCover")}</div>
+                                <div className="flex aspect-[4/3] items-center justify-center bg-muted p-5 text-center text-sm text-muted-foreground">{content || t("assets.noCover")}</div>
                             )}
                             <div className="p-4">
                                 <Typography.Text strong ellipsis className="block">
@@ -433,7 +421,7 @@ function AssetCard({ asset, onOpen, onEdit, onCopy, onDownload, onDelete }: { as
                     {cover ? (
                         <img src={cover} alt={asset.title} className="aspect-[4/3] w-full object-cover" />
                     ) : (
-                        <div className="flex aspect-[4/3] items-center justify-center bg-stone-100 p-5 text-center text-sm leading-6 text-stone-600 dark:bg-stone-900 dark:text-stone-300">{asset.kind === "text" ? asset.data.content : t("assets.noCover")}</div>
+                        <div className="flex aspect-[4/3] items-center justify-center bg-muted p-5 text-center text-sm leading-6 text-muted-foreground">{asset.kind === "text" ? asset.data.content : t("assets.noCover")}</div>
                     )}
                 </button>
             }
@@ -442,7 +430,7 @@ function AssetCard({ asset, onOpen, onEdit, onCopy, onDownload, onDelete }: { as
                 <div className="p-4">
                     <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                            <h2 className="line-clamp-1 text-sm font-semibold text-stone-950 dark:text-stone-100">{asset.title}</h2>
+                            <h2 className="line-clamp-1 text-sm font-semibold text-foreground">{asset.title}</h2>
                             <Typography.Text type="secondary" className="mt-1 block text-xs">
                                 {asset.source || t("assets.unknownSource")}
                             </Typography.Text>
@@ -500,7 +488,7 @@ function AssetDrawer({ asset, onClose, onCopy, onDownload }: { asset: Asset | nu
                     {cover ? (
                         <Image src={assetCoverUrl(asset)} preview={{ src: cover }} alt={asset.title} className="rounded-lg" />
                     ) : (
-                        <div className="rounded-lg border border-stone-200 bg-stone-50 p-5 text-sm leading-6 text-stone-600 dark:border-stone-800 dark:bg-stone-900 dark:text-stone-300">{asset.kind === "text" ? asset.data.content : t("assets.noCover")}</div>
+                        <div className="rounded-lg border border-border bg-muted p-5 text-sm leading-6 text-muted-foreground">{asset.kind === "text" ? asset.data.content : t("assets.noCover")}</div>
                     )}
                     <div>
                         <Typography.Title level={4} className="!mb-2">
@@ -513,7 +501,7 @@ function AssetDrawer({ asset, onClose, onCopy, onDownload }: { asset: Asset | nu
                             ))}
                         </Space>
                     </div>
-                    <div className="rounded-lg border border-stone-200 p-4 dark:border-stone-800">
+                    <div className="rounded-lg border border-border p-4">
                         <Typography.Text type="secondary" className="block text-xs">
                             {t("assets.fields.textContent")}
                         </Typography.Text>

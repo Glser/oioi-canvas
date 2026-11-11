@@ -6,6 +6,7 @@ import {
     Download,
     FolderPlus,
     History,
+    ImagePlus,
     LoaderCircle,
     Plus,
     Trash2,
@@ -13,16 +14,18 @@ import {
     Wand2,
     X,
 } from "lucide-react";
-import { useEffect, useRef, useState, useSyncExternalStore, type DragEvent } from "react";
-import { App, Button, Checkbox, Drawer, Empty, Input, Modal, Tag, Tooltip, Typography } from "antd";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { App, Button, Checkbox, Drawer, Input, Modal, Tag, Tooltip, Typography } from "antd";
 import localforage from "localforage";
 import { nanoid } from "nanoid";
 import { saveAs } from "file-saver";
 import { useTranslation } from "react-i18next";
 
 import { AssetPickerModal, type InsertAssetPayload } from "@/components/canvas/asset-picker-modal";
-import { CanvasVideoSettingsPopover } from "@/components/canvas/canvas-video-settings-popover";
-import { ModelPicker } from "@/components/model-picker";
+import { VideoGenerationSettings } from "./components/generation-settings";
+import styles from "@/components/layout/workbench.module.css";
+import { getWorkbenchAppearance } from "@/lib/app-theme";
+import { useThemeStore } from "@/stores/use-theme-store";
 import { PromptSelectDialog } from "@/components/prompts/prompt-select-dialog";
 import { normalizeVideoResolutionValue, normalizeVideoSizeValue } from "@/components/video-settings-panel";
 import { clampVideoSeconds } from "@/lib/media-size";
@@ -75,10 +78,8 @@ type GenerationLog = {
 
 type GenerationLogConfig = Pick<AiConfig, "model" | "videoModel" | "size" | "vquality" | "videoSeconds" | "videoGenerateAudio" | "videoWatermark" | "videoMode">;
 
-type UpdateAiConfig = <K extends keyof AiConfig>(key: K, value: AiConfig[K]) => void;
 
 const LOG_STORE_KEY = "oioi-canvas:video_generation_logs";
-const COMPOSER_TOOL_BTN = "inline-flex size-7 items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-black/5 hover:text-stone-900 dark:text-stone-400 dark:hover:bg-white/10 dark:hover:text-stone-100";
 const logStore = localforage.createInstance({ name: "oioi-canvas", storeName: "video_generation_logs" });
 
 export default function VideoPage() {
@@ -88,7 +89,8 @@ export default function VideoPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const dragDepthRef = useRef(0);
     const activeLogIdsRef = useRef<Set<string>>(new Set());
-    const config = useConfigStore((state) => state.config);
+    const theme = useThemeStore((state) => state.theme);
+    const appearance = useMemo(() => getWorkbenchAppearance(theme === "dark"), [theme]);
     const effectiveConfig = useEffectiveConfig();
     const updateConfig = useConfigStore((state) => state.updateConfig);
     const isAiConfigReady = useConfigStore((state) => state.isAiConfigReady);
@@ -100,7 +102,6 @@ export default function VideoPage() {
     const [logs, setLogs] = useState<GenerationLog[]>([]);
     const [running, setRunning] = useState(false);
     const [logsOpen, setLogsOpen] = useState(false);
-    const [showHistory, setShowHistory] = useState(false);
     const [promptDialogOpen, setPromptDialogOpen] = useState(false);
     const [assetPickerOpen, setAssetPickerOpen] = useState(false);
     const [startedAt, setStartedAt] = useState(0);
@@ -241,6 +242,8 @@ export default function VideoPage() {
     };
 
     const createSession = () => {
+        if (running) return;
+        setLogsOpen(false);
         setPrompt("");
         setReferences([]);
         setResults([]);
@@ -345,344 +348,146 @@ export default function VideoPage() {
     };
 
     return (
-        <div className="flex h-full flex-col overflow-hidden bg-stone-50/60 text-stone-900 dark:bg-[#121211] dark:text-stone-100 pt-16">
-            <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3 gap-3 lg:flex-row lg:overflow-hidden">
-                {/* Collapsible History Drawer / Sidebar for Desktop */}
-                <aside
-                    className={`thin-scrollbar hidden h-full flex-col overflow-hidden rounded-2xl border border-black/[0.06] bg-white/80 shadow-[0_4px_20px_rgba(0,0,0,0.03)] backdrop-blur-md transition-all duration-300 ease-in-out dark:border-white/[0.08] dark:bg-stone-900/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] lg:flex ${
-                        showHistory ? "w-80 opacity-100" : "w-0 border-0 p-0 opacity-0"
-                    }`}
-                >
-                    <div className="flex items-center justify-between px-4 pb-2 pt-3.5">
-                        <div className="flex items-center gap-2">
-                            <History className="size-4 text-stone-500" />
-                            <span className="text-sm font-semibold">{t("workbench.logs")}</span>
-                            {logs.length ? <span className="text-xs text-stone-400">{logs.length}</span> : null}
+            <div className={styles.workbench} style={appearance.style}>
+                <main className={styles.layout}>
+                    <section
+                        className={`${styles.composer} ${isReferenceDragActive ? styles.dragging : ""}`}
+                        aria-label={t("imageWorkbench.creationPanel")}
+                        onDragEnter={(event) => {
+                            event.preventDefault();
+                            dragDepthRef.current += 1;
+                            if (event.dataTransfer.types.includes("Files")) setIsReferenceDragActive(true);
+                        }}
+                        onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; }}
+                        onDragLeave={(event) => {
+                            event.preventDefault();
+                            dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+                            if (!dragDepthRef.current) setIsReferenceDragActive(false);
+                        }}
+                        onDrop={(event) => {
+                            event.preventDefault();
+                            dragDepthRef.current = 0;
+                            setIsReferenceDragActive(false);
+                            void addReferences(event.dataTransfer.files);
+                        }}
+                    >
+                        <header className={styles.composerHeader}>
+                            <h1>{t("videoWorkbench.title")}</h1>
+                            <Tooltip title={t("imageWorkbench.newSessionHint")}>
+                                <Button type="text" size="small" icon={<Plus size={15} />} disabled={running} onClick={createSession}>{t("workbench.new")}</Button>
+                            </Tooltip>
+                        </header>
+                        <div className={`${styles.editor} thin-scrollbar`}>
+                            <div className={`${styles.field} ${styles.references}`}>
+                                <div className={styles.sectionHeader} style={{ marginBottom: 0 }}>
+                                    <label>{t("imageWorkbench.referenceLabel")} <span className={styles.muted}>{references.length || t("imageWorkbench.optional")}</span></label>
+                                    <Tooltip title={t("workbench.viewAssets")}>
+                                        <Button type="text" size="small" icon={<FolderPlus size={14} />} onClick={() => setAssetPickerOpen(true)}>{t("imageWorkbench.fromAssets")}</Button>
+                                    </Tooltip>
+                                </div>
+                                <div className={styles.referenceList}>
+                                    {references.map((item, index) => (
+                                        <div key={item.id} className={styles.reference}>
+                                            <img src={previewUrlFor(item.storageKey) || item.dataUrl} alt={item.name} />
+                                            <ReferenceOrderButtons index={index} total={references.length} onMove={(offset) => setReferences((value) => moveListItem(value, index, offset))} />
+                                            <Tooltip title={t("imageWorkbench.removeReference")}>
+                                                <Button size="small" icon={<X size={12} />} aria-label={`${t("imageWorkbench.removeReference")} ${item.name}`} onClick={() => setReferences((value) => value.filter((ref) => ref.id !== item.id))} />
+                                            </Tooltip>
+                                        </div>
+                                    ))}
+                                    <Button className={references.length ? styles.upload : styles.dropzone} icon={<ImagePlus size={18} />} aria-label={t("imageWorkbench.addReference")} onClick={() => fileInputRef.current?.click()}>
+                                        {!references.length && t(isReferenceDragActive ? "imageWorkbench.dropHere" : "imageWorkbench.uploadHint")}
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className={styles.prompt}>
+                                <div className={styles.field}>
+                                    <div className={styles.sectionHeader} style={{ marginBottom: 0 }}>
+                                        <label htmlFor="image-prompt">{t("imageWorkbench.promptLabel")}</label>
+                                        <Tooltip title={t("workbench.viewPrompts")}>
+                                            <Button type="text" size="small" icon={<BookOpen size={14} />} onClick={() => setPromptDialogOpen(true)}>{t("imageWorkbench.promptLibrary")}</Button>
+                                        </Tooltip>
+                                    </div>
+                                    <Input.TextArea
+                                        id="image-prompt"
+                                        value={prompt}
+                                        onChange={(event) => setPrompt(event.target.value)}
+                                        rows={4}
+                                        placeholder={t("videoWorkbench.promptPlaceholder")}
+                                        onKeyDown={(event) => {
+                                            if (!event.nativeEvent.isComposing && (event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                                                event.preventDefault();
+                                                if (canGenerate && !running) void generate();
+                                            }
+                                        }}
+                                    />
+                                </div>
+                                <div className={styles.promptFooter}>
+                                    <span>{t("imageWorkbench.promptHint")}</span>
+                                    <kbd>Ctrl / ⌘ ↵</kbd>
+                                </div>
+                            </div>
                         </div>
-                        <button type="button" className="grid size-7 place-items-center rounded-full text-stone-400 transition hover:bg-black/5 hover:text-stone-700 dark:hover:bg-white/10 dark:hover:text-stone-200" onClick={() => setShowHistory(false)}>
-                            <X className="size-4" />
-                        </button>
-                    </div>
-                    <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-                        <LogPanel
-                            hideHeader
-                            logs={logs}
-                            selectedLogIds={selectedLogIds}
-                            activeLogId={previewLog?.id}
-                            onSelectedLogIdsChange={setSelectedLogIds}
-                            onCreateSession={createSession}
-                            onDeleteSelected={() => setDeleteConfirmOpen(true)}
-                            onPreviewLog={(log) => void previewGenerationLog(log)}
-                        />
-                    </div>
-                </aside>
-
-                {/* Left Creation Control Panel */}
-                <section
-                    className={`thin-scrollbar flex w-full shrink-0 flex-col rounded-2xl border p-4 sm:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] backdrop-blur-md transition-colors dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] lg:h-full lg:w-[420px] lg:overflow-hidden ${
-                        isReferenceDragActive
-                            ? "border-stone-900/35 bg-stone-100/85 dark:border-stone-100/25 dark:bg-stone-800/70"
-                            : "border-black/[0.06] bg-white/85 dark:border-white/[0.08] dark:bg-stone-900/70"
-                    }`}
-                    onDragEnter={(event) => {
-                        event.preventDefault();
-                        dragDepthRef.current += 1;
-                        if (event.dataTransfer.types.includes("Files")) setIsReferenceDragActive(true);
-                    }}
-                    onDragOver={(event) => {
-                        event.preventDefault();
-                        event.dataTransfer.dropEffect = "copy";
-                    }}
-                    onDragLeave={(event) => {
-                        event.preventDefault();
-                        dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
-                        if (!dragDepthRef.current) setIsReferenceDragActive(false);
-                    }}
-                    onDrop={(event) => {
-                        event.preventDefault();
-                        dragDepthRef.current = 0;
-                        setIsReferenceDragActive(false);
-                        void addReferences(event.dataTransfer.files);
-                    }}
-                >
-                    {/* Header */}
-                    <div className="flex items-center justify-between gap-3 pb-3 border-b border-stone-100 dark:border-stone-800">
-                        <div className="flex items-center gap-2">
-                            <VideoIcon className="size-4 shrink-0 text-stone-700 dark:text-stone-300" />
-                            <h1 className="text-sm font-semibold leading-none text-stone-950 dark:text-stone-100 translate-y-1">{t("videoWorkbench.title")}</h1>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <Button
-                                size="small"
-                                type={showHistory || logsOpen ? "default" : "text"}
-                                icon={<History className="size-3.5" />}
-                                className="!h-7 !rounded-full !px-2.5 !text-xs"
-                                onClick={() => {
-                                    if (window.innerWidth < 1024) {
-                                        setLogsOpen(true);
-                                    } else {
-                                        setShowHistory((v) => !v);
-                                    }
-                                }}
-                            >
-                                {t("workbench.logs")}
-                                {logs.length > 0 && <span className="opacity-60 text-[10px] ml-0.5">({logs.length})</span>}
+                        <div className={styles.generate}>
+                            <VideoGenerationSettings />
+                            <Button type="primary" loading={running} disabled={!canGenerate || running} icon={!running && <Wand2 size={16} />} onClick={() => void generate()}>
+                                {t(running ? "workbench.generating" : "workbench.generate")}
                             </Button>
                         </div>
-                    </div>
-
-                                        <div
-                        className={`mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border transition-colors ${
-                            isReferenceDragActive
-                                ? "border-stone-900/35 bg-stone-100/80 dark:border-stone-100/25 dark:bg-stone-800/50"
-                                : "border-stone-200/85 bg-white/60 dark:border-stone-700/80 dark:bg-black/20"
-                        }`}
-                    >
-                    <div className="flex items-center gap-2 px-2.5 pt-2.5">
-                            <div
-                                className="no-scrollbar flex min-w-0 flex-1 items-center gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain"
-                                onWheel={(event) => {
-                                    if (event.currentTarget.scrollWidth <= event.currentTarget.clientWidth) return;
-                                    event.preventDefault();
-                                    event.currentTarget.scrollLeft += event.deltaY;
-                                }}
-                            >
-                                {references.map((item, index) => (
-                                    <div
-                                        key={item.id}
-                                        className="group relative size-12 shrink-0 overflow-hidden rounded-xl bg-stone-100 dark:bg-stone-800"
-                                    >
-                                        <img
-                                            src={previewUrlFor(item.storageKey) || item.dataUrl}
-                                            alt={item.name}
-                                            className="size-full object-cover"
-                                        />
-                                        <ReferenceOrderButtons
-                                            index={index}
-                                            total={references.length}
-                                            onMove={(offset) => setReferences((value) => moveListItem(value, index, offset))}
-                                        />
-                                        <button
-                                            type="button"
-                                            className="absolute right-1 top-1 hidden size-4 items-center justify-center rounded-full bg-black/70 text-white shadow-sm transition-transform hover:scale-110 group-hover:flex"
-                                            onClick={() => setReferences((value) => value.filter((ref) => ref.id !== item.id))}
-                                            aria-label={t("videoWorkbench.removeImage")}
-                                        >
-                                            <X className="size-2.5 stroke-[3] text-white" />
-                                        </button>
-                                    </div>
-                                ))}
-                                {references.length < 7 && (
-                                    <Tooltip title={t("videoWorkbench.references")}>
-                                        <button
-                                            type="button"
-                                            onClick={() => fileInputRef.current?.click()}
-                                            className={`flex size-12 shrink-0 items-center justify-center rounded-xl border border-dashed text-stone-400 transition-colors hover:border-stone-400 hover:text-stone-700 dark:hover:border-stone-500 dark:hover:text-stone-200 ${
-                                                isReferenceDragActive
-                                                    ? "border-stone-900 bg-stone-200/70 dark:border-stone-100 dark:bg-stone-700/70"
-                                                    : "border-stone-300 dark:border-stone-700"
-                                            }`}
-                                            aria-label={t("videoWorkbench.references")}
-                                        >
-                                            <Plus className="size-4 stroke-[2.5]" />
-                                        </button>
-                                    </Tooltip>
+                    </section>
+                    <section className={`${styles.gallery} thin-scrollbar`} aria-label={t("workbench.results")}>
+                        <div className={`${styles.sectionHeader} ${styles.galleryHeader}`}>
+                            <h2>{t("workbench.results")}<span className={styles.counter}>{results.filter((result) => result.status === "success").length}{results.length ? ` / ${results.length}` : ""}</span></h2>
+                            <div className={styles.actions}>
+                                <span className={styles.resultStatus} role="status">
+                                    {running ? t("workbench.waiting", { time: formatDuration(elapsedMs) }) : null}
+                                </span>
+                                <Tooltip title={t("imageWorkbench.localHistoryHint")}>
+                                    <Button type="text" className={styles.historyButton} icon={<History size={15} />} aria-pressed={logsOpen} onClick={() => setLogsOpen(true)}>
+                                        {t("workbench.logs")}
+                                        {logs.length > 0 && <span className={styles.counter}>{logs.length}</span>}
+                                    </Button>
+                                </Tooltip>
+                            </div>
+                        </div>
+                        {results.length ? (
+                            <div className={styles.grid}>
+                                {results.map((result, index) =>
+                                    result.status === "success" && result.video ? (
+                                        <ResultVideoCard key={result.id} video={result.video} onDownload={downloadVideo} onSaveAsset={saveResultToAssets} />
+                                    ) : result.status === "failed" ? (
+                                        <FailedVideoCard key={result.id} error={result.error || t("workbench.generationFailed")} onRetry={retryResult} />
+                                    ) : <PendingVideoCard key={result.id} />,
                                 )}
                             </div>
-                            <div className="flex shrink-0 items-center gap-0.5">
-                                <Tooltip title={t("workbench.viewPrompts")}>
-                                    <button
-                                        type="button"
-                                        className={COMPOSER_TOOL_BTN}
-                                        onClick={() => setPromptDialogOpen(true)}
-                                        aria-label={t("workbench.viewPrompts")}
-                                    >
-                                        <BookOpen className="size-3.5" />
-                                    </button>
-                                </Tooltip>
-                                <Tooltip title={t("workbench.viewAssets")}>
-                                    <button
-                                        type="button"
-                                        className={COMPOSER_TOOL_BTN}
-                                        onClick={() => setAssetPickerOpen(true)}
-                                        aria-label={t("workbench.viewAssets")}
-                                    >
-                                        <FolderPlus className="size-3.5" />
-                                    </button>
-                                </Tooltip>
+                        ) : (
+                            <div className={styles.empty}>
+                                <div className={styles.emptyIcon}><VideoIcon size={30} strokeWidth={1.25} /></div>
+                                <h3>{t("videoWorkbench.title")}</h3>
+                                <p>{t("videoWorkbench.empty")}</p>
+                                <Button icon={<BookOpen size={14} />} onClick={() => setPromptDialogOpen(true)}>{t("imageWorkbench.explorePrompts")}</Button>
                             </div>
-                        </div>
-
-                    <div className="relative min-h-[132px] flex-1 overflow-hidden">
-                            <Input.TextArea
-                                value={prompt}
-                                onChange={(event) => setPrompt(event.target.value)}
-                                rows={5}
-                                variant="borderless"
-                                placeholder={t("videoWorkbench.promptPlaceholder")}
-                                classNames={{ root: "!border-0 !shadow-none focus-within:!border-0 focus-within:!shadow-none" }}
-                                styles={{ root: { boxShadow: "none", border: "none" }, textarea: { outline: "none", boxShadow: "none" } }}
-                                className="!h-full !min-h-[132px] !resize-none !bg-transparent !px-2.5 !pt-1.5 !pb-8 text-sm !text-stone-800 placeholder:!text-stone-400 dark:!text-stone-100 !border-0 !shadow-none !outline-none focus:!border-0 focus:!shadow-none focus:!outline-none"
-                                onKeyDown={(e) => {
-                                    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-                                        e.preventDefault();
-                                        if (canGenerate && !running) void generate();
-                                    }
-                                }}
-                            />
-                            <div className="pointer-events-none absolute right-3 bottom-2.5 flex select-none items-center gap-1 text-[11px] text-stone-400">
-                                <kbd className="inline-flex items-center rounded-md border border-stone-200/80 px-1 py-px font-mono text-[9px] dark:border-stone-700">Ctrl</kbd>
-                                <span>+</span>
-                                <kbd className="inline-flex items-center rounded-md border border-stone-200/80 px-1 py-px font-mono text-[9px] dark:border-stone-700">Enter</kbd>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="mt-3 flex min-w-0 flex-col gap-2 border-t border-stone-200/70 pt-3 dark:border-stone-800">
-                        <GenerationSettings
-                            config={effectiveConfig}
-                            model={model}
-                            updateConfig={updateConfig}
-                            openConfigDialog={openConfigDialog}
-                            running={running}
-                            canGenerate={canGenerate}
-                            onGenerate={() => void generate()}
-                        />
-                    </div>
-                </section>
-
-                {/* Right Stage: Immersive Results Gallery */}
-                <section className="thin-scrollbar flex min-h-[420px] flex-1 flex-col rounded-2xl border border-black/[0.06] bg-white/80 p-4 sm:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] backdrop-blur-md dark:border-white/[0.08] dark:bg-stone-900/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] lg:min-h-0 lg:h-full overflow-y-auto">
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                            <h2 className="text-base font-semibold">{t("workbench.results")}</h2>
-                            {results.length > 0 && (
-                                <Tag className="m-0 rounded-full px-2 text-xs">
-                                    {results.filter((r) => r.status === "success").length} / {results.length}
-                                </Tag>
-                            )}
-                        </div>
-                        {running ? (
-                            <Tag color="blue" className="m-0 px-2.5 py-0.5 rounded-full text-xs animate-pulse">
-                                {t("workbench.waiting", { time: formatDuration(elapsedMs) })}
-                            </Tag>
-                        ) : null}
-                    </div>
-
-                    {results.length ? (
-                        <div className="grid gap-4 xl:grid-cols-2">
-                            {results.map((result) =>
-                                result.status === "success" && result.video ? (
-                                    <ResultVideoCard key={result.id} video={result.video} onDownload={downloadVideo} onSaveAsset={saveResultToAssets} />
-                                ) : result.status === "failed" ? (
-                                    <FailedVideoCard key={result.id} error={result.error || t("workbench.generationFailed")} onRetry={retryResult} />
-                                ) : (
-                                    <PendingVideoCard key={result.id} />
-                                ),
-                            )}
-                        </div>
-                    ) : (
-                        <div className="flex flex-1 min-h-[360px] flex-col items-center justify-center rounded-2xl border border-dashed border-stone-200/90 bg-stone-50/40 text-center dark:border-stone-800 dark:bg-stone-900/30">
-                            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("videoWorkbench.empty")} />
-                            <p className="mt-1 text-xs text-stone-400 max-w-xs">{t("videoWorkbench.promptPlaceholder")}</p>
-                        </div>
-                    )}
-                </section>
-            </main>
-            <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(event) => {
-                    void addReferences(event.target.files);
-                    event.target.value = "";
-                }}
-            />
-            <Drawer title={t("workbench.logs")} placement="bottom" size="large" open={logsOpen} onClose={() => setLogsOpen(false)}>
-                <LogPanel
-                    logs={logs}
-                    selectedLogIds={selectedLogIds}
-                    activeLogId={previewLog?.id}
-                    onSelectedLogIdsChange={setSelectedLogIds}
-                    onCreateSession={createSession}
-                    onDeleteSelected={() => setDeleteConfirmOpen(true)}
-                    onPreviewLog={(log) => void previewGenerationLog(log)}
-                />
-            </Drawer>
-            <PromptSelectDialog open={promptDialogOpen} onOpenChange={setPromptDialogOpen} onSelect={setPrompt} />
-            <AssetPickerModal open={assetPickerOpen} defaultTab="my-assets" onInsert={(payload) => void insertPickedAsset(payload)} onClose={() => setAssetPickerOpen(false)} />
-            <Modal title={t("workbench.deleteLogs")} open={deleteConfirmOpen} onCancel={() => setDeleteConfirmOpen(false)} onOk={deleteSelectedLogs} okText={t("common.delete")} okButtonProps={{ danger: true }} cancelText={t("common.cancel")}>
-                {t("workbench.deleteLogsConfirm", { count: selectedLogIds.length })}
-            </Modal>
-        </div>
-    );
-}
-
-function GenerationSettings({
-    config,
-    model,
-    updateConfig,
-    openConfigDialog,
-    running,
-    canGenerate,
-    onGenerate,
-}: {
-    config: AiConfig;
-    model: string;
-    updateConfig: UpdateAiConfig;
-    openConfigDialog: (shouldPromptContinue?: boolean) => void;
-    running?: boolean;
-    canGenerate?: boolean;
-    onGenerate?: () => void;
-}) {
-    const { t } = useTranslation();
-
-    return (
-        <>
-            <div className="flex h-9 min-w-0 items-center rounded-full bg-stone-100/90 p-0.5 dark:bg-white/[0.07]">
-                <div className="min-w-0 flex-1">
-                    <ModelPicker
-                        config={config}
-                        value={model}
-                        onChange={(value) => updateConfig("videoModel", value)}
-                        capability="video"
-                        fullWidth
-                        hideChevron
-                        side="top"
-                        contentClassName="w-60"
-                        className="!h-8 !min-w-0 !w-full !rounded-full !border-0 !bg-transparent !px-2.5 !text-xs [&_.canvas-model-picker-text]:!text-xs !shadow-none hover:!bg-black/5 dark:!border-0 dark:hover:!bg-white/10"
-                        onMissingConfig={() => openConfigDialog(false)}
-                    />
-                </div>
-                <span className="mx-0.5 h-4 w-px shrink-0 bg-stone-300/80 dark:bg-white/10" />
-                <div className="min-w-0 shrink-0 max-w-[55%]">
-                    <CanvasVideoSettingsPopover
-                        config={config}
-                        buttonClassName="!h-8 !rounded-full !border-0 !bg-transparent !px-2.5 !shadow-none hover:!bg-black/5 dark:!border-0 dark:hover:!bg-white/10"
-                        onConfigChange={(key, value) => updateConfig(key, value)}
-                        placement="top"
-                    />
-                </div>
-            </div>
-            {onGenerate ? (
-                <button
-                    type="button"
-                    className="group inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-black/10 bg-black/5 px-4 text-sm font-semibold text-black transition-all duration-150 hover:bg-black/10 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-                    disabled={!canGenerate || running}
-                    onClick={onGenerate}
+                        )}
+                    </section>
+                </main>
+                <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(event) => { void addReferences(event.target.files); event.target.value = ""; }} />
+                <Drawer
+                    title={t("workbench.logs")}
+                    placement="right"
+                    closable={{ placement: "end" }}
+                    size={400}
+                    open={logsOpen}
+                    onClose={() => setLogsOpen(false)}
+                    styles={{ wrapper: { maxWidth: "100vw" }, body: { ...appearance.style, padding: 20 } }}
                 >
-                    {running ? (
-                        <LoaderCircle className="size-4 animate-spin text-black dark:text-white" />
-                    ) : (
-                        <Wand2 className="size-4 stroke-2 text-black transition-transform duration-200 group-hover:-rotate-12 group-hover:scale-110 dark:text-white" />
-                    )}
-                    <span className="text-black dark:text-white font-semibold">
-                        {t("workbench.generate")}
-                    </span>
-                </button>
-            ) : null}
-        </>
+                    <LogPanel hideHeader logs={logs} selectedLogIds={selectedLogIds} activeLogId={previewLog?.id} onSelectedLogIdsChange={setSelectedLogIds} onCreateSession={createSession} onDeleteSelected={() => setDeleteConfirmOpen(true)} onPreviewLog={(log) => void previewGenerationLog(log)} />
+                </Drawer>
+                <PromptSelectDialog open={promptDialogOpen} onOpenChange={setPromptDialogOpen} onSelect={setPrompt} />
+                <AssetPickerModal open={assetPickerOpen} defaultTab="my-assets" onInsert={(payload) => void insertPickedAsset(payload)} onClose={() => setAssetPickerOpen(false)} />
+                <Modal title={t("workbench.deleteLogs")} open={deleteConfirmOpen} onCancel={() => setDeleteConfirmOpen(false)} onOk={deleteSelectedLogs} okText={t("common.delete")} okButtonProps={{ danger: true }} cancelText={t("common.cancel")}>
+                    {t("workbench.deleteLogsConfirm", { count: selectedLogIds.length })}
+                </Modal>
+            </div>
     );
 }
 
@@ -697,94 +502,25 @@ function ResultVideoCard({
 }) {
     const { t } = useTranslation();
     return (
-        <div className="group relative overflow-hidden rounded-2xl border border-black/[0.06] bg-white/90 shadow-sm transition-all duration-300 hover:shadow-xl dark:border-white/[0.08] dark:bg-stone-900/80">
-            {/* Video container */}
-            <div className="relative aspect-video w-full overflow-hidden bg-black">
-                <video
-                    src={video.url}
-                    controls
-                    className="size-full object-contain"
-                />
-
-                {/* Top overlay badge: specs */}
-                <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-2.5 bg-gradient-to-b from-black/50 via-black/20 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                    <span className="rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-mono text-white/90 backdrop-blur-md">
-                        {video.width}×{video.height}
-                    </span>
-                    <span className="rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-mono text-white/90 backdrop-blur-md">
-                        {formatDuration(video.durationMs)}
-                    </span>
-                </div>
+        <article className={styles.result}>
+            <video src={video.url} controls className="aspect-video w-full bg-black object-contain" />
+            <div className={styles.metadata}><span>{video.width} × {video.height} · {formatBytes(video.bytes)}</span><span>{formatDuration(video.durationMs)}</span></div>
+            <div className={styles.resultActions}>
+                <Button type="text" size="small" icon={<FolderPlus size={14} />} onClick={() => onSaveAsset(video)}>{t("common.addToAssets")}</Button>
+                <Button type="text" size="small" icon={<Download size={14} />} onClick={() => onDownload(video)}>{t("common.download")}</Button>
             </div>
-
-            {/* Subtle bottom info bar */}
-            <div className="flex items-center justify-between border-t border-stone-100 px-3 py-2 text-[11px] text-stone-400 dark:border-stone-800/80 dark:text-stone-500">
-                <span className="font-mono">{formatBytes(video.bytes)}</span>
-                <div className="flex items-center gap-1">
-                    <Tooltip title={t("common.addToAssets")}>
-                        <Button
-                            type="text"
-                            size="small"
-                            className="!h-6 !px-2 text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100 !text-xs !rounded-md"
-                            icon={<FolderPlus className="size-3" />}
-                            onClick={() => onSaveAsset(video)}
-                        >
-                            {t("common.addToAssets")}
-                        </Button>
-                    </Tooltip>
-                    <Tooltip title={t("common.download")}>
-                        <Button
-                            type="text"
-                            size="small"
-                            className="!h-6 !px-2 text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100 !text-xs !rounded-md"
-                            icon={<Download className="size-3" />}
-                            onClick={() => onDownload(video)}
-                        >
-                            {t("common.download")}
-                        </Button>
-                    </Tooltip>
-                </div>
-            </div>
-        </div>
+        </article>
     );
 }
 
 function PendingVideoCard() {
     const { t } = useTranslation();
-    return (
-        <div className="relative aspect-video overflow-hidden rounded-2xl border border-dashed border-stone-300 bg-stone-50 dark:border-stone-700 dark:bg-stone-900">
-            <div
-                className="absolute inset-0 opacity-60"
-                style={{
-                    backgroundImage: "radial-gradient(circle, rgba(120,113,108,0.35) 1.4px, transparent 1.6px)",
-                    backgroundSize: "16px 16px",
-                }}
-            />
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-stone-500 dark:text-stone-400">
-                <LoaderCircle className="size-6 animate-spin" />
-                <span>{t("workbench.generating")}</span>
-            </div>
-        </div>
-    );
+    return <div className={styles.pending} style={{ aspectRatio: "16 / 9" }} role="status"><LoaderCircle className="size-5 animate-spin" /><span>{t("workbench.generating")}</span></div>;
 }
 
 function FailedVideoCard({ error, onRetry }: { error: string; onRetry: () => void }) {
     const { t } = useTranslation();
-    return (
-        <div className="overflow-hidden rounded-2xl border border-red-200 bg-red-50 dark:border-red-950 dark:bg-red-950/20">
-            <div className="flex aspect-video flex-col items-center justify-center gap-3 p-5 text-center">
-                <div className="text-sm font-medium text-red-600 dark:text-red-300">{t("workbench.failed")}</div>
-                <Typography.Paragraph ellipsis={{ rows: 4 }} className="!mb-0 !text-xs !text-red-500 dark:!text-red-300">
-                    {error}
-                </Typography.Paragraph>
-            </div>
-            <div className="flex justify-end border-t border-red-200 p-3 dark:border-red-950">
-                <Button size="small" danger onClick={onRetry}>
-                    {t("workbench.retry")}
-                </Button>
-            </div>
-        </div>
-    );
+    return <div className={styles.failed} style={{ aspectRatio: "16 / 9" }} role="alert"><Typography.Text type="danger">{t("workbench.failed")}</Typography.Text><Typography.Paragraph ellipsis={{ rows: 4, expandable: true }} type="secondary">{error}</Typography.Paragraph><Button onClick={onRetry}>{t("workbench.retry")}</Button></div>;
 }
 
 function LogPanel({
@@ -821,13 +557,13 @@ function LogPanel({
                 </div>
             )}
             <div className="mb-3 flex flex-wrap gap-1">
-                <Button size="small" type="text" className="!h-7 !rounded-full !px-2.5 !text-xs" icon={<Plus className="size-3.5" />} onClick={onCreateSession}>
+                <Button size="small" type="text" className="!h-7 !rounded-lg !px-2.5 !text-xs" icon={<Plus className="size-3.5" />} onClick={onCreateSession}>
                     {t("workbench.new")}
                 </Button>
-                <Button size="small" type="text" className="!h-7 !rounded-full !px-2.5 !text-xs" icon={<CheckSquare className="size-3.5" />} disabled={!logs.length} onClick={toggleAll}>
+                <Button size="small" type="text" className="!h-7 !rounded-lg !px-2.5 !text-xs" icon={<CheckSquare className="size-3.5" />} disabled={!logs.length} onClick={toggleAll}>
                     {allSelected ? t("common.cancel") : t("workbench.selectAll")}
                 </Button>
-                <Button size="small" type="text" danger className="!h-7 !rounded-full !px-2.5 !text-xs" icon={<Trash2 className="size-3.5" />} disabled={!selectedLogIds.length} onClick={onDeleteSelected}>
+                <Button size="small" type="text" danger className="!h-7 !rounded-lg !px-2.5 !text-xs" icon={<Trash2 className="size-3.5" />} disabled={!selectedLogIds.length} onClick={onDeleteSelected}>
                     {t("common.delete")}
                 </Button>
             </div>
@@ -842,7 +578,7 @@ function LogPanel({
                         onClick={() => onPreviewLog(log)}
                     />
                 ))}
-                {!logs.length ? <div className="flex min-h-40 items-center justify-center text-center text-sm text-stone-400">{t("workbench.noLogs")}</div> : null}
+                {!logs.length ? <div className="flex min-h-40 items-center justify-center text-center text-sm text-muted-foreground">{t("workbench.noLogs")}</div> : null}
             </div>
         </>
     );
@@ -854,29 +590,13 @@ function LogCard({ log, selected, active, onSelectedChange, onClick }: { log: Ge
     const thumbnails = (log.references || []).filter((item) => item.dataUrl || item.storageKey).slice(0, 3);
 
     return (
-        <button
-            type="button"
-            className={`flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition ${active ? "bg-stone-100 dark:bg-white/10" : "hover:bg-black/5 dark:hover:bg-white/5"}`}
-            onClick={onClick}
-        >
-            <Checkbox className="shrink-0" checked={selected} onClick={(event) => event.stopPropagation()} onChange={(event) => onSelectedChange(event.target.checked)} />
-            {thumbnails[0] ? (
-                <img src={previewUrlFor(thumbnails[0].storageKey) || thumbnails[0].dataUrl} alt="" className="size-10 shrink-0 rounded-md object-cover" />
-            ) : (
-                <span className="grid size-10 shrink-0 place-items-center text-stone-400">
-                    <VideoIcon className="size-4 opacity-60" />
-                </span>
-            )}
-            <span className="min-w-0 flex-1 space-y-0.5">
-                <span className="block truncate text-sm font-medium leading-snug">{log.title}</span>
-                <span className="block truncate text-[11px] leading-snug text-stone-400">
-                    {t(`workbench.${log.status === "success" ? "success" : log.status === "pending" ? "generating" : "failed"}`)}
-                    {log.resolution ? ` · ${log.resolution}p` : ""}
-                    {log.seconds ? ` · ${log.seconds}s` : ""}
-                    {` · ${formatDuration(log.durationMs)} · ${log.time}`}
-                </span>
-            </span>
-        </button>
+        <div className={styles.log} data-active={active}>
+            <Checkbox checked={selected} aria-label={t("imageWorkbench.selectLog", { title: log.title })} onChange={(event) => onSelectedChange(event.target.checked)} />
+            <button type="button" className={styles.logButton} aria-pressed={active} onClick={onClick}>
+                {thumbnails[0] ? <img src={previewUrlFor(thumbnails[0].storageKey) || thumbnails[0].dataUrl} alt="" /> : <span className={styles.logIcon}><VideoIcon size={20} /></span>}
+                <span className={styles.logText}><span className={styles.logTitle}>{log.title}</span><span className={styles.logMeta}>{t(`workbench.${log.status === "success" ? "success" : log.status === "pending" ? "generating" : "failed"}`)} · {log.resolution}p · {log.seconds}s</span><span className={styles.logMeta}>{log.time}</span></span>
+            </button>
+        </div>
     );
 }
 
@@ -897,11 +617,12 @@ function moveListItem<T>(items: T[], index: number, offset: number) {
 }
 
 function ReferenceOrderButtons({ index, total, onMove }: { index: number; total: number; onMove: (offset: number) => void }) {
+    const { t } = useTranslation();
     if (total <= 1) return null;
     return (
-        <div className="absolute inset-x-1 bottom-1 flex justify-between">
-            <Button size="small" className="!h-5 !w-5 !min-w-5 !rounded-full !bg-white/85 !p-0 !shadow-sm dark:!bg-stone-900/85" icon={<ArrowLeft className="size-2.5" />} disabled={index <= 0} onClick={() => onMove(-1)} />
-            <Button size="small" className="!h-5 !w-5 !min-w-5 !rounded-full !bg-white/85 !p-0 !shadow-sm dark:!bg-stone-900/85" icon={<ArrowRight className="size-2.5" />} disabled={index >= total - 1} onClick={() => onMove(1)} />
+        <div className={styles.referenceOrder}>
+            <Button size="small" className="!h-5 !w-5 !min-w-5 !rounded-lg !bg-white/85 !p-0 !shadow-sm dark:!bg-stone-900/85" aria-label={t("videoWorkbench.moveEarlier")} icon={<ArrowLeft className="size-2.5" />} disabled={index <= 0} onClick={() => onMove(-1)} />
+            <Button size="small" className="!h-5 !w-5 !min-w-5 !rounded-lg !bg-white/85 !p-0 !shadow-sm dark:!bg-stone-900/85" aria-label={t("videoWorkbench.moveLater")} icon={<ArrowRight className="size-2.5" />} disabled={index >= total - 1} onClick={() => onMove(1)} />
         </div>
     );
 }

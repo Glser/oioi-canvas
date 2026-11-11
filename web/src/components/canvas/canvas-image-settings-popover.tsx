@@ -2,10 +2,10 @@ import { useEffect, useRef, useState, type RefObject, type ChangeEvent } from "r
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
-import { AspectIcon, formatScaleLabel, imageCountOptions, imageQualityOptions, imageResolutionOptions } from "@/components/image-settings-panel";
+import { AspectIcon, normalizeImageQuality, normalizeImageResolution, resolveImageSize, formatScaleLabel, imageCountOptions, imageQualityOptions, imageResolutionOptions } from "@/components/image-settings-panel";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { getGenerationCount } from "@/lib/canvas/canvas-generation-helpers";
-import { imageSizePresets, inferMediaRatio, inferMediaScale, mediaRatioOptions, parseAspectRatio, parsePixelSize } from "@/lib/media-size";
+import { inferMediaRatio, mediaRatioOptions, parseAspectRatio } from "@/lib/media-size";
 import { useThemeStore } from "@/stores/use-theme-store";
 import type { AiConfig } from "@/stores/use-config-store";
 
@@ -23,23 +23,6 @@ const segmentedButtonClass = (selected: boolean) =>
             ? "bg-white font-semibold text-stone-900 shadow-xs dark:bg-stone-800 dark:text-white"
             : "font-normal text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200"
     }`;
-
-function normalizeImageQuality(value: string | undefined) {
-    const quality = (value || "auto").trim().toLowerCase();
-    return imageQualityOptions.some((item) => item.value === quality) ? quality : "auto";
-}
-
-function normalizeImageResolution(size: string | undefined) {
-    const value = (size || "").trim();
-    if (!value || value.toLowerCase() === "auto" || parseAspectRatio(value) || !parsePixelSize(value)) return "auto";
-    const scale = inferMediaScale(value);
-    return imageResolutionOptions.some((item) => item.value === scale) ? scale : "auto";
-}
-
-function resolveImageSize(resolution: string, ratio: string) {
-    if (!ratio || resolution === "auto") return ratio || "1:1";
-    return imageSizePresets[resolution]?.[ratio] || ratio;
-}
 
 export function CanvasImageSettingsPopover({
     config,

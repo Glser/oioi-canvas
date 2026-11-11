@@ -1,5 +1,5 @@
 import i18n from "@/i18n";
-import { mediaRatioOptions, mediaScaleOptions } from "@/lib/media-size";
+import { imageSizePresets, inferMediaScale, parseAspectRatio, parsePixelSize, mediaRatioOptions, mediaScaleOptions } from "@/lib/media-size";
 
 export function formatScaleLabel(value: string) {
     if (value === "720p") return "720P";
@@ -62,3 +62,21 @@ export function AspectIcon({ width, height, color, size = 22, className }: { wid
         </span>
     );
 }
+
+export function normalizeImageQuality(value: string | undefined) {
+    const quality = (value || "auto").trim().toLowerCase();
+    return imageQualityOptions.some((item) => item.value === quality) ? quality : "auto";
+}
+
+export function normalizeImageResolution(size: string | undefined) {
+    const value = (size || "").trim();
+    if (!value || value.toLowerCase() === "auto" || parseAspectRatio(value) || !parsePixelSize(value)) return "auto";
+    const scale = inferMediaScale(value);
+    return imageResolutionOptions.some((item) => item.value === scale) ? scale : "auto";
+}
+
+export function resolveImageSize(resolution: string, ratio: string) {
+    if (!ratio || resolution === "auto") return ratio || "1:1";
+    return imageSizePresets[resolution]?.[ratio] || ratio;
+}
+

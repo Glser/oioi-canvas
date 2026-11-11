@@ -1,0 +1,25 @@
+.workbenchNav { color: var(--wb-text); }
+.workbenchNav .rail, .workbenchNav .mobileRail {
+    height: 48px;
+    border-radius: 16px;
+    border: 1px solid var(--wb-border);
+    background: var(--wb-nav-bg);
+    box-shadow: var(--wb-nav-shadow);
+    backdrop-filter: blur(20px);
+    padding: 5px 12px;
+}
+.workbenchNav .rail { width: max-content; max-width: 100%; justify-content: center; gap: 4px; padding-inline: 8px; }
+.workbenchNav .separator { background: var(--wb-border); opacity: .6; }
+.workbenchNav [data-nav-item] { height: 36px; border-radius: 999px; color: var(--wb-muted); background: transparent; box-shadow: none; font-size: 13px; font-weight: 500; }
+.workbenchNav [data-nav-item]:hover { color: var(--wb-text); background: var(--wb-hover); }
+.workbenchNav [data-nav-item][aria-current="page"], .workbenchNav [data-nav-item][aria-pressed="true"] { color: var(--wb-text); background: var(--wb-selected); box-shadow: 0 1px 3px rgb(0 0 0 / 8%); }
+.workbenchNav .utilities { display: flex; align-items: center; flex-shrink: 0; }
+.workbenchNav .utilities :is(button, a), .workbenchNav .mobileRail button { border-radius: 8px; color: var(--wb-muted); }
+.workbenchNav .utilities :is(button, a):hover, .workbenchNav .mobileRail button:hover { color: var(--wb-text); background: var(--wb-hover); }
+.workbenchNav :is(a, button):focus-visible { outline: 2px solid var(--wb-muted); outline-offset: 2px; }
+@media (min-width: 768px) and (max-width: 1023px) {
+    .workbenchNav [data-nav-label] { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .workbenchNav *, .workbenchNav *::before, .workbenchNav *::after { transition: none !important; animation: none !important; }
+}

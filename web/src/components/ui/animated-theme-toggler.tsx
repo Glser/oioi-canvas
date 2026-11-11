@@ -1,3 +1,4 @@
+import { Tooltip } from "antd";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 import { flushSync } from "react-dom";
@@ -82,7 +83,7 @@ function getThemeTransitionClipPaths(variant: TransitionVariant, cx: number, cy:
     }
 }
 
-export const AnimatedThemeToggler = ({ children, className, duration = 400, variant, fromCenter = false, theme, targetTheme, onThemeChange, ...props }: AnimatedThemeTogglerProps) => {
+export const AnimatedThemeToggler = ({ children, className, duration = 400, variant, fromCenter = false, theme, targetTheme, onThemeChange, title, ...props }: AnimatedThemeTogglerProps) => {
     const { t } = useTranslation();
     const shape = variant ?? "circle";
     const [isDark, setIsDark] = useState(false);
@@ -186,9 +187,11 @@ export const AnimatedThemeToggler = ({ children, className, duration = 400, vari
     }, [shape, fromCenter, duration, isDark, targetTheme, onThemeChange]);
 
     return (
-        <button type="button" ref={buttonRef} onClick={toggleTheme} className={cn(className)} {...props}>
-            {children ?? (isDark ? <Sun /> : <Moon />)}
-            <span className="sr-only">{props["aria-label"] || t("theme.toggle")}</span>
-        </button>
+        <Tooltip title={title || props["aria-label"] || t("theme.toggle")} trigger={["hover", "focus"]}>
+            <button type="button" ref={buttonRef} onClick={toggleTheme} className={cn(className)} {...props}>
+                {children ?? (isDark ? <Sun /> : <Moon />)}
+                <span className="sr-only">{props["aria-label"] || t("theme.toggle")}</span>
+            </button>
+        </Tooltip>
     );
 };

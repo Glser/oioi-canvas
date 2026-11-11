@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { App, Tooltip } from "antd";
+import { App, Tooltip, theme as antdTheme } from "antd";
 import { Bot, PanelRightClose } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
@@ -8,10 +8,8 @@ import { useShallow } from "zustand/react/shallow";
 import i18n from "@/i18n";
 import { readAgentUrlBootstrap } from "@/lib/agent/agent-url-bootstrap";
 import { isSiteTool, runSiteTool } from "@/lib/agent/agent-site-tools";
-import { canvasThemes } from "@/lib/canvas-theme";
 import { randomId } from "@/lib/utils";
 import { activateAgentClient, postState, postToolResult } from "@/services/api/canvas-agent";
-import { useThemeStore } from "@/stores/use-theme-store";
 import { useAgentStore, type AgentCanvasContext } from "@/stores/use-agent-store";
 import { type CanvasAgentOp, type CanvasAgentSnapshot } from "@/lib/canvas/canvas-agent-ops";
 import { AgentConnectView } from "./agent-connect-view";
@@ -34,7 +32,7 @@ function parseEventData<T>(event: Event) {
 
 export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
     const { t } = useTranslation();
-    const theme = canvasThemes[useThemeStore((state) => state.theme)];
+    const { token: colors } = antdTheme.useToken();
     const { message } = App.useApp();
     const { hash, pathname } = useLocation();
     const [searchParams] = useSearchParams();
@@ -238,12 +236,12 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
     }, [connected, enabled, urlAgentAutoConnect]);
 
     const connectionStatus = t(connectError ? "agent.status.failed" : connected ? "agent.status.connected" : enabled ? "agent.status.connecting" : "agent.status.disconnected");
-    const connectionStatusColor = connectError ? "#dc2626" : connected ? "#16a34a" : enabled ? "#d97706" : theme.node.muted;
+    const connectionStatusColor = connectError ? colors.colorError : connected ? colors.colorSuccess : enabled ? colors.colorWarning : colors.colorTextSecondary;
 
     if (!embedded) return null;
     return (
         <>
-            <div className="flex h-12 shrink-0 items-center justify-between gap-2 px-3">
+            <div className="flex h-14 shrink-0 items-center justify-between gap-2 px-3">
                 <div className="flex min-w-0 items-center gap-2">
                     <Bot className="size-4 shrink-0 opacity-80" />
                     <div className="text-sm font-semibold leading-5">{t("agent.connect.title")}</div>
@@ -257,7 +255,7 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
                         type="button"
                         className="grid size-8 place-items-center rounded-full transition hover:bg-black/5 dark:hover:bg-white/10"
                         aria-label={t("agent.panel.collapseLabel")}
-                        style={{ color: theme.node.muted }}
+                        style={{ color: colors.colorTextSecondary }}
                         onClick={closePanel}
                     >
                         <PanelRightClose className="size-4" />

@@ -1,18 +1,18 @@
-import { ArrowLeft, ArrowRight, BookOpen, CheckSquare, Download, FolderPlus, History, ImagePlus, LoaderCircle, PenLine, Plus, Trash2, Wand2, X } from "lucide-react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { App, Button, Checkbox, Drawer, Empty, Image, Input, Modal, Tag, Tooltip, Typography } from "antd";
+import { BookOpen, CheckSquare, Download, FolderPlus, History, ImagePlus, Image as ImageIcon, LoaderCircle, PenLine, Plus, Trash2, Wand2, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { App, Button, Checkbox, Drawer, Image, Input, Modal, Tooltip, Typography } from "antd";
 import localforage from "localforage";
 import { saveAs } from "file-saver";
 import { useTranslation } from "react-i18next";
 
-import { CanvasImageSettingsPopover } from "@/components/canvas/canvas-image-settings-popover";
+import { GenerationSettings } from "./components/generation-settings";
+import styles from "@/components/layout/workbench.module.css";
+import { getWorkbenchAppearance } from "@/lib/app-theme";
 import { getGenerationCount } from "@/lib/canvas/canvas-generation-helpers";
-import { ModelPicker } from "@/components/model-picker";
 import { PromptSelectDialog } from "@/components/prompts/prompt-select-dialog";
 import { AssetPickerModal, type InsertAssetPayload } from "@/components/canvas/asset-picker-modal";
-import { canvasThemes } from "@/lib/canvas-theme";
 import { imageReferenceLabel } from "@/lib/image-reference-prompt";
-import { modelOptionLabel, useConfigStore, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
+import { useConfigStore, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
 import { useThemeStore } from "@/stores/use-theme-store";
 import { nanoid } from "nanoid";
 import { formatBytes, formatDuration } from "@/lib/image-utils";
@@ -62,11 +62,7 @@ type GenerationLog = {
 
 type GenerationLogConfig = Pick<AiConfig, "model" | "imageModel" | "quality" | "size" | "count">;
 
-type UpdateAiConfig = <K extends keyof AiConfig>(key: K, value: AiConfig[K]) => void;
-
 const LOG_STORE_KEY = "oioi-canvas:image_generation_logs";
-const RESULT_ACTION_BUTTON_CLASS = "min-w-0 px-1.5 [&_.ant-btn-icon]:shrink-0 [&>span:last-child]:min-w-0 [&>span:last-child]:truncate";
-const COMPOSER_TOOL_BTN = "inline-flex size-7 items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-black/5 hover:text-stone-900 dark:text-stone-400 dark:hover:bg-white/10 dark:hover:text-stone-100";
 const logStore = localforage.createInstance({ name: "oioi-canvas", storeName: "image_generation_logs" });
 
 export default function ImagePage() {
@@ -75,7 +71,8 @@ export default function ImagePage() {
     useSyncExternalStore(subscribeImagePreviews, getImagePreviewRevision);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const dragDepthRef = useRef(0);
-    const config = useConfigStore((state) => state.config);
+    const theme = useThemeStore((state) => state.theme);
+    const appearance = useMemo(() => getWorkbenchAppearance(theme === "dark"), [theme]);
     const effectiveConfig = useEffectiveConfig();
     const updateConfig = useConfigStore((state) => state.updateConfig);
     const isAiConfigReady = useConfigStore((state) => state.isAiConfigReady);
@@ -87,7 +84,6 @@ export default function ImagePage() {
     const [logs, setLogs] = useState<GenerationLog[]>([]);
     const [running, setRunning] = useState(false);
     const [logsOpen, setLogsOpen] = useState(false);
-    const [showHistory, setShowHistory] = useState(false);
     
     const [promptDialogOpen, setPromptDialogOpen] = useState(false);
     const [assetPickerOpen, setAssetPickerOpen] = useState(false);
@@ -249,6 +245,8 @@ export default function ImagePage() {
     };
 
     const createSession = () => {
+        if (running) return;
+        setLogsOpen(false);
         setPrompt("");
         setReferences([]);
         setResults([]);
@@ -345,323 +343,145 @@ export default function ImagePage() {
     };
 
     return (
-        <div className="flex h-full flex-col overflow-hidden bg-stone-50/60 text-stone-900 dark:bg-[#121211] dark:text-stone-100 pt-16">
-            <main className="flex min-h-0 flex-1 flex-col overflow-y-auto p-3 gap-3 lg:flex-row lg:overflow-hidden">
-                {/* Collapsible History Drawer / Sidebar for Desktop */}
-                <aside
-                    className={`thin-scrollbar hidden h-full flex-col overflow-hidden rounded-2xl border border-black/[0.06] bg-white/80 shadow-[0_4px_20px_rgba(0,0,0,0.03)] backdrop-blur-md transition-all duration-300 ease-in-out dark:border-white/[0.08] dark:bg-stone-900/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] lg:flex ${
-                        showHistory ? "w-80 opacity-100" : "w-0 border-0 p-0 opacity-0"
-                    }`}
-                >
-                    <div className="flex items-center justify-between px-4 pb-2 pt-3.5">
-                        <div className="flex items-center gap-2">
-                            <History className="size-4 text-stone-500" />
-                            <span className="text-sm font-semibold">{t("workbench.logs")}</span>
-                            {logs.length ? <span className="text-xs text-stone-400">{logs.length}</span> : null}
+            <div className={styles.workbench} style={appearance.style}>
+                <main className={styles.layout}>
+                    <section
+                        className={`${styles.composer} ${isReferenceDragActive ? styles.dragging : ""}`}
+                        aria-label={t("imageWorkbench.creationPanel")}
+                        onDragEnter={(event) => {
+                            event.preventDefault();
+                            dragDepthRef.current += 1;
+                            if (event.dataTransfer.types.includes("Files")) setIsReferenceDragActive(true);
+                        }}
+                        onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; }}
+                        onDragLeave={(event) => {
+                            event.preventDefault();
+                            dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+                            if (!dragDepthRef.current) setIsReferenceDragActive(false);
+                        }}
+                        onDrop={(event) => {
+                            event.preventDefault();
+                            dragDepthRef.current = 0;
+                            setIsReferenceDragActive(false);
+                            void addReferences(event.dataTransfer.files);
+                        }}
+                    >
+                        <header className={styles.composerHeader}>
+                            <h1>{t("imageWorkbench.title")}</h1>
+                            <Tooltip title={t("imageWorkbench.newSessionHint")}>
+                                <Button type="text" size="small" icon={<Plus size={15} />} disabled={running} onClick={createSession}>{t("workbench.new")}</Button>
+                            </Tooltip>
+                        </header>
+                        <div className={`${styles.editor} thin-scrollbar`}>
+                            <div className={`${styles.field} ${styles.references}`}>
+                                <div className={styles.sectionHeader} style={{ marginBottom: 0 }}>
+                                    <label>{t("imageWorkbench.referenceLabel")} <span className={styles.muted}>{references.length || t("imageWorkbench.optional")}</span></label>
+                                    <Tooltip title={t("workbench.viewAssets")}>
+                                        <Button type="text" size="small" icon={<FolderPlus size={14} />} onClick={() => setAssetPickerOpen(true)}>{t("imageWorkbench.fromAssets")}</Button>
+                                    </Tooltip>
+                                </div>
+                                <div className={styles.referenceList}>
+                                    {references.map((item) => (
+                                        <div key={item.id} className={styles.reference}>
+                                            <img src={previewUrlFor(item.storageKey) || item.dataUrl} alt={item.name} />
+                                            <Tooltip title={t("imageWorkbench.removeReference")}>
+                                                <Button size="small" icon={<X size={12} />} aria-label={`${t("imageWorkbench.removeReference")} ${item.name}`} onClick={() => setReferences((value) => value.filter((ref) => ref.id !== item.id))} />
+                                            </Tooltip>
+                                        </div>
+                                    ))}
+                                    <Button className={references.length ? styles.upload : styles.dropzone} icon={<ImagePlus size={18} />} aria-label={t("imageWorkbench.addReference")} onClick={() => fileInputRef.current?.click()}>
+                                        {!references.length && t(isReferenceDragActive ? "imageWorkbench.dropHere" : "imageWorkbench.uploadHint")}
+                                    </Button>
+                                </div>
+                            </div>
+                            <div className={styles.prompt}>
+                                <div className={styles.field}>
+                                    <div className={styles.sectionHeader} style={{ marginBottom: 0 }}>
+                                        <label htmlFor="image-prompt">{t("imageWorkbench.promptLabel")}</label>
+                                        <Tooltip title={t("workbench.viewPrompts")}>
+                                            <Button type="text" size="small" icon={<BookOpen size={14} />} onClick={() => setPromptDialogOpen(true)}>{t("imageWorkbench.promptLibrary")}</Button>
+                                        </Tooltip>
+                                    </div>
+                                    <Input.TextArea
+                                        id="image-prompt"
+                                        value={prompt}
+                                        onChange={(event) => setPrompt(event.target.value)}
+                                        rows={4}
+                                        placeholder={t("imageWorkbench.promptPlaceholder")}
+                                        onKeyDown={(event) => {
+                                            if (!event.nativeEvent.isComposing && (event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                                                event.preventDefault();
+                                                if (canGenerate && !running) void generate();
+                                            }
+                                        }}
+                                    />
+                                </div>
+                                <div className={styles.promptFooter}>
+                                    <span>{t("imageWorkbench.promptHint")}</span>
+                                    <kbd>Ctrl / ⌘ ↵</kbd>
+                                </div>
+                            </div>
                         </div>
-                        <button type="button" className="grid size-7 place-items-center rounded-full text-stone-400 transition hover:bg-black/5 hover:text-stone-700 dark:hover:bg-white/10 dark:hover:text-stone-200" onClick={() => setShowHistory(false)}>
-                            <X className="size-4" />
-                        </button>
-                    </div>
-                    <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-                        <LogPanel
-                            hideHeader
-                            logs={logs}
-                            selectedLogIds={selectedLogIds}
-                            activeLogId={previewLog?.id}
-                            onSelectedLogIdsChange={setSelectedLogIds}
-                            onCreateSession={createSession}
-                            onDeleteSelected={() => setDeleteConfirmOpen(true)}
-                            onPreviewLog={(log) => void previewGenerationLog(log)}
-                        />
-                    </div>
-                </aside>
-
-                {/* Left Creation Control Panel */}
-                <section
-                    className={`thin-scrollbar flex w-full shrink-0 flex-col rounded-2xl border p-4 sm:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] backdrop-blur-md transition-colors dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] lg:h-full lg:w-[420px] lg:overflow-hidden ${
-                        isReferenceDragActive
-                            ? "border-stone-900/35 bg-stone-100/85 dark:border-stone-100/25 dark:bg-stone-800/70"
-                            : "border-black/[0.06] bg-white/85 dark:border-white/[0.08] dark:bg-stone-900/70"
-                    }`}
-                    onDragEnter={(event) => {
-                        event.preventDefault();
-                        dragDepthRef.current += 1;
-                        if (event.dataTransfer.types.includes("Files")) setIsReferenceDragActive(true);
-                    }}
-                    onDragOver={(event) => {
-                        event.preventDefault();
-                        event.dataTransfer.dropEffect = "copy";
-                    }}
-                    onDragLeave={(event) => {
-                        event.preventDefault();
-                        dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
-                        if (!dragDepthRef.current) setIsReferenceDragActive(false);
-                    }}
-                    onDrop={(event) => {
-                        event.preventDefault();
-                        dragDepthRef.current = 0;
-                        setIsReferenceDragActive(false);
-                        void addReferences(event.dataTransfer.files);
-                    }}
-                >
-                    {/* Header */}
-                    <div className="flex items-center justify-between gap-3 pb-3 border-b border-stone-100 dark:border-stone-800">
-                        <div className="flex items-center gap-2">
-                            <ImagePlus className="size-4 shrink-0 text-stone-700 dark:text-stone-300" />
-                            <h1 className="text-sm font-semibold leading-none text-stone-950 dark:text-stone-100 translate-y-1">{t("imageWorkbench.title")}</h1>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                            <Button
-                                size="small"
-                                type={showHistory || logsOpen ? "default" : "text"}
-                                icon={<History className="size-3.5" />}
-                                className="!h-7 !rounded-full !px-2.5 !text-xs"
-                                onClick={() => {
-                                    if (window.innerWidth < 1024) {
-                                        setLogsOpen(true);
-                                    } else {
-                                        setShowHistory((v) => !v);
-                                    }
-                                }}
-                            >
-                                {t("workbench.logs")}
-                                {logs.length > 0 && <span className="opacity-60 text-[10px] ml-0.5">({logs.length})</span>}
+                        <div className={styles.generate}>
+                            <GenerationSettings />
+                            <Button type="primary" loading={running} disabled={!canGenerate || running} icon={!running && <Wand2 size={16} />} onClick={() => void generate()}>
+                                {t(running ? "workbench.generating" : "workbench.generate")}
                             </Button>
                         </div>
-                    </div>
-
-                                        <div
-                        className={`mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border transition-colors ${
-                            isReferenceDragActive
-                                ? "border-stone-900/35 bg-stone-100/80 dark:border-stone-100/25 dark:bg-stone-800/50"
-                                : "border-stone-200/85 bg-white/60 dark:border-stone-700/80 dark:bg-black/20"
-                        }`}
-                    >
-                    <div className="flex items-center gap-2 px-2.5 pt-2.5">
-                            <div
-                                className="no-scrollbar flex min-w-0 flex-1 items-center gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain"
-                                onWheel={(event) => {
-                                    if (event.currentTarget.scrollWidth <= event.currentTarget.clientWidth) return;
-                                    event.preventDefault();
-                                    event.currentTarget.scrollLeft += event.deltaY;
-                                }}
-                            >
-                                {references.map((item) => (
-                                    <div
-                                        key={item.id}
-                                        className="group relative size-12 shrink-0 overflow-hidden rounded-xl bg-stone-100 dark:bg-stone-800"
-                                    >
-                                        <img
-                                            src={previewUrlFor(item.storageKey) || item.dataUrl}
-                                            alt={item.name}
-                                            className="size-full object-cover"
-                                        />
-                                        <button
-                                            type="button"
-                                            className="absolute right-1 top-1 hidden size-4 items-center justify-center rounded-full bg-black/70 text-white shadow-sm transition-transform hover:scale-110 group-hover:flex"
-                                            onClick={() => setReferences((value) => value.filter((ref) => ref.id !== item.id))}
-                                            aria-label={t("imageWorkbench.removeReference")}
-                                        >
-                                            <X className="size-2.5 stroke-[3] text-white" />
-                                        </button>
-                                    </div>
-                                ))}
-                                <Tooltip title={t("imageWorkbench.addReference")}>
-                                    <button
-                                        type="button"
-                                        onClick={() => fileInputRef.current?.click()}
-                                        className={`flex size-12 shrink-0 items-center justify-center rounded-xl border border-dashed text-stone-400 transition-colors hover:border-stone-400 hover:text-stone-700 dark:hover:border-stone-500 dark:hover:text-stone-200 ${
-                                            isReferenceDragActive
-                                                ? "border-stone-900 bg-stone-200/70 dark:border-stone-100 dark:bg-stone-700/70"
-                                                : "border-stone-300 dark:border-stone-700"
-                                        }`}
-                                        aria-label={t("imageWorkbench.addReference")}
-                                    >
-                                        <Plus className="size-4 stroke-[2.5]" />
-                                    </button>
-                                </Tooltip>
-                            </div>
-                            <div className="flex shrink-0 items-center gap-0.5">
-                                <Tooltip title={t("workbench.viewPrompts")}>
-                                    <button type="button" className={COMPOSER_TOOL_BTN} onClick={() => setPromptDialogOpen(true)} aria-label={t("workbench.viewPrompts")}>
-                                        <BookOpen className="size-3.5" />
-                                    </button>
-                                </Tooltip>
-                                <Tooltip title={t("workbench.viewAssets")}>
-                                    <button type="button" className={COMPOSER_TOOL_BTN} onClick={() => setAssetPickerOpen(true)} aria-label={t("workbench.viewAssets")}>
-                                        <FolderPlus className="size-3.5" />
-                                    </button>
+                    </section>
+                    <section className={`${styles.gallery} thin-scrollbar`} aria-label={t("workbench.results")}>
+                        <div className={`${styles.sectionHeader} ${styles.galleryHeader}`}>
+                            <h2>{t("workbench.results")}<span className={styles.counter}>{results.filter((result) => result.status === "success").length}{results.length ? ` / ${results.length}` : ""}</span></h2>
+                            <div className={styles.actions}>
+                                <span className={styles.resultStatus} role="status">
+                                    {running ? t("workbench.waiting", { time: formatDuration(elapsedMs) }) : null}
+                                </span>
+                                <Tooltip title={t("imageWorkbench.localHistoryHint")}>
+                                    <Button type="text" className={styles.historyButton} icon={<History size={15} />} aria-pressed={logsOpen} onClick={() => setLogsOpen(true)}>
+                                        {t("workbench.logs")}
+                                        {logs.length > 0 && <span className={styles.counter}>{logs.length}</span>}
+                                    </Button>
                                 </Tooltip>
                             </div>
                         </div>
-
-                    <div className="relative min-h-[132px] flex-1 overflow-hidden">
-                            <Input.TextArea
-                                value={prompt}
-                                onChange={(event) => setPrompt(event.target.value)}
-                                rows={5}
-                                variant="borderless"
-                                placeholder={t("imageWorkbench.promptPlaceholder")}
-                                classNames={{ root: "!border-0 !shadow-none focus-within:!border-0 focus-within:!shadow-none" }}
-                                styles={{ root: { boxShadow: "none", border: "none" }, textarea: { outline: "none", boxShadow: "none" } }}
-                                className="!h-full !min-h-[132px] !resize-none !bg-transparent !px-2.5 !pt-1.5 !pb-8 text-sm !text-stone-800 placeholder:!text-stone-400 dark:!text-stone-100 !border-0 !shadow-none !outline-none focus:!border-0 focus:!shadow-none focus:!outline-none"
-                                onKeyDown={(e) => {
-                                    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-                                        e.preventDefault();
-                                        if (canGenerate && !running) void generate();
-                                    }
-                                }}
-                            />
-                            <div className="pointer-events-none absolute right-3 bottom-2.5 flex select-none items-center gap-1 text-[11px] text-stone-400">
-                                <kbd className="inline-flex items-center rounded-md border border-stone-200/80 px-1 py-px font-mono text-[9px] dark:border-stone-700">Ctrl</kbd>
-                                <span>+</span>
-                                <kbd className="inline-flex items-center rounded-md border border-stone-200/80 px-1 py-px font-mono text-[9px] dark:border-stone-700">Enter</kbd>
+                        {results.length ? (
+                            <div className={styles.grid}>
+                                {results.map((result, index) =>
+                                    result.status === "success" && result.image ? (
+                                        <ResultImageCard key={result.id} image={result.image} index={index} onEdit={addResultToReferences} onDownload={downloadImage} onSaveAsset={saveResultToAssets} />
+                                    ) : result.status === "failed" ? (
+                                        <FailedImageCard key={result.id} error={result.error || t("workbench.generationFailed")} onRetry={() => retryResult(index)} />
+                                    ) : <PendingImageCard key={result.id} />,
+                                )}
                             </div>
-                        </div>
-                    </div>
-                    <div className="mt-3 flex min-w-0 flex-col gap-2 border-t border-stone-200/70 pt-3 dark:border-stone-800">
-                        <GenerationSettings
-                            config={effectiveConfig}
-                            model={model}
-                            updateConfig={updateConfig}
-                            openConfigDialog={openConfigDialog}
-                            running={running}
-                            canGenerate={canGenerate}
-                            onGenerate={() => void generate()}
-                        />
-                    </div>
-                </section>
-
-                {/* Right Stage: Immersive Results Gallery */}
-                <section className="thin-scrollbar flex min-h-[420px] flex-1 flex-col rounded-2xl border border-black/[0.06] bg-white/80 p-4 sm:p-5 shadow-[0_4px_20px_rgba(0,0,0,0.03)] backdrop-blur-md dark:border-white/[0.08] dark:bg-stone-900/60 dark:shadow-[0_4px_24px_rgba(0,0,0,0.2)] lg:min-h-0 lg:h-full overflow-y-auto">
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                            <h2 className="text-base font-semibold">{t("workbench.results")}</h2>
-                            {results.length > 0 && (
-                                <Tag className="m-0 rounded-full px-2 text-xs">
-                                    {results.filter((r) => r.status === "success").length} / {results.length}
-                                </Tag>
-                            )}
-                        </div>
-                        {running ? <Tag color="blue" className="m-0 px-2.5 py-0.5 rounded-full text-xs animate-pulse">{t("workbench.waiting", { time: formatDuration(elapsedMs) })}</Tag> : null}
-                    </div>
-
-                    {results.length ? (
-                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3">
-                            {results.map((result, index) =>
-                                result.status === "success" && result.image ? (
-                                    <ResultImageCard key={result.id} image={result.image} index={index} onEdit={addResultToReferences} onDownload={downloadImage} onSaveAsset={saveResultToAssets} />
-                                ) : result.status === "failed" ? (
-                                    <FailedImageCard key={result.id} error={result.error || t("workbench.generationFailed")} onRetry={() => retryResult(index)} />
-                                ) : (
-                                    <PendingImageCard key={result.id} />
-                                ),
-                            )}
-                        </div>
-                    ) : (
-                        <div className="flex flex-1 min-h-[360px] flex-col items-center justify-center rounded-2xl border border-dashed border-stone-200/90 bg-stone-50/40 text-center dark:border-stone-800 dark:bg-stone-900/30">
-                            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("imageWorkbench.empty")} />
-                            <p className="mt-1 text-xs text-stone-400 max-w-xs">{t("imageWorkbench.promptPlaceholder")}</p>
-                        </div>
-                    )}
-                </section>
-            </main>
-            <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(event) => {
-                    void addReferences(event.target.files);
-                    event.target.value = "";
-                }}
-            />
-            <Drawer title={t("workbench.logs")} placement="bottom" size="large" open={logsOpen} onClose={() => setLogsOpen(false)}>
-                <LogPanel
-                    logs={logs}
-                    selectedLogIds={selectedLogIds}
-                    activeLogId={previewLog?.id}
-                    onSelectedLogIdsChange={setSelectedLogIds}
-                    onCreateSession={createSession}
-                    onDeleteSelected={() => setDeleteConfirmOpen(true)}
-                    onPreviewLog={(log) => void previewGenerationLog(log)}
-                />
-            </Drawer>
-            
-            <PromptSelectDialog open={promptDialogOpen} onOpenChange={setPromptDialogOpen} onSelect={setPrompt} />
-            <AssetPickerModal open={assetPickerOpen} defaultTab="my-assets" onInsert={(payload) => void insertPickedAsset(payload)} onClose={() => setAssetPickerOpen(false)} />
-            <Modal title={t("workbench.deleteLogs")} open={deleteConfirmOpen} onCancel={() => setDeleteConfirmOpen(false)} onOk={deleteSelectedLogs} okText={t("common.delete")} okButtonProps={{ danger: true }} cancelText={t("common.cancel")}>
-                {t("workbench.deleteLogsConfirm", { count: selectedLogIds.length })}
-            </Modal>
-        </div>
-    );
-}
-
-function GenerationSettings({
-    config,
-    model,
-    updateConfig,
-    openConfigDialog,
-    running,
-    canGenerate,
-    onGenerate,
-}: {
-    config: AiConfig;
-    model: string;
-    updateConfig: UpdateAiConfig;
-    openConfigDialog: (shouldPromptContinue?: boolean) => void;
-    running?: boolean;
-    canGenerate?: boolean;
-    onGenerate?: () => void;
-}) {
-    const { t } = useTranslation();
-    return (
-        <>
-            <div className="flex h-9 min-w-0 items-center rounded-full bg-stone-100/90 p-0.5 dark:bg-white/[0.07]">
-                <div className="min-w-0 flex-1">
-                    <ModelPicker
-                        config={config}
-                        value={model}
-                        onChange={(value) => updateConfig("imageModel", value)}
-                        capability="image"
-                        fullWidth
-                        hideChevron
-                        side="top"
-                        contentClassName="w-60"
-                        className="!h-8 !min-w-0 !w-full !rounded-full !border-0 !bg-transparent !px-3 !text-xs [&_.canvas-model-picker-text]:!text-xs !shadow-none hover:!bg-black/5 dark:!border-0 dark:hover:!bg-white/10"
-                        onMissingConfig={() => openConfigDialog(false)}
-                    />
-                </div>
-                <span className="mx-0.5 h-4 w-px shrink-0 bg-stone-300/80 dark:bg-white/10" />
-                <div className="min-w-0 shrink-0 max-w-[58%]">
-                    <CanvasImageSettingsPopover
-                        config={config}
-                        placement="top"
-                        buttonClassName="!h-8 !w-full !justify-start !rounded-full !border-0 !bg-transparent !px-2.5 !shadow-none hover:!bg-black/5 dark:!border-0 dark:hover:!bg-white/10"
-                        onConfigChange={(key, value) => updateConfig(key, value)}
-                    />
-                </div>
-            </div>
-            {onGenerate ? (
-                <button
-                    type="button"
-                    className="group inline-flex h-10 w-full items-center justify-center gap-2 rounded-full border border-black/10 bg-black/5 px-4 text-sm font-semibold text-black transition-all duration-150 hover:bg-black/10 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:bg-white/10 dark:text-white dark:hover:bg-white/15"
-                    disabled={!canGenerate || running}
-                    onClick={onGenerate}
+                        ) : (
+                            <div className={styles.empty}>
+                                <div className={styles.emptyIcon}><ImageIcon size={30} strokeWidth={1.25} /></div>
+                                <h3>{t("imageWorkbench.emptyTitle")}</h3>
+                                <p>{t("imageWorkbench.emptyHint")}</p>
+                                <Button icon={<BookOpen size={14} />} onClick={() => setPromptDialogOpen(true)}>{t("imageWorkbench.explorePrompts")}</Button>
+                            </div>
+                        )}
+                    </section>
+                </main>
+                <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(event) => { void addReferences(event.target.files); event.target.value = ""; }} />
+                <Drawer
+                    title={t("workbench.logs")}
+                    placement="right"
+                    closable={{ placement: "end" }}
+                    size={400}
+                    open={logsOpen}
+                    onClose={() => setLogsOpen(false)}
+                    styles={{ wrapper: { maxWidth: "100vw" }, body: { ...appearance.style, padding: 20 } }}
                 >
-                    {running ? (
-                        <LoaderCircle className="size-4 animate-spin text-black dark:text-white" />
-                    ) : (
-                        <Wand2 className="size-4 stroke-2 text-black transition-transform duration-200 group-hover:-rotate-12 group-hover:scale-110 dark:text-white" />
-                    )}
-                    <span className="text-black dark:text-white font-semibold">
-                        {t("workbench.generate")}
-                    </span>
-                </button>
-            ) : null}
-        </>
+                    <LogPanel running={running} logs={logs} selectedLogIds={selectedLogIds} activeLogId={previewLog?.id} onSelectedLogIdsChange={setSelectedLogIds} onCreateSession={createSession} onDeleteSelected={() => setDeleteConfirmOpen(true)} onPreviewLog={(log) => void previewGenerationLog(log)} />
+                </Drawer>
+                <PromptSelectDialog open={promptDialogOpen} onOpenChange={setPromptDialogOpen} onSelect={setPrompt} />
+                <AssetPickerModal open={assetPickerOpen} defaultTab="my-assets" onInsert={(payload) => void insertPickedAsset(payload)} onClose={() => setAssetPickerOpen(false)} />
+                <Modal title={t("workbench.deleteLogs")} open={deleteConfirmOpen} onCancel={() => setDeleteConfirmOpen(false)} onOk={deleteSelectedLogs} okText={t("common.delete")} okButtonProps={{ danger: true }} cancelText={t("common.cancel")}>
+                    {t("workbench.deleteLogsConfirm", { count: selectedLogIds.length })}
+                </Modal>
+            </div>
     );
 }
 
@@ -681,127 +501,43 @@ function ResultImageCard({
     const { t } = useTranslation();
     useSyncExternalStore(subscribeImagePreviews, getImagePreviewRevision);
     return (
-        <div className="group relative overflow-hidden rounded-2xl border border-black/[0.06] bg-white/90 shadow-sm transition-all duration-300 hover:shadow-xl dark:border-white/[0.08] dark:bg-stone-900/80">
-            {/* Image display */}
-            <div className="relative aspect-square w-full overflow-hidden bg-stone-100 dark:bg-stone-950">
-                <Image
-                    src={previewUrlFor(image.storageKey) || image.dataUrl}
-                    preview={{ src: image.dataUrl }}
-                    alt={t("imageWorkbench.resultAlt", { count: index + 1 })}
-                    className="size-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.02]"
-                />
-
-                {/* Top overlay badge: specs */}
-                <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-2.5 bg-gradient-to-b from-black/50 via-black/20 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                    <span className="rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-mono text-white/90 backdrop-blur-md">
-                        {image.width}×{image.height}
-                    </span>
-                    <span className="rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-mono text-white/90 backdrop-blur-md">
-                        {formatDuration(image.durationMs)}
-                    </span>
-                </div>
-
-                {/* Quick actions hover pill overlay */}
-                <div className="absolute inset-x-2 bottom-2.5 flex items-center justify-center opacity-0 transition-all duration-200 group-hover:opacity-100 group-hover:translate-y-0 translate-y-1">
-                    <div className="flex items-center gap-1 rounded-full border border-white/20 bg-stone-950/75 p-1 text-white shadow-lg backdrop-blur-md">
-                        <Tooltip title={t("imageWorkbench.addReference")}>
-                            <button
-                                type="button"
-                                className="flex size-7.5 items-center justify-center rounded-full text-stone-300 transition-colors hover:bg-white/20 hover:text-white"
-                                onClick={() => void onEdit(image, index)}
-                            >
-                                <PenLine className="size-3.5" />
-                            </button>
-                        </Tooltip>
-                        <Tooltip title={t("common.addToAssets")}>
-                            <button
-                                type="button"
-                                className="flex size-7.5 items-center justify-center rounded-full text-stone-300 transition-colors hover:bg-white/20 hover:text-white"
-                                onClick={() => void onSaveAsset(image, index)}
-                            >
-                                <FolderPlus className="size-3.5" />
-                            </button>
-                        </Tooltip>
-                        <div className="h-3.5 w-px bg-white/20 my-auto" />
-                        <Tooltip title={t("common.download")}>
-                            <button
-                                type="button"
-                                className="flex size-7.5 items-center justify-center rounded-full text-stone-300 transition-colors hover:bg-white/20 hover:text-white"
-                                onClick={() => onDownload(image, index)}
-                            >
-                                <Download className="size-3.5" />
-                            </button>
-                        </Tooltip>
-                    </div>
-                </div>
+        <article className={styles.result}>
+            <div className={styles.image}>
+                <Image src={previewUrlFor(image.storageKey) || image.dataUrl} preview={{ src: image.dataUrl }} alt={t("imageWorkbench.resultAlt", { count: index + 1 })} />
             </div>
-
-            {/* Subtle bottom info bar */}
-            <div className="flex items-center justify-between border-t border-stone-100 px-3 py-2 text-[11px] text-stone-400 dark:border-stone-800/80 dark:text-stone-500">
-                <span className="font-mono">{formatBytes(image.bytes)}</span>
-                <div className="flex items-center gap-1">
-                    <Tooltip title={t("imageWorkbench.addReference")}>
-                        <Button
-                            type="text"
-                            size="small"
-                            className="!h-6 !px-2 text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100 !text-xs !rounded-md"
-                            icon={<PenLine className="size-3" />}
-                            onClick={() => void onEdit(image, index)}
-                        >
-                            {t("imageWorkbench.addReference")}
-                        </Button>
+            <div className={styles.metadata}>
+                <span>{image.width} × {image.height} · {formatBytes(image.bytes)}</span>
+                <span>{formatDuration(image.durationMs)}</span>
+            </div>
+            <div className={styles.resultActions}>
+                <Tooltip title={t("imageWorkbench.addReference")}>
+                    <Button type="text" size="small" icon={<PenLine size={14} />} onClick={() => onEdit(image, index)}>{t("imageWorkbench.addReference")}</Button>
+                </Tooltip>
+                <div className={styles.actions}>
+                    <Tooltip title={t("common.addToAssets")}>
+                        <Button type="text" size="small" icon={<FolderPlus size={15} />} aria-label={t("common.addToAssets")} onClick={() => onSaveAsset(image, index)} />
                     </Tooltip>
                     <Tooltip title={t("common.download")}>
-                        <Button
-                            type="text"
-                            size="small"
-                            className="!h-6 !px-2 text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-100 !text-xs !rounded-md"
-                            icon={<Download className="size-3" />}
-                            onClick={() => onDownload(image, index)}
-                        >
-                            {t("common.download")}
-                        </Button>
+                        <Button type="text" size="small" icon={<Download size={15} />} aria-label={t("common.download")} onClick={() => onDownload(image, index)} />
                     </Tooltip>
                 </div>
             </div>
-        </div>
+        </article>
     );
 }
 
 function PendingImageCard() {
     const { t } = useTranslation();
-    return (
-        <div className="relative aspect-square overflow-hidden rounded-lg border border-dashed border-stone-300 bg-stone-50 dark:border-stone-700 dark:bg-stone-900">
-            <div
-                className="absolute inset-0 opacity-60"
-                style={{
-                    backgroundImage: "radial-gradient(circle, rgba(120,113,108,0.35) 1.4px, transparent 1.6px)",
-                    backgroundSize: "16px 16px",
-                }}
-            />
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-stone-500 dark:text-stone-400">
-                <LoaderCircle className="size-6 animate-spin" />
-                <span>{t("workbench.generating")}</span>
-            </div>
-        </div>
-    );
+    return <div className={styles.pending} role="status"><LoaderCircle className="size-5 animate-spin" /><span>{t("workbench.generating")}</span></div>;
 }
 
 function FailedImageCard({ error, onRetry }: { error: string; onRetry: () => void }) {
     const { t } = useTranslation();
     return (
-        <div className="overflow-hidden rounded-lg border border-red-200 bg-red-50 dark:border-red-950 dark:bg-red-950/20">
-            <div className="flex aspect-square flex-col items-center justify-center gap-3 p-5 text-center">
-                <div className="text-sm font-medium text-red-600 dark:text-red-300">{t("workbench.failed")}</div>
-                <Typography.Paragraph ellipsis={{ rows: 4 }} className="!mb-0 !text-xs !text-red-500 dark:!text-red-300">
-                    {error}
-                </Typography.Paragraph>
-            </div>
-            <div className="flex justify-end border-t border-red-200 p-3 dark:border-red-950">
-                <Button size="small" danger onClick={onRetry}>
-                    {t("workbench.retry")}
-                </Button>
-            </div>
+        <div className={styles.failed} role="alert">
+            <Typography.Text type="danger">{t("workbench.failed")}</Typography.Text>
+            <Typography.Paragraph ellipsis={{ rows: 4, expandable: true }} type="secondary">{error}</Typography.Paragraph>
+            <Button onClick={onRetry}>{t("workbench.retry")}</Button>
         </div>
     );
 }
@@ -811,7 +547,7 @@ function updateResultAt(results: GenerationResult[], index: number, next: Partia
 }
 
 function LogPanel({
-    hideHeader,
+    running,
     logs,
     selectedLogIds,
     activeLogId,
@@ -820,7 +556,7 @@ function LogPanel({
     onDeleteSelected,
     onPreviewLog,
 }: {
-    hideHeader?: boolean;
+    running: boolean;
     logs: GenerationLog[];
     selectedLogIds: string[];
     activeLogId?: string;
@@ -834,70 +570,42 @@ function LogPanel({
     const toggleAll = () => onSelectedLogIdsChange(allSelected ? [] : logs.map((log) => log.id));
 
     return (
-        <>
-            {!hideHeader && (
-                <div className="mb-3 flex items-center justify-between gap-3">
-                    <div>
-                        <h2 className="text-base font-semibold">{t("workbench.logs")}</h2>
-                    </div>
-                    <Tag className="m-0">{logs.length}</Tag>
+        <div className={styles.history}>
+            <div className={styles.historyToolbar}>
+                <Button size="small" type="text" icon={<Plus size={14} />} disabled={running} onClick={onCreateSession}>{t("workbench.new")}</Button>
+                <div className={styles.actions}>
+                    <Button size="small" type="text" icon={<CheckSquare size={14} />} disabled={!logs.length} onClick={toggleAll}>{allSelected ? t("common.cancel") : t("workbench.selectAll")}</Button>
+                    <Tooltip title={t("workbench.deleteLogs")}>
+                        <Button size="small" type="text" danger icon={<Trash2 size={14} />} aria-label={t("workbench.deleteLogs")} disabled={!selectedLogIds.length} onClick={onDeleteSelected}>
+                            {selectedLogIds.length || null}
+                        </Button>
+                    </Tooltip>
                 </div>
-            )}
-            <div className="mb-3 flex flex-wrap gap-1">
-                <Button size="small" type="text" className="!h-7 !rounded-full !px-2.5 !text-xs" icon={<Plus className="size-3.5" />} onClick={onCreateSession}>
-                    {t("workbench.new")}
-                </Button>
-                <Button size="small" type="text" className="!h-7 !rounded-full !px-2.5 !text-xs" icon={<CheckSquare className="size-3.5" />} disabled={!logs.length} onClick={toggleAll}>
-                    {allSelected ? t("common.cancel") : t("workbench.selectAll")}
-                </Button>
-                <Button size="small" type="text" danger className="!h-7 !rounded-full !px-2.5 !text-xs" icon={<Trash2 className="size-3.5" />} disabled={!selectedLogIds.length} onClick={onDeleteSelected}>
-                    {t("common.delete")}
-                </Button>
             </div>
-            <div className="space-y-1.5">
-                {logs.map((log) => (
-                    <LogCard
-                        key={log.id}
-                        log={log}
-                        selected={selectedLogIds.includes(log.id)}
-                        active={activeLogId === log.id}
-                        onSelectedChange={(checked) => onSelectedLogIdsChange(checked ? [...selectedLogIds, log.id] : selectedLogIds.filter((id) => id !== log.id))}
-                        onClick={() => onPreviewLog(log)}
-                    />
-                ))}
-                {!logs.length ? <div className="flex min-h-40 items-center justify-center text-center text-sm text-stone-400">{t("workbench.noLogs")}</div> : null}
-            </div>
-        </>
+            {logs.map((log) => (
+                <LogCard key={log.id} log={log} selected={selectedLogIds.includes(log.id)} active={activeLogId === log.id} onSelectedChange={(checked) => onSelectedLogIdsChange(checked ? [...selectedLogIds, log.id] : selectedLogIds.filter((id) => id !== log.id))} onClick={() => onPreviewLog(log)} />
+            ))}
+            {!logs.length && <div className={styles.empty}><History size={24} className={styles.muted} /><p className="mt-4">{t("workbench.noLogs")}</p></div>}
+        </div>
     );
 }
 
 function LogCard({ log, selected, active, onSelectedChange, onClick }: { log: GenerationLog; selected: boolean; active: boolean; onSelectedChange: (checked: boolean) => void; onClick: () => void }) {
     const { t } = useTranslation();
     useSyncExternalStore(subscribeImagePreviews, getImagePreviewRevision);
-    const thumbnails = log.images.filter((image) => image.dataUrl).slice(0, 4);
-
+    const thumbnail = log.images[0] || log.references[0];
     return (
-        <button
-            type="button"
-            className={`flex w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition ${active ? "bg-stone-100 dark:bg-white/10" : "hover:bg-black/5 dark:hover:bg-white/5"}`}
-            onClick={onClick}
-        >
-            <Checkbox className="shrink-0" checked={selected} onClick={(event) => event.stopPropagation()} onChange={(event) => onSelectedChange(event.target.checked)} />
-            {thumbnails[0] ? (
-                <img src={previewUrlFor(thumbnails[0].storageKey) || thumbnails[0].dataUrl} alt="" className="size-10 shrink-0 rounded-md object-cover" />
-            ) : (
-                <span className="grid size-10 shrink-0 place-items-center text-stone-400">
-                    <ImagePlus className="size-4 opacity-60" />
+        <div className={styles.log} data-active={active}>
+            <Checkbox checked={selected} aria-label={t("imageWorkbench.selectLog", { title: log.title })} onChange={(event) => onSelectedChange(event.target.checked)} />
+            <button type="button" className={styles.logButton} aria-pressed={active} onClick={onClick}>
+                {thumbnail ? <img src={previewUrlFor(thumbnail.storageKey) || thumbnail.dataUrl} alt="" /> : <span className={styles.logIcon}><ImagePlus size={20} /></span>}
+                <span className={styles.logText}>
+                    <span className={styles.logTitle}>{log.title}</span>
+                    <span className={styles.logMeta}>{t("workbench.itemCount", { count: log.imageCount })} · {formatDuration(log.durationMs)}{log.failCount ? ` · ${t("workbench.failCount", { count: log.failCount })}` : ""}</span>
+                    <span className={styles.logMeta}>{log.time}</span>
                 </span>
-            )}
-            <span className="min-w-0 flex-1 space-y-0.5">
-                <span className="block truncate text-sm font-medium leading-snug">{log.title}</span>
-                <span className="block truncate text-[11px] leading-snug text-stone-400">
-                    {t("workbench.itemCount", { count: log.imageCount })} · {formatDuration(log.durationMs)} · {log.time}
-                    {log.failCount ? ` · ${t("workbench.failCount", { count: log.failCount })}` : ""}
-                </span>
-            </span>
-        </button>
+            </button>
+        </div>
     );
 }
 

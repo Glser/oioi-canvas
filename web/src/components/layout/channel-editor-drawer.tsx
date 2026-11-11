@@ -86,17 +86,17 @@ export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: 
             <div className="mt-6 mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
                     <div className="text-sm font-semibold">{t("config.channelEditor.models")}</div>
-                    <div className="mt-0.5 text-xs text-stone-500">{t("config.channelEditor.modelDescription", { count: draft.models.length })}</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">{t("config.channelEditor.modelDescription", { count: draft.models.length })}</div>
                 </div>
                 <Button type="primary" className="!h-8 !rounded-full !px-3.5 !text-xs font-medium" icon={<ListPlus className="size-3.5" />} onClick={() => setSelectOpen(true)}>
                     {t("config.channelEditor.selectModels")}
                 </Button>
             </div>
 
-            <div className="space-y-2 rounded-2xl border border-black/[0.06] bg-stone-50/70 p-2.5 shadow-xs dark:border-white/[0.08] dark:bg-stone-800/50">
+            <div className="space-y-2 rounded-2xl border border-border bg-muted p-2.5 shadow-xs ">
                 {draft.models.length ? (
                     draft.models.map((model) => (
-                        <div key={model.name} className="flex flex-wrap items-center gap-3 rounded-xl border border-black/[0.04] bg-white/80 px-3 py-2 shadow-xs transition-colors hover:border-black/10 dark:border-white/[0.06] dark:bg-stone-900/60 dark:hover:border-white/15">
+                        <div key={model.name} className="flex flex-wrap items-center gap-3 rounded-xl border border-black/[0.04] bg-card px-3 py-2 shadow-xs transition-colors hover:border-black/10 dark:border-white/[0.06] dark:hover:border-white/15">
                             <span className="min-w-0 flex-1 truncate text-sm" title={model.name}>
                                 {model.name}
                             </span>
@@ -110,7 +110,7 @@ export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: 
                         </div>
                     ))
                 ) : (
-                    <div className="px-2 py-8 text-center text-sm text-stone-500">{t("config.channelEditor.empty")}</div>
+                    <div className="px-2 py-8 text-center text-sm text-muted-foreground">{t("config.channelEditor.empty")}</div>
                 )}
             </div>
 

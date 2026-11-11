@@ -43,14 +43,14 @@ export function ConfigLocalStorage({ active }: { active: boolean }) {
 
     return (
         <div className="space-y-3">
-            <section className="rounded-2xl border border-black/[0.06] bg-stone-50/70 p-4 shadow-xs dark:border-white/[0.08] dark:bg-stone-800/50">
+            <section className="py-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                        <div className="flex items-center gap-2 text-sm font-semibold text-stone-900 dark:text-stone-100">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
                             <Database className="size-4" />
                             {t("config.localStorage.title")}
                         </div>
-                        <div className="mt-1 text-xs text-stone-500">{t("config.localStorage.description")}</div>
+                        <div className="mt-1 text-xs text-muted-foreground">{t("config.localStorage.description")}</div>
                     </div>
                     <Button className="!h-8 !rounded-full !px-3.5 !text-xs font-medium" icon={<RefreshCw className="size-3.5" />} loading={loading} onClick={() => void refresh()}>
                         {t("config.localStorage.refresh")}
@@ -67,7 +67,7 @@ export function ConfigLocalStorage({ active }: { active: boolean }) {
                             <StorageMetric icon={<Layers3 className="size-4" />} label={t("config.localStorage.quota")} value={formatStorageBytes(usage.quota)} hint={t("config.localStorage.quotaHint")} />
                         </div>
                         <div className="mt-4">
-                            <div className="mb-1 flex justify-between text-xs text-stone-500">
+                            <div className="mb-1 flex justify-between text-xs text-muted-foreground">
                                 <span>{t("config.localStorage.quotaProgress")}</span>
                                 <span className="tabular-nums">{percent.toFixed(2)}%</span>
                             </div>
@@ -77,11 +77,11 @@ export function ConfigLocalStorage({ active }: { active: boolean }) {
                 ) : null}
             </section>
             {usage?.databases.map((database) => (
-                <section key={database.name} className="overflow-hidden rounded-2xl border border-black/[0.06] bg-stone-50/70 shadow-xs dark:border-white/[0.08] dark:bg-stone-800/50">
-                    <div className="flex items-center justify-between gap-3 border-b border-black/[0.06] px-4 py-3 dark:border-white/[0.08]">
+                <section key={database.name} className="min-w-0">
+                    <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 ">
                         <div className="min-w-0">
                             <div className="truncate text-sm font-semibold">{t("config.localStorage.mainDatabase")}</div>
-                            <div className="mt-0.5 truncate font-mono text-[11px] text-stone-500">{database.name} · v{database.version}</div>
+                            <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">{database.name} · v{database.version}</div>
                         </div>
                         <div className="shrink-0 text-sm font-medium tabular-nums">{formatStorageBytes(database.bytes)}</div>
                     </div>
@@ -90,9 +90,9 @@ export function ConfigLocalStorage({ active }: { active: boolean }) {
                             <div key={store.name} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-4 px-4 py-3 text-sm">
                                 <div className="min-w-0">
                                     <div className="truncate font-medium">{storeLabel(store.name, t)}</div>
-                                    <div className="mt-0.5 truncate font-mono text-[11px] text-stone-500">{store.name}</div>
+                                    <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">{store.name}</div>
                                 </div>
-                                <div className="text-right text-xs text-stone-500 tabular-nums">{t("config.localStorage.records", { count: store.records })}</div>
+                                <div className="text-right text-xs text-muted-foreground tabular-nums">{t("config.localStorage.records", { count: store.records })}</div>
                                 <div className="w-20 text-right font-medium tabular-nums">{formatStorageBytes(store.bytes)}</div>
                             </div>
                         ))}
@@ -105,10 +105,10 @@ export function ConfigLocalStorage({ active }: { active: boolean }) {
 
 function StorageMetric({ icon, label, value, hint }: { icon: ReactNode; label: string; value: string; hint: string }) {
     return (
-        <div className="rounded-xl border border-black/[0.04] bg-white/80 p-3.5 shadow-xs dark:border-white/[0.06] dark:bg-stone-900/60">
-            <div className="flex items-center gap-1.5 text-xs text-stone-500 dark:text-stone-400">{icon}{label}</div>
-            <div className="mt-2 text-xl font-semibold tabular-nums text-stone-900 dark:text-stone-100">{value}</div>
-            <div className="mt-1 text-[11px] text-stone-400">{hint}</div>
+        <div className="py-3">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">{icon}{label}</div>
+            <div className="mt-2 text-xl font-semibold tabular-nums text-foreground">{value}</div>
+            <div className="mt-1 text-[11px] text-muted-foreground">{hint}</div>
         </div>
     );
 }
