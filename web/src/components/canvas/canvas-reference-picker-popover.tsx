@@ -1,3 +1,4 @@
+import { Tooltip } from "antd";
 import { createPortal } from "react-dom";
 import React, { useEffect, useMemo, useState } from "react";
 import { Check, Eye, FileText, Image as ImageIcon, LayoutGrid, Link2, Music2, Search, Video, X } from "lucide-react";
@@ -202,18 +203,20 @@ export function CanvasReferencePickerPopover({
                                   className="max-w-[90vw] max-h-[90vh] object-contain block select-none"
                               />
                               {/* Close button located tightly on the top-right corner of the image card */}
-                              <button
-                                  type="button"
-                                  title="关闭预览"
-                                  onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      setPreviewImageUrl(null);
-                                  }}
-                                  className="absolute top-3 right-3 flex items-center justify-center size-8 rounded-full bg-stone-900/80 hover:bg-stone-900 text-white backdrop-blur-md border border-white/30 transition-all cursor-pointer shadow-xl hover:scale-110 active:scale-95 z-20"
-                              >
-                                  <X className="size-4 stroke-[2.5]" />
-                              </button>
+                              <Tooltip title="关闭预览">
+                                  <button
+                                      type="button"
+                                      aria-label="关闭预览"
+                                      onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setPreviewImageUrl(null);
+                                      }}
+                                      className="absolute top-3 right-3 flex items-center justify-center size-8 rounded-full bg-stone-900/80 hover:bg-stone-900 text-white backdrop-blur-md border border-white/30 transition-all cursor-pointer shadow-xl hover:scale-110 active:scale-95 z-20"
+                                  >
+                                      <X className="size-4 stroke-[2.5]" />
+                                  </button>
+                              </Tooltip>
                           </div>
                       </div>,
                       document.body
@@ -302,21 +305,23 @@ function NodePickerCard({
 
                 {/* Eye Zoom Button floating directly on the top-right of the image */}
                 {kind === "image" && originalImage ? (
-                    <button
-                        type="button"
-                        title="放大查看"
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onPreviewImage(originalImage);
-                        }}
-                        className="pointer-events-auto flex items-center justify-center size-6 bg-transparent text-white opacity-0 group-hover:opacity-100 transition-all duration-150 hover:scale-125 active:scale-95 cursor-pointer"
-                        style={{
-                            filter: "drop-shadow(0 0 1.5px rgba(0,0,0,0.95)) drop-shadow(0 1px 3px rgba(0,0,0,0.95))",
-                        }}
-                    >
-                        <Eye className="size-3.5 stroke-[2.6] text-white" />
-                    </button>
+                    <Tooltip title="放大查看">
+                        <button
+                            type="button"
+                            aria-label="放大查看"
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onPreviewImage(originalImage);
+                            }}
+                            className="pointer-events-auto flex items-center justify-center size-6 bg-transparent text-white opacity-0 group-hover:opacity-100 transition-all duration-150 hover:scale-125 active:scale-95 cursor-pointer"
+                            style={{
+                                filter: "drop-shadow(0 0 1.5px rgba(0,0,0,0.95)) drop-shadow(0 1px 3px rgba(0,0,0,0.95))",
+                            }}
+                        >
+                            <Eye className="size-3.5 stroke-[2.6] text-white" />
+                        </button>
+                    </Tooltip>
                 ) : null}
             </div>
 
@@ -334,24 +339,26 @@ function NodePickerCard({
                 </div>
 
                 {/* Connect Link Button floating directly on the card at bottom-right */}
-                <button
-                    type="button"
-                    title={isConnected ? "断开连线" : "连线到当前卡片"}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onConnectToggle();
-                    }}
-                    className={`flex items-center justify-center size-6 shrink-0 bg-transparent text-white cursor-pointer transition-all duration-150 hover:scale-125 active:scale-95 ${
-                        isConnected
-                            ? "scale-110"
-                            : "opacity-90 hover:opacity-100"
-                    }`}
-                    style={{
-                        filter: "drop-shadow(0 0 1.5px rgba(0,0,0,0.95)) drop-shadow(0 1px 3px rgba(0,0,0,0.95))",
-                    }}
-                >
-                    <Link2 className={`size-3.5 stroke-[2.6] text-white ${isConnected ? "stroke-[3]" : ""}`} />
-                </button>
+                <Tooltip title={isConnected ? "断开连线" : "连线到当前卡片"}>
+                    <button
+                        type="button"
+                        aria-label={isConnected ? "断开连线" : "连线到当前卡片"}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onConnectToggle();
+                        }}
+                        className={`flex items-center justify-center size-6 shrink-0 bg-transparent text-white cursor-pointer transition-all duration-150 hover:scale-125 active:scale-95 ${
+                            isConnected
+                                ? "scale-110"
+                                : "opacity-90 hover:opacity-100"
+                        }`}
+                        style={{
+                            filter: "drop-shadow(0 0 1.5px rgba(0,0,0,0.95)) drop-shadow(0 1px 3px rgba(0,0,0,0.95))",
+                        }}
+                    >
+                        <Link2 className={`size-3.5 stroke-[2.6] text-white ${isConnected ? "stroke-[3]" : ""}`} />
+                    </button>
+                </Tooltip>
             </div>
         </div>
     );

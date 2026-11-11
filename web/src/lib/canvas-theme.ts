@@ -3,6 +3,7 @@ export type CanvasBackgroundMode = "dots" | "lines" | "blank";
 
 export const canvasThemes = {
     light: {
+        connection: { flowHighlight: "#18181b", flowTip: "#ffffff" },
         canvas: {
             background: "#f4f2ed",
             dot: "rgba(40, 40, 40, 0.20)",
@@ -31,6 +32,7 @@ export const canvasThemes = {
         },
     },
     dark: {
+        connection: { flowHighlight: "#ffffff", flowTip: "#ffffff" },
         canvas: {
             background: "#151515",
             dot: "rgba(244, 244, 244, 0.20)",

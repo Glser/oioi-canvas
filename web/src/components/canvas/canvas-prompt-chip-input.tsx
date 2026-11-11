@@ -7,7 +7,7 @@ import { canvasThemes } from "@/lib/canvas-theme";
 import { isImeComposing, isPlainEnterKey } from "@/lib/keyboard-event";
 import { useThemeStore } from "@/stores/use-theme-store";
 import type { CanvasResourceReference } from "@/lib/canvas/canvas-resource-references";
-import { CanvasImageDetailModal } from "./canvas-image-detail-modal";
+import { ImageDetailModal } from "@/components/image-detail-modal";
 
 type Props = {
     value: string;
@@ -193,10 +193,7 @@ export function CanvasPromptChipInput({ value, references, onChange, onSubmit, c
                 <MentionMenu rect={mention.rect} references={candidates} activeIndex={Math.min(activeIndex, candidates.length - 1)} theme={theme} onSelect={insertReference} />
             ) : null}
             {previewReference?.previewUrl
-                ? createPortal(
-                      <CanvasImageDetailModal imageUrl={previewReference.previewUrl} imageTitle={previewReference.title} open onClose={() => setPreviewReference(null)} />,
-                      document.body,
-                  )
+                ? <ImageDetailModal image={{ url: previewReference.previewUrl, title: previewReference.title }} open onClose={() => setPreviewReference(null)} />
                 : null}
         </div>
     );

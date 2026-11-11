@@ -48,7 +48,7 @@ export function NewApiAccountPanel() {
                 <div className="flex flex-wrap gap-2">
                     {session ? <Button icon={<LogOut className="size-4" />} loading={loggingOut} disabled={loading} onClick={signOut}>退出账户</Button> : <Button type="primary" icon={<LogIn className="size-4" />} disabled={loading} onClick={startNewApiLogin}>登录 / 注册</Button>}
                     <Button icon={<RefreshCw className="size-4" />} disabled={loading || loggingOut} onClick={() => void connect().catch(() => {})}>重新获取</Button>
-                    <Button href={`${NEW_API_BASE_URL}/dashboard`} target="_blank" rel="noopener noreferrer">账户中心</Button>
+                    <Button type="text" href={`${NEW_API_BASE_URL}/dashboard`} target="_blank" rel="noopener noreferrer">账户中心</Button>
                 </div>
             </div>
             {loading ? <Skeleton active title={false} paragraph={{ rows: 2 }} /> : null}

@@ -6,7 +6,7 @@ import { dataUrlToFile, readFileAsDataUrl } from "@/lib/image-utils";
 import { clampVideoSeconds, computeVideoSize, inferVideoRatio } from "@/lib/media-size";
 import { getMediaBlob, resolveMediaUrl, uploadMediaFile, type UploadedFile } from "@/services/file-storage";
 import { imageToDataUrl } from "@/services/image-storage";
-import { boolConfig, buildApiUrl, modelOptionName, prepareModelRequestConfig, resolveModelScript, withLocalProxy, type AiConfig } from "@/stores/use-config-store";
+import { boolConfig, buildApiUrl, modelOptionName, prepareModelRequestConfig, resolveModelScript, type AiConfig } from "@/stores/use-config-store";
 import { newApiRequestSignal } from "@/stores/use-newapi-store";
 import { runModelPlugin } from "./model-plugin";
 import type { ReferenceImage } from "@/types/image";
@@ -72,7 +72,7 @@ function videoTaskFailed(message: string) {
 
 export async function createVideoGenerationTask(config: AiConfig, prompt: string, references: ReferenceImage[] = [], options?: VideoMediaOptions): Promise<VideoGenerationTask> {
     const selectedModel = (config.model || config.videoModel).trim();
-    const requestConfig = await prepareModelRequestConfig(config, selectedModel);
+    const requestConfig = await prepareModelRequestConfig(config, selectedModel, "video");
     options = { ...options, signal: newApiRequestSignal(options?.signal) };
     const script = resolveModelScript(config, selectedModel);
     if (script) return createPluginVideoTask(requestConfig, selectedModel, script, prompt, references, options);
@@ -86,7 +86,7 @@ export async function pollVideoGenerationTask(config: AiConfig, task: VideoGener
         const result = pluginVideoResults.get(task.id);
         return result ? { status: "completed", result } : { status: "failed", error: apiText("pluginVideoExpired") };
     }
-    const requestConfig = await prepareModelRequestConfig(config, task.model);
+    const requestConfig = await prepareModelRequestConfig(config, task.model, "video");
     options = { ...options, signal: newApiRequestSignal(options?.signal) };
     assertVideoConfig(requestConfig, requestConfig.model);
     if (task.provider === "gemini") return pollGeminiVideoTask(requestConfig, task, options);
@@ -199,7 +199,7 @@ async function pollOpenAIVideoTask(config: AiConfig, task: VideoGenerationTask, 
 
 async function videoResultFromUrl(url: string, options?: RequestOptions): Promise<VideoGenerationResult> {
     try {
-        const response = await axios.get<Blob>(withLocalProxy(url), { responseType: "blob", signal: options?.signal });
+        const response = await axios.get<Blob>(url, { responseType: "blob", signal: options?.signal });
         await assertVideoBlob(response.data);
         return { blob: response.data };
     } catch (error) {
@@ -267,11 +267,11 @@ function geminiVideoBaseUrl(config: Pick<AiConfig, "baseUrl">) {
 }
 
 function geminiVideoUrl(config: Pick<AiConfig, "baseUrl">, model: string, action: string) {
-    return withLocalProxy(`${geminiVideoBaseUrl(config)}/models/${encodeURIComponent(modelOptionName(model).replace(/^models\//, ""))}:${action}`);
+    return `${geminiVideoBaseUrl(config)}/models/${encodeURIComponent(modelOptionName(model).replace(/^models\//, ""))}:${action}`;
 }
 
 function geminiOperationUrl(config: Pick<AiConfig, "baseUrl">, name: string) {
-    return withLocalProxy(`${geminiVideoBaseUrl(config)}/${name.replace(/^\//, "")}`);
+    return `${geminiVideoBaseUrl(config)}/${name.replace(/^\//, "")}`;
 }
 
 function geminiVideoHeaders(config: Pick<AiConfig, "apiKey">) {

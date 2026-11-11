@@ -1,0 +1,24 @@
+.panel { min-width: 0; color: var(--foreground); }
+.panel :global(.ant-form-item) { margin-bottom: 0; }
+.panel [data-slot="select-trigger"] { height: 36px; border-radius: 8px; box-shadow: none; }
+.tabs :global(.ant-tabs-nav) { flex-shrink: 0; margin-bottom: 24px; }
+.tabs :global(.ant-tabs-nav)::before { border: 0; }
+.tabs :global(.ant-tabs-tab) { margin: 0 !important; padding: 8px 12px; border-radius: 8px; }
+.tabs :global(.ant-tabs-tab + .ant-tabs-tab) { margin-left: 4px !important; }
+.tabs :global(.ant-tabs-tab:not(.ant-tabs-tab-disabled)):hover { background: var(--muted); }
+.tabs :global(.ant-tabs-tab-active) { background: var(--accent); }
+.tabs :global(.ant-tabs-ink-bar) { display: none; }
+.tabs :global(.ant-tabs-tab-btn) { font-size: 13px; }
+.tabs :global(.ant-tabs-tab-active .ant-tabs-tab-btn) { font-weight: 500; text-shadow: none; }
+.modal :global(.ant-modal-header) { margin-bottom: 20px; }
+.modal :global(.ant-modal-body) { height: min(500px, calc(100dvh - 200px)); }
+.modal .panel { display: flex; flex-direction: column; height: 100%; }
+.modal .tabs { flex: 1; min-height: 0; }
+.modal .tabs :global(.ant-tabs-body-holder) { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; padding-right: 4px; }
+.modal :global(.ant-btn) { border-radius: 8px; }
+@media (max-width: 575px) {
+    .modal :global(.ant-modal-container) { padding: 20px 16px; }
+    .modal :global(.ant-modal-body) { height: calc(100dvh - 200px); }
+    .tabs :global(.ant-tabs-nav) { margin-bottom: 16px; }
+    .tabs :global(.ant-tabs-tab) { padding: 8px 10px; }
+}

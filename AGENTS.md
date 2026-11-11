@@ -37,6 +37,8 @@
 - 管理后台主题、背景、卡片阴影、表格配色等统一在 `web/src/lib/app-theme.ts`、`AppProviders` 或必要的全局 CSS 作用域中配置；页面私有组件不要自己写 `dark ? ...` 主题分支。
 - Ant Design 的 Dropdown、Menu、Select、Cascader、TreeSelect 等弹层背景、悬停态和选中态颜色统一通过 `web/src/lib/app-theme.ts` 的全局 Alias Token 与组件 Token 配置；不要在业务组件内为单个弹层覆盖颜色。
 - 导航、Logo、图标按钮及操作入口的悬停说明统一使用 Ant Design `Tooltip`，继承全局主题配置；不要用 DOM `title` 或 SVG `<title>` 作为悬停提示，也不要同时保留原生提示和 Tooltip。图标控件仍须提供 `aria-label`；自定义触发组件须正确传递事件/ref，或在组件内部直接包裹真实 DOM 控件。验收时同时检查鼠标悬停、键盘聚焦和浅深主题。
+- Tooltip 的文字、背景、边框、圆角和间距统一定义在 `app-theme.ts` 的基础主题及 `AppProviders` 中，不能只配置工作台路由；首页、生图和无限画布必须共用同一套提示样式，画布工具栏不要另写自绘提示。验收须跨这三个页面比较浅深主题的实际提示颜色。
+- 画布悬浮提示排查必须覆盖各类节点标题、单选/多选工具栏、批量图片操作、参考图、参数入口及节点引用的共享组件（如 ModelPicker）；禁止在这些组件内单独覆盖 Tooltip 配色，不能仅检查顶部导航或底部工具栏。
 - 组件优先使用函数组件和现有 hooks，不新增大型状态管理方案。
 - UI 图标优先使用 `lucide-react` 或项目已经使用的 Ant Design 图标。
 - 页面文案保持中文。

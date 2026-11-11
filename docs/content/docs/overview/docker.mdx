@@ -25,7 +25,7 @@ crpi-pd9pvjyewqjvbrn0.cn-beijing.personal.cr.aliyuncs.com/glser/oioi-canvas
 
 也可以在 **Actions → Docker image → Run workflow** 中选择 `feat/local-agent-mcp-bridge` 分支手动运行。`git_ref` 留空构建所选分支，也可指定本仓库的其他分支、标签或提交。工作流沿用已有文件，可在默认分支尚未合并改动时通过所选分支运行。
 
-每次成功发布同时更新 `latest` 和实际源码提交的 12 位 SHA 标签。手动构建其他提交也会更新 `latest`；需要固定版本时使用 SHA 标签。构建结果摘要提供完整镜像地址、源码提交和镜像摘要。此流程只发布镜像，不会自动更新服务器。
+每次成功发布同时更新 `latest`、实际源码提交的 12 位 SHA 标签，以及根目录 `VERSION` 中的版本标签（例如 `v1.0.2`）。手动构建其他提交也会更新 `latest`；需要固定版本时使用版本号或 SHA 标签。构建结果摘要提供完整镜像地址、源码提交和镜像摘要。此流程只发布镜像，不会自动更新服务器。
 
 ## 服务器拉取与启动
 
@@ -47,7 +47,7 @@ docker compose pull
 docker compose up -d
 ```
 
-默认端口为 `3000`，已有服务占用时先调整 Compose 左侧宿主机端口。后续更新同样执行 `docker compose pull` 和 `docker compose up -d`；回退版本时，将 Compose 的镜像标签由 `latest` 改为目标提交的 SHA 标签再执行上述命令。
+默认端口为 `3000`，已有服务占用时先调整 Compose 左侧宿主机端口。后续更新同样执行 `docker compose pull` 和 `docker compose up -d`；回退版本时，将 Compose 的镜像标签由 `latest` 改为目标版本号或提交 SHA 标签再执行上述命令。
 
 将 `flow.oioi.lat` 配置 HTTPS 并反向代理到容器映射端口。容器的 `nginx.conf` 已包含 SPA 路由回退，部署时需保留，以支持 `/auth/callback` 和画布路由直接访问。镜像发布、静态资源加载和生产域名登录链路仍需实际部署验收。
 

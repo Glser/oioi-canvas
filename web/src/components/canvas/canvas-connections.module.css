@@ -1,0 +1,65 @@
+/* Matches New API topology-flow's layered traffic beam and timing. */
+.traffic {
+    fill: none;
+    pointer-events: none;
+    stroke-linecap: round;
+    animation: appear 200ms ease-out;
+}
+
+.traffic path {
+    stroke-dasharray: var(--beam-length) calc(100px - var(--beam-length));
+    animation: flow 1.2s cubic-bezier(0.32, 0.25, 0.68, 0.75) infinite;
+}
+
+.trail {
+    --beam-length: 20px;
+    stroke-width: 10px;
+    opacity: 0.45;
+    filter: blur(2px);
+}
+
+.beam {
+    --beam-length: 12px;
+    stroke: color-mix(in oklab, currentColor 78%, var(--beam-highlight));
+    stroke-width: 4.5px;
+}
+
+:global(.dark) .beam {
+    stroke: color-mix(in oklab, currentColor 80%, var(--beam-highlight));
+}
+
+.tip {
+    --beam-length: 4px;
+    stroke: var(--beam-tip);
+    stroke-width: 2px;
+}
+
+@keyframes appear {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes flow {
+    from { stroke-dashoffset: var(--beam-length); }
+    to { stroke-dashoffset: calc(var(--beam-length) - 100px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .traffic,
+    .traffic path {
+        animation: none;
+    }
+
+    .traffic path {
+        stroke-dasharray: none;
+    }
+
+    .trail {
+        filter: none;
+        opacity: 0.16;
+    }
+
+    .tip {
+        display: none;
+    }
+}

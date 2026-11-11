@@ -72,22 +72,8 @@ export function CanvasSelectionToolbar({
 }
 
 function SelectionAction({ title, label, icon, onClick }: { title: string; label: string; icon: ReactNode; onClick: () => void }) {
-    const isDark = useThemeStore((state) => state.theme) === "dark";
     return (
-        <Tooltip
-            title={title}
-            placement="top"
-            mouseEnterDelay={0.2}
-            color={isDark ? "#27272a" : "#ffffff"}
-            styles={{
-                root: {
-                    color: isDark ? "#fafafa" : "#242529",
-                    boxShadow: isDark ? "0 8px 24px rgba(0,0,0,.36)" : "0 8px 24px rgba(15,23,42,.16)",
-                    fontSize: 13,
-                    fontWeight: 500,
-                },
-            }}
-        >
+        <Tooltip title={title} placement="top" mouseEnterDelay={0.2}>
             <button
                 type="button"
                 className="group relative flex h-12 items-center whitespace-nowrap px-1.5 text-[#242529] dark:text-[#f4f4f5]"

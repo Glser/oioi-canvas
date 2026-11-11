@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, MouseEvent, PointerEvent } from "react";
-import { createPortal } from "react-dom";
 import { Button } from "antd";
 import { FileText, Group, Image as ImageIcon, Music2, Video, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -8,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import i18n from "@/i18n";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { useThemeStore } from "@/stores/use-theme-store";
-import { CanvasImageDetailModal } from "./canvas-image-detail-modal";
+import { ImageDetailModal } from "@/components/image-detail-modal";
 import type { NodeGenerationInput } from "./canvas-node-generation";
 import { CanvasNodeReferenceBar } from "./canvas-node-reference-bar";
 import type { CanvasNodeData } from "@/types/canvas";
@@ -187,7 +186,7 @@ export function CanvasConfigComposer({ nodeId, nodes, value, inputs, connectedNo
                 {mention && candidates.length ? <MentionMenu inputs={candidates} allInputs={inputs} activeIndex={Math.min(activeIndex, candidates.length - 1)} theme={theme} onSelect={insertReference} /> : null}
             </div>
             {previewInput?.type === "image" && previewInput.image
-                ? createPortal(<CanvasImageDetailModal imageUrl={previewInput.image.dataUrl} imageTitle={previewInput.title} open onClose={() => setPreviewInput(null)} />, document.body)
+                ? <ImageDetailModal image={{ url: previewInput.image.dataUrl, title: previewInput.title }} open onClose={() => setPreviewInput(null)} />
                 : null}
         </div>
     );

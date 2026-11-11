@@ -33,7 +33,7 @@ import { CanvasNodeSplitDialog, type CanvasImageSplitParams } from "@/components
 import { CanvasNodeUpscaleDialog, type CanvasImageUpscaleParams } from "@/components/canvas/canvas-node-upscale-dialog";
 import { buildNodeGenerationContext, buildNodeGenerationInputs, buildNodeResponseMessages, hydrateNodeGenerationContext, type NodeGenerationInput } from "@/components/canvas/canvas-node-generation";
 import { CanvasNodeHoverToolbar, CanvasNodeInfoModal } from "@/components/canvas/canvas-node-hover-toolbar";
-import { CanvasImageDetailModal } from "@/components/canvas/canvas-image-detail-modal";
+import { ImageDetailModal } from "@/components/image-detail-modal";
 import { CanvasSelectionToolbar } from "@/components/canvas/canvas-selection-toolbar";
 import { InfiniteCanvas } from "@/components/canvas/infinite-canvas";
 import { Minimap } from "@/components/canvas/canvas-mini-map";
@@ -215,7 +215,7 @@ function InfiniteCanvasPage() {
     const updateProject = useCanvasStore((state) => state.updateProject);
     const renameProject = useCanvasStore((state) => state.renameProject);
     const deleteProjects = useCanvasStore((state) => state.deleteProjects);
-    const currentProject = useCanvasStore((state) => state.projects.find((project) => project.id === projectId));
+    const currentProject = useCanvasStore((state) => state.projects.find((project) => project.id === projectId) || (state.draftProject?.id === projectId ? state.draftProject : null));
     const theme = canvasThemes[useThemeStore((state) => state.theme)];
     const [nodes, setNodes] = useState<CanvasNodeData[]>([]);
     const [connections, setConnections] = useState<CanvasConnection[]>([]);
@@ -735,7 +735,8 @@ function InfiniteCanvasPage() {
     const angleNode = angleNodeId ? nodeById.get(angleNodeId) || null : null;
     const contextMenuNode = contextMenu?.type === "node" ? nodeById.get(contextMenu.nodeId) || null : null;
     const previewNode = previewNodeId ? nodeById.get(previewNodeId) || null : null;
-    const previewContent = previewImageId ? previewNode?.metadata?.images?.find((image) => image.id === previewImageId)?.content : previewNode?.metadata?.content;
+    const previewImage = previewImageId ? previewNode?.metadata?.images?.find((image) => image.id === previewImageId) : previewNode?.metadata;
+    const previewContent = previewImage?.content;
     const hasMultipleSelectedNodes = selectedNodeIds.size > 1;
     const selectedNodes = useMemo(() => nodes.filter((node) => selectedNodeIds.has(node.id)), [nodes, selectedNodeIds]);
     const canGroupSelection = canGroupSelectedNodes(selectedNodeIds, nodes);
@@ -1194,7 +1195,7 @@ function InfiniteCanvasPage() {
     }, [cleanupAssetImages, deleteProjects, navigate, projectId]);
 
     const exportCurrentProject = useCallback(async () => {
-        const project = useCanvasStore.getState().projects.find((item) => item.id === projectId);
+        const project = useCanvasStore.getState().openProject(projectId);
         if (!project) return message.error(t("canvas.projectPage.notFound"));
         const hide = message.loading(t("canvas.projectPage.exporting"), 0);
         try {
@@ -3193,7 +3194,7 @@ function InfiniteCanvasPage() {
     if (!projectLoaded) return <CanvasRefreshShell />;
 
     return (
-        <main className="flex h-full min-h-0 overflow-hidden" style={{ background: theme.canvas.background, color: theme.node.text }}>
+        <main className="relative flex h-full min-h-0 overflow-hidden" style={{ background: theme.canvas.background, color: theme.node.text }}>
             <CanvasSidePanel nodes={nodes} selectedNodeIds={selectedNodeIds} onFocusNode={focusNode} onPreviewNode={setPreviewNodeId} onInsertAsset={handleAssetInsert} />
             <section className="relative min-w-0 flex-1 overflow-hidden">
                 <CanvasTopBar
@@ -3249,6 +3250,7 @@ function InfiniteCanvasPage() {
                                 from={from}
                                 to={to}
                                 active={selectedConnectionId === connection.id || relatedHighlight.connectionIds.has(connection.id)}
+                                generating={to.metadata?.status === NODE_STATUS_LOADING || runningNodeId === to.id}
                                 onSelect={() => {
                                     setSelectedConnectionId(connection.id);
                                     setSelectedNodeIds(new Set());
@@ -3456,9 +3458,21 @@ function InfiniteCanvasPage() {
 
                 {angleNode?.metadata?.content ? <CanvasNodeAngleDialog dataUrl={angleNode.metadata.content} open={Boolean(angleNode)} onClose={() => setAngleNodeId(null)} onConfirm={(params) => void generateAngleNode(angleNode!, params)} /> : null}
 
-                <CanvasImageDetailModal
-                    node={previewNode}
-                    imageId={previewImageId}
+                <ImageDetailModal
+                    image={previewContent ? {
+                        url: previewContent,
+                        title: previewNode?.title,
+                        nodeId: previewNode?.id,
+                        storageKey: previewImage?.storageKey,
+                        width: previewImage?.naturalWidth,
+                        height: previewImage?.naturalHeight,
+                        bytes: previewImage?.bytes,
+                        mimeType: previewImage?.mimeType,
+                        prompt: previewNode?.metadata?.prompt,
+                        model: previewNode?.metadata?.model,
+                        quality: previewNode?.metadata?.quality,
+                        generationType: previewNode?.metadata?.generationType,
+                    } : null}
                     open={Boolean(previewContent)}
                     onClose={() => {
                         setPreviewNodeId(null);

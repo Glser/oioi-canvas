@@ -3,7 +3,7 @@ import axios from "axios";
 import i18n from "@/i18n";
 import { audioMimeType, normalizeAudioFormatValue, normalizeAudioSpeedValue, normalizeAudioVoiceValue } from "@/lib/audio-generation";
 import { uploadMediaFile, type UploadedFile } from "@/services/file-storage";
-import { buildApiUrl, prepareModelRequestConfig, resolveModelScript, withLocalProxy, type AiConfig } from "@/stores/use-config-store";
+import { buildApiUrl, prepareModelRequestConfig, resolveModelScript, type AiConfig } from "@/stores/use-config-store";
 import { newApiRequestSignal } from "@/stores/use-newapi-store";
 import { runModelPlugin } from "./model-plugin";
 
@@ -22,7 +22,7 @@ function aiHeaders(config: AiConfig) {
 }
 
 export async function requestAudioGeneration(config: AiConfig, prompt: string, options?: RequestOptions): Promise<Blob> {
-    const requestConfig = await prepareModelRequestConfig(config, config.model || config.audioModel);
+    const requestConfig = await prepareModelRequestConfig(config, config.model || config.audioModel, "audio");
     options = { ...options, signal: newApiRequestSignal(options?.signal) };
     const model = requestConfig.model.trim();
     const format = normalizeAudioFormatValue(config.audioFormat);
@@ -78,7 +78,7 @@ async function audioPluginBlob(result: unknown, format: string): Promise<Blob> {
     }
     if (!source) throw new Error(apiText("scriptNoAudio"));
     const url = source.startsWith("data:") || /^https?:/i.test(source) ? source : `data:${audioMimeType(format)};base64,${source}`;
-    const blob = await (await fetch(withLocalProxy(url))).blob();
+    const blob = await (await fetch(url)).blob();
     return blob.type.startsWith("audio/") ? blob : new Blob([blob], { type: audioMimeType(format) });
 }
 

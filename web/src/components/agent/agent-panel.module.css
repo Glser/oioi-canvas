@@ -1,5 +1,4 @@
-.shell { padding: 0; background: var(--wb-bg); color: var(--wb-text); }
-.shell[data-open="true"] { padding: 72px 16px 20px 0; }
+.shell { padding: 72px 16px 20px 0; color: var(--wb-text); }
 .panel { border: 1px solid var(--wb-border); border-radius: 20px; background: var(--wb-surface); }
 .panel button:focus-visible, .panel summary:focus-visible { outline: 2px solid var(--wb-muted); outline-offset: 2px; }
-@media (max-width: 767px) { .shell { position: absolute; inset: 0 0 0 auto; padding: 0; } .shell[data-open="true"] { padding: 12px; } .panel { border-radius: 16px; } }
+@media (max-width: 767px) { .shell { padding: 12px; } .panel { border-radius: 16px; } }

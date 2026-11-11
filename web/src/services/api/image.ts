@@ -1,7 +1,7 @@
 import axios from "axios";
 
 import i18n from "@/i18n";
-import { buildApiUrl, prepareModelRequestConfig, resolveModelScript, withLocalProxy, type AiConfig, type ModelChannel } from "@/stores/use-config-store";
+import { buildApiUrl, prepareModelRequestConfig, resolveModelScript, type AiConfig, type ModelChannel } from "@/stores/use-config-store";
 import { newApiRequestSignal } from "@/stores/use-newapi-store";
 import { normalizePluginImages, runModelPlugin } from "./model-plugin";
 import { nanoid } from "nanoid";
@@ -9,6 +9,7 @@ import { dataUrlToFile } from "@/lib/image-utils";
 import { buildImageReferencePromptText } from "@/lib/image-reference-prompt";
 import { imageToDataUrl } from "@/services/image-storage";
 import { imageSizePresets, inferMediaScale } from "@/lib/media-size";
+import { supportsGeminiImageSize } from "@/lib/image-model-settings";
 import type { ReferenceImage } from "@/types/image";
 
 const apiText = (key: string, options?: Record<string, unknown>) => i18n.t(`apiErrors.${key}`, options);
@@ -121,7 +122,6 @@ const IMAGE_OUTPUT_FORMAT = "png";
 const IMAGE_REQUEST_TIMEOUT_MS = 10 * 60_000;
 
 const GEMINI_SUPPORTED_RATIOS = ["1:1", "1:4", "1:8", "2:3", "3:2", "3:4", "4:1", "4:3", "4:5", "5:4", "8:1", "9:16", "16:9", "21:9"];
-const GEMINI_IMAGE_SIZE_BY_QUALITY: Record<string, string> = { low: "1K", medium: "2K", high: "4K", standard: "1K", hd: "2K" };
 
 function normalizeQuality(quality: string) {
     const value = quality.trim().toLowerCase();
@@ -211,13 +211,13 @@ function resolveGeminiImageConfig(config: AiConfig) {
     const dimensions = parseImageDimensions(value);
     const ratio = dimensions ? `${dimensions.width}:${dimensions.height}` : value;
     const aspectRatio = value && value.toLowerCase() !== "auto" ? closestGeminiAspectRatio(ratio) : undefined;
-    const imageSize = supportsGeminiImageSize(config.model) ? resolveGeminiImageSize(config.quality, dimensions) : undefined;
+    const imageSize = supportsGeminiImageSize(config.model) ? resolveGeminiImageSize(dimensions) : undefined;
     const image = { ...(aspectRatio ? { aspectRatio } : {}), ...(imageSize ? { imageSize } : {}) };
     return Object.keys(image).length ? { imageConfig: image } : {};
 }
 
 function closestGeminiAspectRatio(value: string) {
-    const ratio = parseImageRatio(value);
+    const ratio = parseRatioValue(value);
     const target = ratio.width / ratio.height;
     return GEMINI_SUPPORTED_RATIOS.reduce((best, item) => {
         const current = parseRatioValue(item);
@@ -226,23 +226,16 @@ function closestGeminiAspectRatio(value: string) {
     });
 }
 
-function resolveGeminiImageSize(quality: string, dimensions: { width: number; height: number } | null) {
-    const normalizedQuality = normalizeQuality(quality);
-    if (normalizedQuality) return GEMINI_IMAGE_SIZE_BY_QUALITY[normalizedQuality];
+function resolveGeminiImageSize(dimensions: { width: number; height: number } | null) {
     if (!dimensions) return undefined;
     const size = `${dimensions.width}x${dimensions.height}`;
     const scale = inferMediaScale(size);
-    if (Object.values(imageSizePresets[scale]).includes(size)) return scale.toUpperCase();
+    if (["1k", "2k", "4k"].includes(scale) && Object.values(imageSizePresets[scale]).includes(size)) return scale.toUpperCase();
     const edge = Math.max(dimensions.width, dimensions.height);
     if (edge <= 768) return "512";
     if (edge <= 1536) return "1K";
     if (edge <= 3072) return "2K";
     return "4K";
-}
-
-function supportsGeminiImageSize(model: string) {
-    const value = model.toLowerCase();
-    return value.includes("gemini-3") || value.includes("3.1") || value.includes("3-pro");
 }
 
 function resolveImageSource(item: Record<string, unknown>) {
@@ -368,8 +361,8 @@ function geminiModelName(model: string) {
 
 function geminiApiUrl(config: Pick<AiConfig, "baseUrl" | "model">, action?: "generateContent" | "streamGenerateContent") {
     const baseUrl = geminiBaseUrl(config);
-    if (!action) return withLocalProxy(`${baseUrl}/models`);
-    return withLocalProxy(`${baseUrl}/models/${encodeURIComponent(geminiModelName(config.model))}:${action}`);
+    if (!action) return `${baseUrl}/models`;
+    return `${baseUrl}/models/${encodeURIComponent(geminiModelName(config.model))}:${action}`;
 }
 
 function geminiHeaders(config: Pick<AiConfig, "apiKey">) {
@@ -774,7 +767,7 @@ function parseGeminiImagePayload(payload: GeminiPayload) {
 }
 
 export async function requestGeneration(config: AiConfig, prompt: string, options?: RequestOptions) {
-    const requestConfig = await prepareModelRequestConfig(config, config.model || config.imageModel);
+    const requestConfig = await prepareModelRequestConfig(config, config.model || config.imageModel, "image");
     options = { ...options, signal: newApiRequestSignal(options?.signal) };
     const n = Math.max(1, Math.min(15, Math.floor(Math.abs(Number(config.count)) || 1)));
     const script = resolveModelScript(config, config.model || config.imageModel);
@@ -835,7 +828,7 @@ export async function requestGeneration(config: AiConfig, prompt: string, option
 }
 
 export async function requestEdit(config: AiConfig, prompt: string, references: ReferenceImage[], options?: RequestOptions) {
-    const requestConfig = await prepareModelRequestConfig(config, config.model || config.imageModel);
+    const requestConfig = await prepareModelRequestConfig(config, config.model || config.imageModel, "image");
     options = { ...options, signal: newApiRequestSignal(options?.signal) };
     const n = Math.max(1, Math.min(15, Math.floor(Math.abs(Number(config.count)) || 1)));
     const requestPrompt = buildImageReferencePromptText(prompt, references);
@@ -903,7 +896,7 @@ export async function requestEdit(config: AiConfig, prompt: string, references: 
 }
 
 export async function requestImageQuestion(config: AiConfig, messages: AiTextMessage[], onDelta: (text: string) => void, options?: RequestOptions) {
-    const requestConfig = await prepareModelRequestConfig(config, config.model || config.textModel);
+    const requestConfig = await prepareModelRequestConfig(config, config.model || config.textModel, "text");
     options = { ...options, signal: newApiRequestSignal(options?.signal) };
     const script = resolveModelScript(config, config.model || config.textModel);
     if (script) {

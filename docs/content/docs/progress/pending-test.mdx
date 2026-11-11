@@ -6,6 +6,46 @@ description: Implemented changes that still need manual verification
 
 # Pending Tests
 
+- v1.0.2 发布：版本号以澳洲服务器已运行的 v1.0.1 为基准递增；GitHub Actions 增加 VERSION 镜像标签及版本标签元数据，同时保留 SHA 与 latest。服务器部署使用版本镜像并保留旧容器用于回退，生产生成、登录与浏览器本地数据仍需实际验收。
+
+- `gemini-image` 端点支持：`category=image` 且声明 `gemini-image` 的模型可用于生图；同时声明多个图片端点时优先采用该专用端点，文生图与图生图均走 Gemini `generateContent`，保留网关模型别名。该端点不作为聊天、视频或音频协议使用。隔离浏览器已拦截并确认 `nano-banana-2` 四张文生图发出四次请求、单张参考图生成一次，均携带 `4:3 + 2K`；参数面板隐藏质量选项，原 `gemini` 与 `image-generation` 路由保持正确，无页面运行错误。未调用真实模型，未执行构建或类型检查；真实网关转发待验收。已检查 todo，无对应条目需要迁移，线上联调待办保留。
+
+- 模型调用与 Gemini 生图参数：以用户确认的 `nano-banana-2 → gemini-3.1-flash-image` 为基准，保留网关别名请求 `/v1beta/models/nano-banana-2:generateContent`；`4:3 + 2K` 分别发送 `imageConfig.aspectRatio=4:3` 与 `imageConfig.imageSize=2K`。分辨率独立于质量，工作台和画布共享参数面板隐藏 Gemini 独立质量选项，未知 Gemini 别名不假定支持可选分辨率。工作台每个结果位只请求一张，单张重试同样只请求一张，批次记录保留选择张数。创作模型必须具有网关声明的已知分类及受支持端点，缺少/未知分类、缺少端点、仅 compact 或不支持的协议不再猜测调用；视频无可用模型时不回退到图片模型，图片/编辑/文本/视频/音频服务发送前校验能力。`/api/pricing` 补充分类及端点，但不扩展模型 Key 的可见列表。已在隔离浏览器通过拦截请求验证工作台四张四次、失败单张重试一次、1K/2K/4K/自动参数、四张参考图生成、跨能力请求拦截、工作台与画布质量控件切换、未知 Gemini 别名隐藏分辨率、OpenAI 请求不受影响及元数据合并，无页面运行错误。未调用真实模型、未执行构建/类型检查/测试套件；实际网关转发及计费待用户验收。已检查 todo，线上联调待办仍保留。
+
+- 生图等待动效：参照 BoardUI AI Image Generation 的公开预览，以独立 Canvas 点阵波纹替换结果卡片转圈，底部显示「生成中」，沿用页面真实等待计时；新图片加载完成后使用羽化径向遮罩与模糊过渡显现，历史图片直接显示。点阵颜色继承工作台主题，随卡片尺寸适配，离屏/后台暂停，减少动态效果时静态展示；组件卸载清理动画及观察器。已在隔离浏览器拦截模型请求，确认多张加载、浅深主题、390px 无横向溢出、静态偏好、成功显现、失败重试及刷新历史不重复播放，无页面运行错误；未调用真实模型，未运行构建、类型检查或测试套件。真实生成耗时下的观感待用户验收，现有 todo 无对应条目，无需调整。
+
+- 画布连线与参考生成流光：普通线宽由 2px 降至 1.25px，高亮由 3px 降至 1.75px，拖拽预览同步减细；保留原 16px 点击区域。参照本地 New API 关系画布的柔光拖尾、光束和亮点三层效果及 1.2 秒节奏，在目标节点生成中或作为当前生成发起节点时沿连接方向播放，退出生成状态后移除。动效使用组件私有 CSS，颜色从画布主题读取，减少动态效果模式显示静态高亮。已在隔离浏览器挂载真实连线组件确认浅深主题流动、停止、减少动态效果及点击/右键命中，未发现运行错误；实际画布静态线宽已确认，真实参考生成、批量生成与取消流程待用户验收。未调用模型或执行构建、类型检查、测试套件；todo 无对应条目，无需调整。
+
+- 画布节点悬浮提示补齐：各类节点名称、批量图片下载/复制/主图/删除、参考图预览/连线/移除、模型及参数入口、侧栏和插件按钮改用全局 Tooltip；移除节点与多选工具栏的独立提示配色，保留按钮事件与无障碍名称。隔离浏览器已确认文本、图片、视频、音频和配置节点标题的浅深主题悬浮/聚焦，以及单选和多选工具栏配色一致；模型下拉正常打开，参数浮层打开时隐藏提示。选中节点验收流程无运行错误、无残留 DOM title。批量图片、参考图和插件真实操作待用户验收；未运行构建、类型检查或测试套件。现有 todo 无对应条目，无需调整。
+
+- Agent 侧栏内部扁平化：保留外层圆角面板，连接说明、首次接入、待执行任务及连接设置去掉分组外框与重复内边距，使用标题和 24px 间距区分；命令行去掉底色与边框，保留并排复制入口，Agent 选中态及表单控件保留。已在隔离浏览器确认浅深主题内部区块无装饰边框、Codex / Claude Code 切换及设置折叠正常，390px 长命令自动换行且无横向溢出，无页面运行错误；实际连接流程待用户验收，未运行构建或类型检查。
+
+- 画布侧栏视觉同步：左侧栏复用 Agent 的面板样式与工作台主题，统一背景、文字、完整细边框、圆角及搜索/筛选控件配色；桌面左右面板均距顶部 72px、底部 20px、外侧 16px，窄屏左栏避开两行工具栏，使用 16px 圆角和 12px 外侧留白。列表选中态及多选勾选颜色随主题变化，移除页面私有组件间的主题透传。返回首页入口移到登录按钮左边，桌面显示图标和文字，窄屏保留带统一提示的图标。已在隔离浏览器确认左右面板浅深主题计算样式一致、页签切换、节点列表、开合后画布宽度不变、390px 无横向溢出及返回首页操作；实际资源插入与拖动调宽待用户验收，未运行构建或类型检查。
+
+- 全局悬浮提示统一：Tooltip 的文字、背景、字号和圆角提升到基础 Ant Design 主题，边框、间距、阴影及悬停/聚焦触发在 AppProviders 统一配置，修正当前 antd 所需的 container 样式字段；工作台和 Agent 继承同一来源，画布底部删除自绘提示并直接使用 Tooltip。首页、工作台和画布背景与布局保持原设置。隔离浏览器已比较三个页面导航提示的鼠标悬停、键盘聚焦，以及画布底部提示的浅深主题实际样式；文字、背景、边框、字号、圆角、间距和阴影一致。实际长期使用待用户验收，未运行构建、类型检查或测试套件。AGENTS.md 已补充全局配置与跨页面对照验收规则。
+
+- 画布顶部操作与左侧栏：左侧栏从工具栏下方展开，桌面工具栏高度 64px，窄屏分为两行、高度 112px；菜单、画布名始终可操作，长名称截断，标题输入框随空间收缩，相关悬停及聚焦提示统一使用 Tooltip。「返回首页」入口位置随后调整至登录按钮左边，侧栏随后同步 Agent 样式，详见上述记录。已在隔离浏览器确认浅深主题、侧栏开合前后画布尺寸不变、菜单打开、返回首页、双击修改名称、侧栏调宽至原有最大值，以及 640px / 390px 长名称可见可点击且无横向溢出；键盘聚焦显示返回首页提示，无页面运行错误。实际操作观感待用户确认，未运行构建或类型检查。
+
+- 新建画布延迟保存：新建时单独保存草稿，初始化、平移、缩放和打开面板不计入作品；添加节点或对话内容、修改名称或画布外观后转为正式作品，显式导入仍直接保存。草稿刷新可恢复，已有作品清空内容后仍保留。已在隔离浏览器确认空白返回首页无卡片、平移缩放不创建作品、草稿刷新、添加文本后保存及刷新恢复；通过运行中的 store 确认改名、外观变更、导入、删除草稿及清空已有作品的保存规则。真实 Agent 写入及上传素材待用户验收，未运行构建、类型检查或测试套件。
+
+- 首页仅保留导航栏改版：顶部导航继续复用生图工作台的悬浮栏配色、圆角、边框和交互样式；首页背景、最近作品卡片、默认封面、加载及空状态恢复原样，移除首页容器上的工作台主题变量。布局、点阵、光晕和标题效果保留，新建画布延迟保存逻辑保留。已核对首页及作品卡片与调整前代码一致；浅深主题实际观感待用户确认，未运行构建或类型检查。
+
+- 生图结果文案间距：最近 10 张提示移到「最近结果」标题下方，间距收紧为 4px；空状态说明取消 300px 宽度限制，桌面宽度充足时一行展示，窄屏按可用宽度换行。已在隔离浏览器确认 1440px 下说明为一行、标题间距为 4px，390px 无横向溢出；实际观感待用户确认。
+
+- 生图结果单张删除：最近结果和历史整批视图的每张卡片增加删除按钮，确认后从对应记录移除图片并更新数量，刷新后不再出现；最近结果自动补入较早图片，最多 10 张。删除最后一张仍保留记录的提示词、参考图和配置，显示暂无图片；已保存的素材和画布引用不受影响。生成期间暂时禁用删除，避免尚未写入记录的结果重新出现；写入失败时保留图片和确认弹窗。底层文件沿用现有未引用资源清理机制。已在隔离浏览器确认取消/确认删除、历史数量、最后一张空态、最近 10 张结果补位、刷新后仍删除，以及浅深主题 390px 窄屏确认弹窗；卡片无内容溢出、无页面运行错误。真实长期记录使用待用户验收，未运行构建、类型检查或测试套件。
+
+- 生图最近结果与历史浏览：刷新从本地生成记录恢复最近 10 张图片，新批次置顶、批内保持顺序，展示上限不删除历史；生成中和失败占位与最近结果共用展示区域。历史记录在右侧完整展示该批图片，提供返回最近结果与使用这次配置，单纯浏览不改左侧提示词、参考图和参数；新建只清理创作内容，最近作品仍保留。生成记录保存失败时提示先下载图片。隔离浏览器已确认刷新恢复、原 20 张上限、25 张历史整批展示、浏览不覆盖草稿、显式复用配置、模拟多图乱序响应后的排列、失败重试结果刷新恢复、删除当前历史后返回最近结果及浅深主题 390px 窄屏无横向溢出；展示上限已按用户要求收紧为 10 张，页面提示同步更新，10 张上限已随单张删除一起完成隔离浏览器验证，真实模型生成与长期使用待用户验收。未运行构建、类型检查或测试套件。
+
+- 侧栏覆盖展开：画布左侧栏与全局右侧 AI 助手退出主内容布局，使用位移与透明度开合，拖动调宽不再挤压画布和工作台；左栏增加内部收起入口，关闭动画期间禁用面板交互，开启系统减少动态效果时仅淡入淡出。待人工确认浅深主题、窄屏、连续开合、调宽、左栏页签及节点定位、助手连接和收起按钮提示；开合前后主内容尺寸与滚动位置应保持稳定，助手外围留白可操作底层页面。按项目要求未运行构建或语法检查。
+
+- 生图结果与共用图片详情：结果网格收紧为最小 220px 列宽、12px 间距，缩略图统一 4:3 居中铺满，仅缩略图裁切；点击通过共用 ImageDetailModal 按原比例展示完整图片。画布节点、配置参考图和提示词引用统一使用该组件，保留缩放、平移、重置、信息、下载与保存素材；批量节点显示所选图片尺寸，生图详情使用生成时的提示词和模型。已用隔离浏览器的四种比例占位图检查紧凑网格、完整原图比例、缩放/平移/重置、信息面板、Esc/按钮关闭、生成提示词快照及浅深主题 390px 窄屏，无页面运行错误或详情横向溢出；真实生成、下载与画布节点操作待用户验收，未运行构建、类型检查或测试套件。
+
+- 移除本地代理：配置弹窗与配置页不再显示本地代理页签，删除代理开关、地址配置、连通性检测、请求转发包装及 canvas-proxy 工具；AI 接口、媒体下载和 WebDAV 均直接访问目标地址。已在独立浏览器确认配置页与弹窗均无代理入口且无页面运行错误，源码无代理残留引用；真实模型获取、生成结果保存及 WebDAV 同步待验收。未运行构建或类型检查。
+
+- 模型配置弹窗视觉统一：弹窗使用工作台面板底色、细边框及圆角，配置标签改为中性选中态，导入/导出和账户中心采用扁平操作，模型控件统一为小圆角并收紧表单间距；内容区独立滚动，标题、标签与完成入口保持可见，窄屏随视口收缩。打开配置时收起原生图模型下拉框。配置页复用相同标签和表单样式，工作台其他 Modal 继承统一背景。已在独立浏览器检查浅深主题、390px 窄屏和偏好长表单，完成按钮可见且无横向溢出、页面运行错误；实际账户登录、模型获取与 WebDAV 同步待用户验收。
+
+- 工作台夜间背景进一步压暗：底色由 #242321 调为 #1c1b19，面板由 #2b2a28 调为 #232220，同步降低导航、边框、浮层及悬停/选中背景亮度，保留文字清晰度。通过共享主题应用于生图、视频、提示词、资产、配置和 Agent；浅色主题保持原配色。已在独立浏览器检查生图页深色背景、参数浮层及浅色配色，无页面运行错误；夜间实际观感及模型下拉辨识度待用户确认。
+
 - 配置页增加单层圆角外框，复用工作台面板边框、背景和内边距，至少撑满可用高度；内部设置分组继续平铺，不恢复嵌套卡片。
 
 
@@ -15,7 +55,7 @@ description: Implemented changes that still need manual verification
 - 提示词库分区滚动：左侧筛选恢复与生图工作台一致的圆角面板，右侧保持开放列表；页面标题固定，左右区域独立滚动，搜索区吸顶并以清晰边界遮住上移卡片，不使用渐隐虚化，避免内容越过顶部导航。分页加载监听迁移至右侧滚动区域，保留原触发距离；窄屏上下分区并各自滚动。已在独立浏览器确认桌面右侧滚动不移动左侧与页面标题，并检查 390px 窄屏展示；实际触底分页仍待验收。
 
 
-- 提示词库与配置页平铺化：去掉页面外层卡片；提示词分类/标签侧栏后续调整为单层圆角面板，保留搜索框和提示词内容卡片；配置中的偏好、WebDAV、代理、来源、渠道列表及存储统计去掉装饰卡片和阴影，以标题与留白分组。原筛选、表单和滚动逻辑不变。已在独立页面确认提示词列表和配置偏好分组的边框移除效果；未修改配置数据。
+- 提示词库与配置页平铺化：去掉页面外层卡片；提示词分类/标签侧栏后续调整为单层圆角面板，保留搜索框和提示词内容卡片；配置中的偏好、WebDAV、来源、渠道列表及存储统计去掉装饰卡片和阴影，以标题与留白分组。原筛选、表单和滚动逻辑不变。已在独立页面确认提示词列表和配置偏好分组的边框移除效果；未修改配置数据。
 
 
 - 导航提示统一：主题切换组件内部使用 Tooltip 包裹实际按钮，不再把提示文案透传为 DOM title；桌面/移动 Logo、菜单，以及文档、设置、插件、快捷键入口统一使用 Tooltip，保留 aria-label。AGENTS.md 已补充禁止原生提示与 Tooltip 混用的规则。已在独立页面确认主题按钮和 Logo 没有 DOM title、悬停显示统一 Tooltip，浅色提示随主题正确更新；测试后恢复深色主题，移动端和完整键盘焦点路径仍待验收。
@@ -42,7 +82,7 @@ description: Implemented changes that still need manual verification
 
 - 生图工作台悬浮布局：取消独立标题栏与副标题，左侧创作面板增加外边距、圆角、细边框及轻阴影，小标题与新建入口置于面板顶部；左右面板间距统一收紧为 12px；右侧结果区增加与左侧一致的圆角及细边框，使用更淡背景和更轻阴影，顶部与面板标题对齐，生成记录移至结果区右上角。参考图、提示词、模型、参数浮层和生成操作保持原顺序及行为，窄屏上下排列。已在独立页面检查桌面、390px 窄屏（无横向溢出）及历史入口开关；调整视口期间控制台出现 React flushSync 生命周期警告，尚未定位来源。不同窗口高度和 Agent 侧栏展开时的空间仍待确认。
 
-- 生图工作台组件重构（New API 设计风格）：采用中性暖灰、轻边框和统一中文字体栈；参考图位于提示词上方，模型选择独立展示，去掉下拉框上方重复的「选择模型」标签（保留无障碍名称），无模型时「登录获取最新可用的模型」入口整行可点击，比例（含自定义）、分辨率、质量、张数收纳到统一设置浮层，触发按钮显示当前参数摘要；选项参考 New API 控制台日期切换的紧凑分段样式，桌面生成按钮固定在创作栏底部；参考图支持原有上传、拖拽、移除与素材插入入口。历史记录改为响应式右侧抽屉，复选框与预览按钮分离；结果图片按原比例完整显示，加入参考图、保存素材、下载操作常显。主题配置集中在 app-theme，页面样式已提升为各工作台共用模块；画布复用相同的参数转换函数，未修改请求或本地记录存储格式。
+- 生图工作台组件重构（New API 设计风格）：采用中性暖灰、轻边框和统一中文字体栈；参考图位于提示词上方，模型选择独立展示，去掉下拉框上方重复的「选择模型」标签（保留无障碍名称），无模型时「登录获取最新可用的模型」入口整行可点击，比例（含自定义）、分辨率、质量、张数收纳到统一设置浮层，触发按钮显示当前参数摘要；选项参考 New API 控制台日期切换的紧凑分段样式，桌面生成按钮固定在创作栏底部；参考图支持原有上传、拖拽、移除与素材插入入口。历史记录改为响应式右侧抽屉，复选框与预览按钮分离；结果缩略图现采用下述紧凑铺满布局，详情按原比例完整显示；加入参考图、保存素材、下载操作常显。主题配置集中在 app-theme，页面样式已提升为各工作台共用模块；画布复用相同的参数转换函数，未修改请求或本地记录存储格式。
   - 已通过独立浏览器页面检查浅深主题、390px 窄屏、侧栏开关、提示词输入与生成按钮状态、比例/分辨率/质量/张数切换、自定义比例回车确认以及悬停提示；未发现控制台错误。测试后的参数恢复为原选择。后续调整已确认参考图在提示词上方、参数浮层开关与摘要回显，以及浅色 390px 窄屏浮层完整显示；修复弹层靠近视口边缘时顶部被截断的问题。
   - 待使用真实账户确认模型目录、生图成功/失败重试、历史预览/删除、参考图上传/拖拽、结果预览/下载/保存素材；未调用收费模型，未执行构建或类型检查。
 
@@ -56,7 +96,7 @@ description: Implemented changes that still need manual verification
 
 - 本地 Agent 连接指引：保留原生 Codex / Claude Code 管理会话的 MCP 桥接方式，面板改为扁平布局；未启动显示启动命令，已启动显示配对或已保存连接入口，连接后突出复制到本地 Agent 的指令。首次 MCP 接入可折叠，默认 Codex；地址、Token、clientId 与断开操作收进连接设置，配对失败或凭证失效时可重新配对。待执行任务明确尚未发送，连接后才能复制执行指令。独立浏览器页面已检查离线提示，并通过模拟服务与连接状态检查配对输入、失败重试、重新配对、已连接及待执行任务显示；已检查中英文、浅深主题与窄屏，修复侧栏超出窄屏的问题。未执行构建或测试套件；真实首次配置、正常配对、会话恢复、原生 Agent 调用与生产域名连接仍待验收。
 
-- New API 分类优先：通过账户凭证读取 `/api/pricing` 的 `category`，只合并到当前模型 Key 的可见目录；`chat`、`image`、`video`、`audio` 优先决定创作类型，未设置、未知分类或分类接口不可用时保留端点与名称兜底及协议适配筛选。待验证分类覆盖名称推断、分类接口失败时仍可连接、切换账户后的分类刷新，以及画布和各工作台的选择结果；未执行构建或自动测试。
+- New API 分类与协议：通过账户凭证读取 `/api/pricing` 的分类及端点，只合并到当前模型 Key 的可见目录；`chat`、`image`、`video`、`audio` 决定创作类型。分类接口失败时仅使用 `/v1/models` 已提供的元数据，缺少或未知分类/端点时不展示为可创作模型，不再按名称推断。隔离浏览器已验证能力和端点筛选，切换账户后的分类刷新与线上真实目录待验收。
 
 - New API 视频模型识别：将 `videos` 端点按现有 `openai-video` 协议处理，避免 `doubao-seedance-2.0-fast-720p` 等模型被创作选择器过滤。待确认账户可用模型目录中存在该模型时，画布视频节点与视频工作台均能选择；实际视频生成及轮询结果仍待手动验证。
 
@@ -86,7 +126,7 @@ description: Implemented changes that still need manual verification
 - 本地桥接清理：启动 Canvas Agent 不再检测或要求安装 Codex，保留桥接自身版本提醒；只提供 HTTP / SSE / stdio MCP 工具链，不启动 Codex app-server / Claude CLI，不托管会话、历史、技能或附件。原生 Agent 可通过现行素材工具及节点 metadata 接入图片；删除的旧附件工具不应再出现在 MCP 列表。
 
 - 侧边展开页面风格对齐：画布左侧栏页签改为扁平药丸并去掉厚重分隔；生图/视频历史侧栏收成无边框列表行，操作按钮改为扁平药丸；Agent 右侧栏标题与折叠按钮去底色，连接步骤与网页连接改为轻量圆角卡片。浅色/深色主题下分别打开画布、生图、视频与 Agent 侧栏，确认页签、列表选中、历史点击回填、连接/断开仍正常。
-- 配置页面及相关面板组件质感与美感升级：页面背景统一沿用首页 21.6px 点状微粒子网格与大圆角毛玻璃卡片容器；配置面板、渠道卡片、偏好设置、本地代理、定时抓取及存储监控卡片全面升级为生图工作台风格的精致圆角药丸按钮（h-8 / h-7.5 / rounded-full）与微质感轻量分组容器，整体视觉整洁现代、协调一致。
+- 配置页面及相关面板组件质感与美感升级：页面背景统一沿用首页 21.6px 点状微粒子网格与大圆角毛玻璃卡片容器；配置面板、渠道卡片、偏好设置、定时抓取及存储监控卡片全面升级为生图工作台风格的精致圆角药丸按钮（h-8 / h-7.5 / rounded-full）与微质感轻量分组容器，整体视觉整洁现代、协调一致。
 - 提示词库与我的资产背景视觉统一：页面全面沿用首页的细腻点状微粒子渐变网格（21.6px、淡透明度粒子）及深浅色底色体系（深色 #141413 / 浅色 stone-50/50），内容区域自适应留白，视觉风格全站一致。
 
 - 视频工作台参数胶囊排列与图标对齐：外层触发按钮图标改用动态比例几何矢量图标（VideoAspectIcon），信息按「比例 · 分辨率 · 时长 · 模式」顺序列出，层级更清晰、与生图工作台风格一致。
@@ -120,7 +160,6 @@ The current release needs manual verification in these areas:
 - Codex plugin: installing `oioi-canvas@oioi-canvas-local` and saying “打开无限画布” should open `http://localhost:3100/?mode=new` with agent hash params, create a new canvas, and connect automatically. `mode=recent` should open the latest canvas; `mode=choose` should stay on the home page. `/canvas` redirects should keep search and hash.
 - Canvas image previews: canvas image nodes, the left element list, the node reference bar, my-assets cards, the asset picker, image workbench result cards and history thumbnails, and the image/video workbench reference strips all render from a preview capped at a 768px long edge, so image-heavy views no longer decode the originals. Previews live locally only: canvas data, asset data, generation history, exported zips, and WebDAV sync must never contain preview content, and previews should be cleaned up when an image is deleted or no longer used. Opening the full-size image, editing, downloading, exporting, and generation references must keep using the original; an image that is already at or under 768px, exists only as a remote URL, or uses a custom cover should fall back to the original.
 - Canvas drag and connection rendering performance: Dragging a single node, a multi-selection, or a whole group should stay responsive, and the drop position after releasing should match the dragged preview. Group highlighting should appear and disappear at the right moment when dragging nodes over a group, releasing should add them to the group, and dragging them out should remove them; dragging a group node itself should not highlight any group. When zoomed or panned so only part of the canvas is visible, every connection crossing the viewport should still render (including ones whose endpoints are both off-screen), connection click selection and the context menu should still work, and the dashed preview while creating a connection should follow the cursor as before.
-- Local proxy: Settings should show a dedicated Local proxy tab between Providers and Preferences, with a switch that is off by default. Turning it on should reveal the `npx @basketikun/canvas-proxy@latest` command (with `--port` appended when a non-default port is configured), a copy action, and an address field defaulting to `http://127.0.0.1:23210` that normalizes a missing scheme and trailing slashes on blur. Test connection should succeed only while the command is running. With the proxy on, fetching model lists, generating images, videos, text (including streamed output), and audio, running custom call scripts, polling video tasks, downloading generated images and videos, and WebDAV connection tests plus sync should all route through the proxy and keep working; turning it off should restore direct requests. The proxy itself should forward request methods, headers, query strings, and bodies unchanged, stream SSE responses without buffering, and keep `data:` and `blob:` URLs untouched.
 - Image and video size settings: Image settings should split resolution (`1k` / `2k` / `4k` / auto) from aspect ratio (`1:1`, `2:3`, `3:2`, `4:3`, `3:4`, `16:9`, `9:16`, `21:9`, `9:21`, auto) and fill W/H from that pair. Video settings should keep `480p` / `720p` / `1080p` (plus a custom `p` value) and `1:1` / `3:4` / `4:3` / `16:9` / `9:16` / `21:9` / auto, then fill W/H from that pair. Duration should be a 4–30 second slider with the current value on the right; auto ratio should disable W/H.
 - Built-in video requests: without a custom call script, OpenAI-format channels should send `mode`, `first_frame`/`last_frame` or `image[]`, `generate_audio`, `watermark`, and reference videos/audio like the insertable template, and must not use `input_reference[]`. Gemini-format channels should use `predictLongRunning` with `image`/`lastFrame` or `referenceImages`, and must not report that video is unsupported. Refreshing the page should continue polling a Gemini task.
 - Video generation mode: Video settings should offer First & last frame and General reference. One image is sent as the first frame, two images as first and last frames, and more than two images as general references even if first-and-last-frame mode is selected. Built-in requests and request scripts should use `frames` or `reference`.

@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 
 import { ClientRootInit } from "@/components/layout/client-root-init";
 import type { AppLocale } from "@/i18n";
-import { getAntThemeConfig } from "@/lib/app-theme";
+import { getAntThemeConfig, getTooltipConfig } from "@/lib/app-theme";
 import { useThemeStore } from "@/stores/use-theme-store";
 
 const queryClient = new QueryClient({
@@ -43,7 +43,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
     }, [locale, t]);
 
     return (
-        <ConfigProvider locale={locale === "zh-CN" ? zhCN : enUS} theme={getAntThemeConfig(dark)}>
+        <ConfigProvider locale={locale === "zh-CN" ? zhCN : enUS} theme={getAntThemeConfig(dark)} tooltip={getTooltipConfig(dark)}>
             <ProConfigProvider dark={dark}>
                 <App>
                     <QueryClientProvider client={queryClient}>

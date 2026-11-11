@@ -1,3 +1,4 @@
+import { Tooltip } from "antd";
 import { useEffect, useRef, useState, type RefObject, type ChangeEvent } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
@@ -5,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { AspectIcon, normalizeImageQuality, normalizeImageResolution, resolveImageSize, formatScaleLabel, imageCountOptions, imageQualityOptions, imageResolutionOptions } from "@/components/image-settings-panel";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { getGenerationCount } from "@/lib/canvas/canvas-generation-helpers";
+import { imageModelSettings } from "@/lib/image-model-settings";
 import { inferMediaRatio, mediaRatioOptions, parseAspectRatio } from "@/lib/media-size";
 import { useThemeStore } from "@/stores/use-theme-store";
 import type { AiConfig } from "@/stores/use-config-store";
@@ -41,6 +43,7 @@ export function CanvasImageSettingsPopover({
     const selectedQuality = normalizeImageQuality(config.quality);
     const selectedResolution = normalizeImageResolution(config.size);
     const selectedCount = String(getGenerationCount(config.count));
+    const supported = imageModelSettings(config, config.model || config.imageModel);
 
     useEffect(() => {
         onOpenChange?.(isOpen);
@@ -72,34 +75,31 @@ export function CanvasImageSettingsPopover({
     const resolutionLabel = selectedResolution === "auto" ? t("settingsPanels.common.auto") : formatScaleLabel(selectedResolution);
     const qualityLabel = t(`settingsPanels.common.${selectedQuality}`);
     const countLabel = t("settingsPanels.image.images", { count: Number(selectedCount) });
+    const summary = [selectedRatio, supported.resolution && resolutionLabel, countLabel, supported.quality && qualityLabel].filter(Boolean).join(" · ");
 
     return (
         <>
-            <button
-                ref={buttonRef}
-                type="button"
-                className={`canvas-image-settings-trigger inline-flex h-8 min-w-0 cursor-pointer items-center gap-1.5 rounded-full border border-input bg-transparent px-3 text-xs font-normal shadow-xs transition hover:bg-black/5 dark:hover:bg-white/10 ${buttonClassName || ""}`}
-                style={{ color: theme.node.text }}
-                onClick={() => {
-                    if (isOpen) setIsOpen(false);
-                    else {
-                        setAnchorRect(buttonRef.current?.getBoundingClientRect() || null);
-                        setIsOpen(true);
-                    }
-                }}
-                title={`${t("settingsPanels.image.aspectRatio")}: ${selectedRatio} · ${t("settingsPanels.image.resolution")}: ${resolutionLabel} · ${t("settingsPanels.image.count")}: ${countLabel} · ${t("settingsPanels.image.quality")}: ${qualityLabel}`}
-            >
-                <AspectIcon width={triggerRatioWidth} height={triggerRatioHeight} color="currentColor" size={16} />
-                <span className="inline-flex min-w-0 items-center gap-1 truncate text-xs font-medium">
-                    <span>{selectedRatio}</span>
-                    <span className="opacity-35 font-medium">·</span>
-                    <span>{resolutionLabel}</span>
-                    <span className="opacity-35 font-medium">·</span>
-                    <span>{countLabel}</span>
-                    <span className="opacity-35 font-medium">·</span>
-                    <span>{qualityLabel}</span>
-                </span>
-            </button>
+            <Tooltip title={summary} open={isOpen ? false : undefined}>
+                <button
+                    ref={buttonRef}
+                    type="button"
+                    className={`canvas-image-settings-trigger inline-flex h-8 min-w-0 cursor-pointer items-center gap-1.5 rounded-full border border-input bg-transparent px-3 text-xs font-normal shadow-xs transition hover:bg-black/5 dark:hover:bg-white/10 ${buttonClassName || ""}`}
+                    style={{ color: theme.node.text }}
+                    onClick={() => {
+                        if (isOpen) setIsOpen(false);
+                        else {
+                            setAnchorRect(buttonRef.current?.getBoundingClientRect() || null);
+                            setIsOpen(true);
+                        }
+                    }}
+                    aria-label={summary}
+                >
+                    <AspectIcon width={triggerRatioWidth} height={triggerRatioHeight} color="currentColor" size={16} />
+                    <span className="inline-flex min-w-0 items-center gap-1 truncate text-xs font-medium">
+                        {summary}
+                    </span>
+                </button>
+            </Tooltip>
             {isOpen && anchorRect ? (
                 <CombinedImageSettingsDropdown
                     menuRef={menuRef}
@@ -110,6 +110,7 @@ export function CanvasImageSettingsPopover({
                     selectedResolution={selectedResolution}
                     selectedQuality={selectedQuality}
                     selectedCount={selectedCount}
+                    supported={supported}
                     onSelectRatio={(ratio) => onConfigChange("size", resolveImageSize(selectedResolution, ratio))}
                     onSelectResolution={(resolution) => onConfigChange("size", resolveImageSize(resolution, selectedRatio))}
                     onSelectQuality={(quality) => onConfigChange("quality", quality)}
@@ -129,6 +130,7 @@ function CombinedImageSettingsDropdown({
     selectedResolution,
     selectedQuality,
     selectedCount,
+    supported,
     onSelectRatio,
     onSelectResolution,
     onSelectQuality,
@@ -142,6 +144,7 @@ function CombinedImageSettingsDropdown({
     selectedResolution: string;
     selectedQuality: string;
     selectedCount: string;
+    supported: ReturnType<typeof imageModelSettings>;
     onSelectRatio: (ratio: string) => void;
     onSelectResolution: (resolution: string) => void;
     onSelectQuality: (quality: string) => void;
@@ -270,6 +273,7 @@ function CombinedImageSettingsDropdown({
 
                 <div className="h-px w-full bg-stone-200/60 dark:bg-white/10" />
 
+                {supported.resolution && <>
                 <div>
                     <div className="mb-2 flex items-center justify-between px-0.5 text-xs font-medium opacity-50">
                         <span>{t("settingsPanels.image.resolution")}</span>
@@ -285,6 +289,7 @@ function CombinedImageSettingsDropdown({
                 </div>
 
                 <div className="h-px w-full bg-stone-200/60 dark:bg-white/10" />
+                </>}
 
                 <div>
                     <div className="mb-2 flex items-center justify-between px-0.5 text-xs font-medium opacity-50">
@@ -300,6 +305,7 @@ function CombinedImageSettingsDropdown({
                     </div>
                 </div>
 
+                {supported.quality && <>
                 <div className="h-px w-full bg-stone-200/60 dark:bg-white/10" />
 
                 <div>
@@ -315,6 +321,7 @@ function CombinedImageSettingsDropdown({
                         ))}
                     </div>
                 </div>
+                </>}
             </div>
         </div>,
         document.body,

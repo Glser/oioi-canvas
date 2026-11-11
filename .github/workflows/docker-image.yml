@@ -46,6 +46,9 @@ jobs:
         run: |
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "short_sha=$(git rev-parse --short=12 HEAD)" >> "$GITHUB_OUTPUT"
+          version=$(tr -d '\r\n' < VERSION)
+          [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::VERSION 必须为 vX.Y.Z"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
@@ -70,9 +73,11 @@ jobs:
           tags: |
             ${{ env.ACR_REGISTRY }}/${{ env.ACR_REPOSITORY }}:latest
             ${{ env.ACR_REGISTRY }}/${{ env.ACR_REPOSITORY }}:${{ steps.meta.outputs.short_sha }}
+            ${{ env.ACR_REGISTRY }}/${{ env.ACR_REPOSITORY }}:${{ steps.meta.outputs.version }}
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ steps.meta.outputs.sha }}
+            org.opencontainers.image.version=${{ steps.meta.outputs.version }}
           cache-from: type=gha,scope=flow-amd64
           cache-to: type=gha,mode=max,scope=flow-amd64
 
@@ -81,12 +86,14 @@ jobs:
           IMAGE: ${{ env.ACR_REGISTRY }}/${{ env.ACR_REPOSITORY }}
           SHA: ${{ steps.meta.outputs.sha }}
           SHORT_SHA: ${{ steps.meta.outputs.short_sha }}
+          VERSION: ${{ steps.meta.outputs.version }}
           DIGEST: ${{ steps.build.outputs.digest }}
         run: |
           {
             echo "### Flow 镜像已推送至阿里云 ACR"
             echo "- 最新镜像：\`$IMAGE:latest\`"
             echo "- 提交镜像：\`$IMAGE:$SHORT_SHA\`"
+            echo "- 版本镜像：\`$IMAGE:$VERSION\`"
             echo "- 源码提交：\`$SHA\`"
             echo "- 镜像摘要：\`$DIGEST\`"
           } >> "$GITHUB_STEP_SUMMARY"

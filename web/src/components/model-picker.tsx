@@ -1,4 +1,4 @@
-import { theme as antdTheme } from "antd";
+import { theme as antdTheme, Tooltip } from "antd";
 import { useEffect, useId, useMemo, useState, type CSSProperties } from "react";
 import { Cpu } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -50,21 +50,23 @@ export function ModelPicker({ config, value, onChange, capability, className, fu
             }}
             onValueChange={onChange}
         >
-            <SelectTrigger
-                hideChevron={hideChevron}
-                className={cn(
-                    "canvas-composer-model-picker flex h-8 w-fit max-w-full items-center gap-2 rounded-full border border-input bg-transparent px-3 py-0 text-sm font-normal shadow-sm transition-colors",
-                    fullWidth ? "w-full min-w-0 justify-start" : "min-w-[9rem] justify-start",
-                    "data-[state=open]:border-ring data-[state=open]:ring-2 data-[state=open]:ring-ring/20",
-                    className,
-                )}
-                onMouseDown={(event) => event.stopPropagation()}
-                onPointerDown={(event) => event.stopPropagation()}
-                title={current ? modelOptionLabel(config, current) : pickerPlaceholder}
-            >
-                <ModelIcon model={current} />
-                <span className="canvas-model-picker-text min-w-0 flex-1 truncate text-left leading-normal">{current ? modelOptionLabel(config, current) : pickerPlaceholder}</span>
-            </SelectTrigger>
+            <Tooltip title={current ? modelOptionLabel(config, current) : pickerPlaceholder} open={open ? false : undefined}>
+                <SelectTrigger
+                    hideChevron={hideChevron}
+                    className={cn(
+                        "canvas-composer-model-picker flex h-8 w-fit max-w-full items-center gap-2 rounded-full border border-input bg-transparent px-3 py-0 text-sm font-normal shadow-sm transition-colors",
+                        fullWidth ? "w-full min-w-0 justify-start" : "min-w-[9rem] justify-start",
+                        "data-[state=open]:border-ring data-[state=open]:ring-2 data-[state=open]:ring-ring/20",
+                        className,
+                    )}
+                    onMouseDown={(event) => event.stopPropagation()}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    aria-label={current ? modelOptionLabel(config, current) : pickerPlaceholder}
+                >
+                    <ModelIcon model={current} />
+                    <span className="canvas-model-picker-text min-w-0 flex-1 truncate text-left leading-normal">{current ? modelOptionLabel(config, current) : pickerPlaceholder}</span>
+                </SelectTrigger>
+            </Tooltip>
             <SelectContent
                 data-canvas-no-zoom
                 style={{ "--popover": token.colorBgElevated, "--popover-foreground": token.colorText, "--foreground": token.colorText, "--border": token.colorBorder, "--accent": token.controlItemBgActive, "--accent-foreground": token.colorText, "--muted-foreground": token.colorTextSecondary } as CSSProperties}

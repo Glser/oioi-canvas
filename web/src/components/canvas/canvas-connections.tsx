@@ -1,14 +1,16 @@
-import type { MouseEvent as ReactMouseEvent } from "react";
+import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
 
 import { canvasThemes } from "@/lib/canvas-theme";
 import { useThemeStore } from "@/stores/use-theme-store";
 import type { CanvasConnection, CanvasNodeData, ConnectionHandle, Position } from "@/types/canvas";
+import styles from "./canvas-connections.module.css";
 
 export function ConnectionPath({
     connection,
     from,
     to,
     active,
+    generating,
     onSelect,
     onContextMenu,
 }: {
@@ -16,6 +18,7 @@ export function ConnectionPath({
     from: CanvasNodeData;
     to: CanvasNodeData;
     active: boolean;
+    generating: boolean;
     onSelect: () => void;
     onContextMenu?: (event: ReactMouseEvent<SVGPathElement>) => void;
 }) {
@@ -50,11 +53,25 @@ export function ConnectionPath({
             <path
                 d={pathD}
                 stroke={active ? theme.node.activeStroke : theme.node.muted}
-                strokeWidth={active ? 3 : 2}
+                strokeWidth={active ? 1.75 : 1.25}
                 strokeOpacity={active ? 1 : 0.82}
+                strokeLinecap="round"
                 fill="none"
                 style={{ filter: active ? `drop-shadow(0 0 8px ${theme.node.activeStroke}66)` : undefined, pointerEvents: "none" }}
             />
+            {generating ? (
+                <g
+                    className={styles.traffic}
+                    stroke={theme.node.activeStroke}
+                    color={theme.node.activeStroke}
+                    style={{ "--beam-highlight": theme.connection.flowHighlight, "--beam-tip": theme.connection.flowTip } as CSSProperties}
+                    aria-hidden="true"
+                >
+                    <path d={pathD} pathLength={100} className={styles.trail} />
+                    <path d={pathD} pathLength={100} className={styles.beam} />
+                    <path d={pathD} pathLength={100} className={styles.tip} />
+                </g>
+            ) : null}
         </g>
     );
 }
@@ -74,5 +91,5 @@ export function ActiveConnectionPath({ node, handle, mouseWorld, target }: { nod
     const distance = Math.abs(snappedEndX - snappedStartX);
     const pathD = `M ${snappedStartX} ${snappedStartY} C ${snappedStartX + distance * 0.5} ${snappedStartY}, ${snappedEndX - distance * 0.5} ${snappedEndY}, ${snappedEndX} ${snappedEndY}`;
 
-    return <path d={pathD} stroke={theme.node.activeStroke} strokeWidth="2" fill="none" strokeDasharray="5,5" />;
+    return <path d={pathD} stroke={theme.node.activeStroke} strokeWidth="1.25" strokeLinecap="round" fill="none" strokeDasharray="5,5" />;
 }

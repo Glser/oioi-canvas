@@ -117,7 +117,7 @@ export default function VideoPage() {
     const processedCommandRef = useRef(0);
     const agentTaskIdRef = useRef<string | undefined>(undefined);
 
-    const model = effectiveConfig.videoModel || effectiveConfig.model;
+    const model = effectiveConfig.videoModel;
     const canGenerate = Boolean(prompt.trim());
 
     useEffect(() => {
@@ -202,7 +202,7 @@ export default function VideoPage() {
             message.error(t("videoWorkbench.promptRequired"));
             return null;
         }
-        if (!isAiConfigReady(effectiveConfig, model)) {
+        if (!isAiConfigReady(effectiveConfig, model, "video")) {
             message.warning(t("workbench.configFirst"));
             openConfigDialog(true);
             return null;

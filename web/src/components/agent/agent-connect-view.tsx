@@ -60,7 +60,7 @@ export function AgentConnectView({ onToggleEnabled }: { onToggleEnabled: (option
         }
     };
     const commandBlock = (command: string) => (
-        <div className="mt-3 flex min-w-0 items-center gap-2 rounded-lg border p-3" style={{ background: colors.colorFillTertiary, borderColor: colors.colorBorderSecondary }}>
+        <div className="mt-3 flex min-w-0 items-center gap-2 py-1">
             <code className="min-w-0 flex-1 whitespace-normal text-xs leading-5 [overflow-wrap:anywhere]" style={{ color: colors.colorTextSecondary }}>{command}</code>
             <button type="button" className={`${actionClass} shrink-0 whitespace-nowrap`} onClick={() => copyText(command)}>
                 <Copy className="size-4" />{t("agent.connect.copyCommand")}
@@ -71,7 +71,7 @@ export function AgentConnectView({ onToggleEnabled }: { onToggleEnabled: (option
     return (
         <div className="thin-scrollbar min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-1" style={{ color: colors.colorText }}>
             <p className="mb-6 text-sm leading-6" style={{ color: colors.colorTextSecondary }}>{t("agent.connect.description")}</p>
-            <div className="grid gap-4 [&>section]:rounded-xl [&>section]:border [&>section]:border-border [&>section]:p-4 [&>details]:rounded-xl [&>details]:border [&>details]:border-border [&>details]:p-4">
+            <div className="grid gap-6">
                 {!connected ? (
                     <section aria-label={t("agent.connect.webConnection")}>
                         <h3 className="text-sm font-medium">{t(needsService ? "agent.connect.directTitle" : enabled ? "agent.status.connecting" : serviceStatus === "running" ? "agent.connect.webConnection" : "agent.connect.connectionText")}</h3>

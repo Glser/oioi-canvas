@@ -18,7 +18,7 @@ export function AppTopNav() {
     const { t } = useTranslation();
     const { pathname } = useLocation();
     const theme = useThemeStore((state) => state.theme);
-    const workbench = isWorkbenchPath(pathname);
+    const workbench = pathname === "/" || isWorkbenchPath(pathname);
     const appearance = useMemo(() => getWorkbenchAppearance(theme === "dark"), [theme]);
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);

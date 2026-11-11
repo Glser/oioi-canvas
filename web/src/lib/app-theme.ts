@@ -29,8 +29,19 @@ const neutral = {
     },
 };
 
+const workbenchPalette = {
+    dark: { background: "#1c1b19", surface: "#232220", elevated: "#33312e", text: "#e5e3df", secondary: "#b2b0aa", border: "#35332f", hover: "#2e2c29", selected: "#3b3934" },
+    light: { background: "#f8f8f6", surface: "#ffffff", elevated: "#fdfdfb", text: "#282825", secondary: "#72726c", border: "#e8e8e3", hover: "#f3f3ef", selected: "#eaeae4" },
+};
+
+export function getTooltipConfig(dark: boolean) {
+    const palette = workbenchPalette[dark ? "dark" : "light"];
+    return { arrow: false, trigger: ["hover", "focus"] as ["hover", "focus"], styles: { container: { border: `1px solid ${palette.border}`, padding: "8px 12px", boxShadow: "0 4px 12px rgb(0 0 0 / 8%)" } } };
+}
+
 export function getAntThemeConfig(dark: boolean): ThemeConfig {
     const color = dark ? neutral.dark : neutral.light;
+    const palette = workbenchPalette[dark ? "dark" : "light"];
 
     return {
         algorithm: dark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
@@ -53,6 +64,7 @@ export function getAntThemeConfig(dark: boolean): ThemeConfig {
             borderRadiusXS: 6,
         },
         components: {
+            Tooltip: { colorBgSpotlight: palette.elevated, colorTextLightSolid: palette.text, borderRadius: 8, fontSize: 12 },
             Button: {
                 primaryShadow: "none",
             },
@@ -89,10 +101,8 @@ export function getAntThemeConfig(dark: boolean): ThemeConfig {
 
 // 创作工作台、内容管理与 Agent 共用的主题；画布保留自己的主题。
 export function getWorkbenchAppearance(dark: boolean) {
-    const palette = dark
-        ? { background: "#242321", surface: "#2b2a28", elevated: "#3d3b37", text: "#e5e3df", secondary: "#b2b0aa", border: "#403e3a", hover: "#373632", selected: "#43413c" }
-        : { background: "#f8f8f6", surface: "#ffffff", elevated: "#fdfdfb", text: "#282825", secondary: "#72726c", border: "#e8e8e3", hover: "#f3f3ef", selected: "#eaeae4" };
-    const popupShadow = dark ? "0 0 0 1px #57544e, 0 12px 32px rgb(0 0 0 / 40%)" : "0 4px 16px rgb(0 0 0 / 8%)";
+    const palette = workbenchPalette[dark ? "dark" : "light"];
+    const popupShadow = dark ? "0 0 0 1px #48453f, 0 12px 32px rgb(0 0 0 / 40%)" : "0 4px 16px rgb(0 0 0 / 8%)";
     const base = getAntThemeConfig(dark);
     const theme: ThemeConfig = {
         ...base,
@@ -127,7 +137,7 @@ export function getWorkbenchAppearance(dark: boolean) {
         components: {
             ...base.components,
             Button: { primaryShadow: "none", defaultShadow: "none", fontWeight: 500, defaultHoverBorderColor: palette.border, defaultHoverColor: palette.text, defaultHoverBg: palette.hover },
-            Select: { selectorBg: dark ? "#33312e" : palette.surface, colorBgElevated: palette.elevated, optionActiveBg: dark ? "#494640" : palette.hover, optionSelectedBg: dark ? "#56524b" : palette.selected, optionSelectedColor: palette.text, activeBorderColor: palette.secondary, hoverBorderColor: palette.secondary },
+            Select: { selectorBg: dark ? "#2a2825" : palette.surface, colorBgElevated: palette.elevated, optionActiveBg: dark ? "#403d37" : palette.hover, optionSelectedBg: dark ? "#4a463f" : palette.selected, optionSelectedColor: palette.text, activeBorderColor: palette.secondary, hoverBorderColor: palette.secondary },
             Slider: { railBg: palette.border, railHoverBg: palette.hover, trackBg: palette.secondary, trackHoverBg: palette.text, handleColor: palette.secondary, handleActiveColor: palette.text },
             Card: { colorBgContainer: palette.surface, colorBorderSecondary: palette.border },
             Tabs: { itemColor: palette.secondary, itemSelectedColor: palette.text, itemHoverColor: palette.text, inkBarColor: palette.text },
@@ -135,7 +145,7 @@ export function getWorkbenchAppearance(dark: boolean) {
             Popover: { colorBgElevated: palette.elevated },
             Segmented: { trackBg: palette.hover, itemSelectedBg: dark ? palette.selected : palette.background, itemSelectedColor: palette.text, itemHoverBg: palette.border, itemColor: palette.secondary },
             Input: { activeBorderColor: palette.secondary, hoverBorderColor: palette.secondary, activeShadow: `0 0 0 2px ${palette.border}` },
-            Tooltip: { colorBgSpotlight: palette.elevated, colorTextLightSolid: palette.text, borderRadius: 8, fontSize: 12 },
+            Modal: { contentBg: palette.surface, headerBg: palette.surface, footerBg: palette.surface, titleColor: palette.text, titleFontSize: 16 },
             Drawer: { colorBgElevated: palette.background, footerPaddingBlock: 16, footerPaddingInline: 20 },
         },
     };
@@ -154,7 +164,7 @@ export function getWorkbenchAppearance(dark: boolean) {
         "--input": palette.border,
         "--ring": palette.secondary,
         "--wb-bg": palette.background,
-        "--wb-nav-bg": dark ? "#31302d" : "rgb(255 255 255 / 85%)",
+        "--wb-nav-bg": dark ? "#282724" : "rgb(255 255 255 / 85%)",
         "--wb-nav-shadow": dark ? "0 2px 16px -6px rgb(0 0 0 / 40%)" : "0 2px 16px -6px rgb(0 0 0 / 8%)",
         "--wb-surface": palette.surface,
         "--wb-text": palette.text,
@@ -168,9 +178,9 @@ export function getWorkbenchAppearance(dark: boolean) {
     return {
         theme,
         style,
-        modal: { styles: { root: style } },
+        modal: { styles: { root: style, container: { border: `1px solid ${palette.border}`, borderRadius: 16 } } },
         popover: { styles: { container: dark ? { boxShadow: popupShadow } : {} } },
-        tooltip: { arrow: false, trigger: ["hover", "focus"] as ["hover", "focus"], styles: { body: { border: `1px solid ${palette.border}`, padding: "8px 12px", boxShadow: "0 4px 12px rgb(0 0 0 / 8%)" } } },
+        tooltip: getTooltipConfig(dark),
         drawer: { styles: { root: style, mask: { background: "rgb(0 0 0 / 10%)", backdropFilter: "blur(2px)" }, wrapper: { boxShadow: "none" }, section: { borderLeft: `1px solid ${palette.border}` }, header: { padding: "16px 20px" } } },
     };
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Check, Clock, Download, MoreVertical, Pencil, Sparkles, Trash2, X } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Button, Dropdown, Input } from "antd";
+import { Button, Dropdown, Input, Tooltip } from "antd";
 import type { MenuProps } from "antd";
 import { useTranslation } from "react-i18next";
 
@@ -260,18 +260,20 @@ export function CanvasProjectCard({ project }: { project: CanvasProject }) {
                     </div>
                 ) : (
                     <>
-                        <h2
-                            className="min-w-0 flex-1 truncate text-xs font-medium text-stone-800 group-hover:text-stone-950 dark:text-stone-200 dark:group-hover:text-white transition-colors"
-                            title={project.title}
-                        >
-                            {project.title}
-                        </h2>
-                        <time
-                            className="shrink-0 text-[11px] text-stone-400 dark:text-stone-500 tabular-nums"
-                            title={project.updatedAt}
-                        >
-                            {formattedDate}
-                        </time>
+                        <Tooltip title={project.title}>
+                            <h2
+                                className="min-w-0 flex-1 truncate text-xs font-medium text-stone-800 group-hover:text-stone-950 dark:text-stone-200 dark:group-hover:text-white transition-colors"
+                            >
+                                {project.title}
+                            </h2>
+                        </Tooltip>
+                        <Tooltip title={project.updatedAt}>
+                            <time
+                                className="shrink-0 text-[11px] text-stone-400 dark:text-stone-500 tabular-nums"
+                            >
+                                {formattedDate}
+                            </time>
+                        </Tooltip>
                     </>
                 )}
             </div>

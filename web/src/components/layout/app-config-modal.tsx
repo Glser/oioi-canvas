@@ -6,7 +6,6 @@ import { useTranslation } from "react-i18next";
 
 import { ModelPicker } from "@/components/model-picker";
 import { ChannelEditorDrawer } from "@/components/layout/channel-editor-drawer";
-import { ConfigLocalProxy } from "@/components/layout/config-local-proxy";
 import { ConfigPromptSources } from "@/components/layout/config-prompt-sources";
 import { ConfigLocalStorage } from "@/components/layout/config-local-storage";
 import { NewApiAccountPanel } from "@/components/layout/newapi-account-panel";
@@ -17,6 +16,7 @@ import { syncAppDataToWebdav, type AppSyncDomainKey, type AppSyncProgressEvent }
 import { testWebdavConnection, WEBDAV_MANIFEST_FILE_NAME } from "@/services/webdav-sync";
 import { audioFormatOptions, audioVoiceOptions, normalizeAudioSpeedValue } from "@/lib/audio-generation";
 import { createModelChannel, modelOptionsFromChannels, normalizeModelOptionValue, selectableModelsByCapability, useConfigStore, useEffectiveConfig, type AiConfig, type ApiCallFormat, type ConfigTabKey, type ModelCapability, type ModelChannel } from "@/stores/use-config-store";
+import styles from "./app-config-modal.module.css";
 
 type ModelGroup = {
     capability: ModelCapability;
@@ -166,20 +166,21 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
     };
 
     return (
-        <>
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-3 pb-3">
-                <div className="text-xs text-muted-foreground">{NEW_API_ENABLED ? "账户登录凭证与自动获取的调用令牌不包含在配置文件中。" : t("config.fileSecurity")}</div>
-                <div className="flex gap-2">
-                    <Button className="!h-8 !rounded-lg !px-3.5 !text-xs font-medium" icon={<Upload className="size-3.5" />} onClick={() => configInputRef.current?.click()}>
+        <div className={styles.panel}>
+            <div className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0 text-xs leading-relaxed text-muted-foreground">{NEW_API_ENABLED ? "账户登录凭证与自动获取的调用令牌不包含在配置文件中。" : t("config.fileSecurity")}</div>
+                <div className="flex shrink-0 gap-1">
+                    <Button type="text" size="small" icon={<Upload className="size-3.5" />} onClick={() => configInputRef.current?.click()}>
                         {t("config.import")}
                     </Button>
-                    <Button className="!h-8 !rounded-lg !px-3.5 !text-xs font-medium" icon={<Download className="size-3.5" />} onClick={exportAppConfig}>
+                    <Button type="text" size="small" icon={<Download className="size-3.5" />} onClick={exportAppConfig}>
                         {t("config.export")}
                     </Button>
                     <input ref={configInputRef} type="file" accept="application/json,.json" className="hidden" onChange={(event) => event.target.files?.[0] && void loadConfigFile(event.target.files[0])} />
                 </div>
             </div>
             <Tabs
+                className={styles.tabs}
                 activeKey={activeTab}
                 onChange={(key) => setActiveTab(key as ConfigTabKey)}
                 items={[
@@ -220,12 +221,6 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                         ),
                     },
                     {
-                        key: "local-proxy",
-                        label: t("config.tabs.localProxy"),
-                        disabled: NEW_API_ENABLED,
-                        children: <ConfigLocalProxy />,
-                    },
-                    {
                         key: "preferences",
                         label: t("config.tabs.preferences"),
                         children: (
@@ -235,7 +230,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                                         {modelGroups.map((group) => (
                                             <Form.Item key={group.modelKey} label={<span className="text-xs font-medium text-muted-foreground">{t(group.labelKey)}</span>} className="mb-0">
-                                                <ModelPicker className="!rounded-lg !shadow-none" config={effectiveConfig} value={effectiveConfig[group.modelKey]} onChange={(model) => updateConfig(group.modelKey, model)} capability={group.capability} fullWidth />
+                                                <ModelPicker config={effectiveConfig} value={effectiveConfig[group.modelKey]} onChange={(model) => updateConfig(group.modelKey, model)} capability={group.capability} fullWidth />
                                             </Form.Item>
                                         ))}
                                     </div>
@@ -338,14 +333,14 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                 ]}
             />
             {showDoneButton ? (
-                <div className="mt-4 flex justify-end">
-                    <Button type="primary" className="!h-8 !rounded-lg !px-5 !text-xs font-medium" onClick={finishConfig}>
+                <div className="flex shrink-0 justify-end pt-4">
+                    <Button type="primary" className="min-w-20" onClick={finishConfig}>
                         {t("common.done")}
                     </Button>
                 </div>
             ) : null}
             <ChannelEditorDrawer open={Boolean(editingChannel)} channel={editingChannel} onSave={saveChannel} onClose={() => setEditingChannelId("")} />
-        </>
+        </div>
     );
 }
 
@@ -356,9 +351,10 @@ export function AppConfigModal() {
     const setConfigDialogOpen = useConfigStore((state) => state.setConfigDialogOpen);
     return (
         <Modal
+            className={styles.modal}
             title={
-                <div>
-                    <div className="text-lg font-semibold">{t("config.title")}</div>
+                <div className="pr-8">
+                    <div className="text-base font-semibold">{t("config.title")}</div>
                     <div className="mt-1 text-xs font-normal text-muted-foreground">{t("config.modalDescription")}</div>
                 </div>
             }
@@ -366,7 +362,6 @@ export function AppConfigModal() {
             width={980}
             centered
             onCancel={() => setConfigDialogOpen(false)}
-            styles={{ body: { maxHeight: "72vh", overflowY: "auto", paddingRight: 12 } }}
             footer={null}
         >
             <AppConfigPanel showDoneButton initialTab={configTab} />

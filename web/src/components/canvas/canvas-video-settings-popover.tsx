@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { Slider } from "antd";
+import { Slider, Tooltip } from "antd";
 
 import { AspectIcon } from "@/components/image-settings-panel";
 import { canvasThemes } from "@/lib/canvas-theme";
@@ -85,25 +85,27 @@ export function CanvasVideoSettingsPopover({
 
     return (
         <>
-            <button
-                ref={buttonRef}
-                type="button"
-                className={`canvas-video-settings-trigger inline-flex h-8 min-w-0 cursor-pointer items-center gap-1.5 rounded-full border border-input bg-transparent px-3 text-xs font-normal shadow-xs transition hover:bg-black/5 dark:hover:bg-white/10 ${buttonClassName || ""}`}
-                style={{ color: theme.node.text }}
-                onClick={() => setOpen((current) => !current)}
-                title={`${videoSizeLabel(config.size)} · ${videoResolutionLabel(config.vquality)} · ${videoSecondsLabel(config.videoSeconds)} · ${videoModeLabel(config.videoMode)}`}
-            >
-                <AspectIcon width={triggerRatioWidth} height={triggerRatioHeight} color="currentColor" size={16} />
-                <span className="truncate inline-flex items-center gap-1">
-                    <span className="font-medium">{videoSizeLabel(config.size)}</span>
-                    <span className="opacity-35">·</span>
-                    <span className="font-medium opacity-90">{videoResolutionLabel(config.vquality)}</span>
-                    <span className="opacity-35">·</span>
-                    <span className="opacity-90">{videoSecondsLabel(config.videoSeconds)}</span>
-                    <span className="opacity-35">·</span>
-                    <span className="text-[11px] opacity-75">{videoModeLabel(config.videoMode)}</span>
-                </span>
-            </button>
+            <Tooltip title={`${videoSizeLabel(config.size)} · ${videoResolutionLabel(config.vquality)} · ${videoSecondsLabel(config.videoSeconds)} · ${videoModeLabel(config.videoMode)}`} open={open ? false : undefined}>
+                <button
+                    ref={buttonRef}
+                    type="button"
+                    className={`canvas-video-settings-trigger inline-flex h-8 min-w-0 cursor-pointer items-center gap-1.5 rounded-full border border-input bg-transparent px-3 text-xs font-normal shadow-xs transition hover:bg-black/5 dark:hover:bg-white/10 ${buttonClassName || ""}`}
+                    style={{ color: theme.node.text }}
+                    onClick={() => setOpen((current) => !current)}
+                    aria-label={`${videoSizeLabel(config.size)} · ${videoResolutionLabel(config.vquality)} · ${videoSecondsLabel(config.videoSeconds)} · ${videoModeLabel(config.videoMode)}`}
+                >
+                    <AspectIcon width={triggerRatioWidth} height={triggerRatioHeight} color="currentColor" size={16} />
+                    <span className="truncate inline-flex items-center gap-1">
+                        <span className="font-medium">{videoSizeLabel(config.size)}</span>
+                        <span className="opacity-35">·</span>
+                        <span className="font-medium opacity-90">{videoResolutionLabel(config.vquality)}</span>
+                        <span className="opacity-35">·</span>
+                        <span className="opacity-90">{videoSecondsLabel(config.videoSeconds)}</span>
+                        <span className="opacity-35">·</span>
+                        <span className="text-[11px] opacity-75">{videoModeLabel(config.videoMode)}</span>
+                    </span>
+                </button>
+            </Tooltip>
             {open && buttonRect ? (
                 <VideoSettingsDropdown
                     buttonRect={buttonRect}

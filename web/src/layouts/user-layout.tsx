@@ -14,7 +14,7 @@ export default function UserLayout({ children }: { children: ReactNode }) {
     const workbench = isWorkbenchPath(pathname);
     return (
         <ConfigProvider {...(workbench ? { theme: appearance.theme, tooltip: appearance.tooltip, popover: appearance.popover, drawer: appearance.drawer, modal: appearance.modal } : {})}>
-        <div className="flex h-dvh overflow-hidden bg-background text-foreground" style={workbench ? appearance.style : undefined}>
+        <div className="relative flex h-dvh overflow-hidden bg-background text-foreground" style={workbench ? appearance.style : undefined}>
             <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
                 <AppTopNav />
                 <div className="min-h-0 flex-1 overflow-hidden">{children}</div>

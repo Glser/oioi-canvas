@@ -74,14 +74,14 @@ export function CanvasTopBar({
 
     return (
         <>
-            <div className="pointer-events-none absolute left-0 right-0 top-0 z-50 flex h-16 items-center justify-between pl-1 pr-4">
-                <div className="pointer-events-auto flex min-w-0 items-center gap-2">
-                    <Tooltip title={sidePanelOpen ? t("canvas.collapsePanel") : t("canvas.expandPanel")}>
+            <div className="pointer-events-none absolute left-0 right-0 top-0 z-50 flex h-28 flex-col justify-center gap-2 px-3 sm:h-16 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="pointer-events-auto flex min-w-0 items-center gap-2 sm:flex-1">
+                    <Tooltip trigger={["hover", "focus"]} title={sidePanelOpen ? t("canvas.collapsePanel") : t("canvas.expandPanel")}>
                         <button
                             type="button"
                             onClick={toggleSidePanel}
                             aria-label={sidePanelOpen ? t("canvas.collapsePanel") : t("canvas.expandPanel")}
-                            className="grid size-7 place-items-center rounded-full transition hover:bg-black/5 dark:hover:bg-white/10"
+                            className="grid size-7 shrink-0 place-items-center rounded-full transition hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-current dark:hover:bg-white/10"
                             style={{ color: theme.node.text }}
                         >
                             {sidePanelOpen ? <PanelLeftClose className="size-4" /> : <PanelLeftOpen className="size-4" />}
@@ -106,9 +106,11 @@ export function CanvasTopBar({
                             ],
                         }}
                     >
-                        <button type="button" className="grid size-7 place-items-center rounded-full transition hover:bg-black/5 dark:hover:bg-white/10" style={{ color: theme.node.text }} aria-label={t("canvas.openMenu")}>
-                            <Menu className="size-4" />
-                        </button>
+                        <Tooltip trigger={["hover", "focus"]} title={t("canvas.openMenu")}>
+                            <button type="button" className="grid size-7 shrink-0 place-items-center rounded-full transition hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-current dark:hover:bg-white/10" style={{ color: theme.node.text }} aria-label={t("canvas.openMenu")}>
+                                <Menu className="size-4" />
+                            </button>
+                        </Tooltip>
                     </Dropdown>
 
                     <div ref={titleRef} className="flex min-w-0 items-center gap-2">
@@ -122,24 +124,39 @@ export function CanvasTopBar({
                                     if (event.key === "Enter") onFinishTitleEditing();
                                     if (event.key === "Escape") onCancelTitleEditing();
                                 }}
-                                className="max-w-[280px] bg-transparent p-0 text-left text-lg font-semibold tracking-normal outline-none"
+                                className="min-w-0 w-full max-w-[280px] bg-transparent p-0 text-left text-lg font-semibold tracking-normal outline-none"
+                                aria-label={t("canvas.renameHint")}
                                 style={{ color: theme.node.text }}
                             />
                         ) : (
-                            <button
-                                type="button"
-                                className="max-w-[280px] truncate border-b border-dashed border-transparent text-left text-lg font-semibold tracking-normal transition hover:border-current"
-                                onDoubleClick={onStartTitleEditing}
-                                title={t("canvas.renameHint")}
-                            >
-                                {title}
-                            </button>
+                            <Tooltip trigger={["hover", "focus"]} title={t("canvas.renameHint")}>
+                                <button
+                                    type="button"
+                                    className="min-w-0 max-w-[280px] truncate border-b border-dashed border-transparent text-left text-lg font-semibold tracking-normal transition hover:border-current focus-visible:outline-2 focus-visible:outline-current"
+                                    style={{ color: theme.node.text }}
+                                    onDoubleClick={onStartTitleEditing}
+                                >
+                                    {title}
+                                </button>
+                            </Tooltip>
                         )}
                     </div>
                     <CompactAgentStatus status={compactAgentStatus} onClick={onToggleAgent} />
                 </div>
 
-                <div className="pointer-events-auto flex items-center gap-1.5">
+                <div className="pointer-events-auto flex shrink-0 items-center justify-end gap-1.5">
+                    <Tooltip trigger={["hover", "focus"]} title={t("canvas.backHome")}>
+                        <button
+                            type="button"
+                            onClick={onHome}
+                            aria-label={t("canvas.backHome")}
+                            className="flex h-8 shrink-0 items-center gap-1.5 rounded-md px-2 text-sm font-medium transition hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-current dark:hover:bg-white/10"
+                            style={{ color: theme.node.text }}
+                        >
+                            <Home className="size-4" />
+                            <span className="hidden sm:inline">{t("canvas.backHome")}</span>
+                        </button>
+                    </Tooltip>
                     <UserStatusActions variant="canvas" onOpenShortcuts={() => setShortcutsOpen(true)} onOpenPlugins={onOpenPlugins} />
                     <span className="h-6 w-px" style={{ background: theme.toolbar.border }} />
                     <Button
@@ -192,10 +209,12 @@ function CompactAgentStatus({ status, onClick }: { status: { connected: boolean;
     const label = status.connected ? t("canvas.agentConnected") : status.enabled ? t("canvas.agentConnecting", { activity: status.activity || t("canvas.connecting") }) : t("canvas.agentDisconnected");
     const dotColor = status.connected ? "#22c55e" : status.enabled ? "#f59e0b" : theme.node.muted;
     return (
-        <button type="button" className="flex h-8 items-center gap-1.5 text-xs transition hover:opacity-75" style={{ color: status.connected ? "#16a34a" : status.enabled ? "#d97706" : theme.node.muted }} onClick={onClick} title={t("canvas.openAgent")}>
-            <span className="size-2 rounded-full" style={{ background: dotColor }} />
-            <span className="max-w-[140px] truncate">{label}</span>
-        </button>
+        <Tooltip trigger={["hover", "focus"]} title={t("canvas.openAgent")}>
+            <button type="button" className="hidden h-8 shrink-0 items-center gap-1.5 text-xs transition hover:opacity-75 lg:flex" style={{ color: status.connected ? "#16a34a" : status.enabled ? "#d97706" : theme.node.muted }} onClick={onClick} aria-label={t("canvas.openAgent")}>
+                <span className="size-2 rounded-full" style={{ background: dotColor }} />
+                <span className="max-w-[140px] truncate">{label}</span>
+            </button>
+        </Tooltip>
     );
 }
 

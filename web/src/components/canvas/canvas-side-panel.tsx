@@ -1,11 +1,12 @@
 import { memo, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from "react";
-import { App, Empty, Input, Popconfirm, Select, Spin, Tag } from "antd";
+import { App, ConfigProvider, Empty, Input, Popconfirm, Select, Spin, Tag, Tooltip } from "antd";
 import { useQuery } from "@tanstack/react-query";
-import { BookOpen, Check, ChevronRight, Download, Eye, FileText, Image as ImageIcon, ListChecks, Music2, Plus, Search, Settings2, Square, Trash2, Type, Video } from "lucide-react";
-import { motion } from "motion/react";
+import { BookOpen, Check, ChevronRight, Download, Eye, FileText, Image as ImageIcon, ListChecks, Music2, PanelLeftClose, Plus, Search, Settings2, Square, Trash2, Type, Video } from "lucide-react";
+import { motion, useReducedMotion } from "motion/react";
 import { useTranslation } from "react-i18next";
 
-import { canvasThemes, type CanvasTheme } from "@/lib/canvas-theme";
+import { getWorkbenchAppearance } from "@/lib/app-theme";
+import panelStyles from "@/components/agent/agent-panel.module.css";
 import { exportCanvasNodes } from "@/lib/canvas/canvas-export";
 import { getNodeDefinition } from "@/lib/canvas/node-registry";
 import { cn } from "@/lib/utils";
@@ -52,14 +53,15 @@ const STATUS_COLOR: Record<string, string> = {
 
 export function CanvasSidePanel({ nodes, selectedNodeIds, onFocusNode, onPreviewNode, onInsertAsset }: Props) {
     const { t } = useTranslation();
-    const theme = canvasThemes[useThemeStore((state) => state.theme)];
+    const appearance = getWorkbenchAppearance(useThemeStore((state) => state.theme) === "dark");
     const [tab, setTab] = useState<PanelTab>("canvas");
     const width = useCanvasSidePanelStore((state) => state.width);
     const panelOpen = useCanvasSidePanelStore((state) => state.panelOpen);
     const panelMounted = useCanvasSidePanelStore((state) => state.panelMounted);
     const panelClosing = useCanvasSidePanelStore((state) => state.panelClosing);
     const setWidth = useCanvasSidePanelStore((state) => state.setWidth);
-    const [resizing, setResizing] = useState(false);
+    const closePanel = useCanvasSidePanelStore((state) => state.closePanel);
+    const reduceMotion = useReducedMotion();
 
     const startResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
         event.preventDefault();
@@ -74,9 +76,7 @@ export function CanvasSidePanel({ nodes, selectedNodeIds, onFocusNode, onPreview
             localStorage.setItem("canvas-side-panel-width", String(nextWidth));
             window.removeEventListener("pointermove", onMove);
             window.removeEventListener("pointerup", onUp);
-            setResizing(false);
         };
-        setResizing(true);
         window.addEventListener("pointermove", onMove);
         window.addEventListener("pointerup", onUp);
     };
@@ -84,51 +84,53 @@ export function CanvasSidePanel({ nodes, selectedNodeIds, onFocusNode, onPreview
     if (!panelMounted) return null;
 
     return (
+        <ConfigProvider theme={appearance.theme} tooltip={appearance.tooltip}>
         <motion.div
-            className="relative z-[60] flex h-full shrink-0"
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: panelOpen ? width + 1 : 0, opacity: panelOpen ? 1 : 0 }}
-            transition={{ duration: resizing ? 0 : PANEL_MOTION_SECONDS, ease: PANEL_EASE }}
-            style={{ overflow: "clip", pointerEvents: panelClosing ? "none" : undefined }}
+            className="pointer-events-none absolute inset-y-0 left-0 z-[60] flex pb-3 pl-3 pt-[120px] text-[var(--wb-text)] sm:pt-[72px] md:pb-5 md:pl-4"
+            initial={{ x: reduceMotion ? 0 : "-100%", opacity: 0 }}
+            animate={{ x: panelOpen || reduceMotion ? 0 : "-100%", opacity: panelOpen ? 1 : 0 }}
+            transition={{ duration: PANEL_MOTION_SECONDS, ease: PANEL_EASE }}
+            style={{ ...appearance.style, width: width + 1, maxWidth: "100%" }}
+            inert={!panelOpen || panelClosing}
+            data-canvas-no-zoom
         >
-            <motion.aside
-                className="relative flex h-full shrink-0 flex-col overflow-hidden border-r"
-                initial={{ x: -48 }}
-                animate={{ x: panelClosing ? -28 : 0 }}
-                transition={{ duration: resizing ? 0 : PANEL_MOTION_SECONDS, ease: PANEL_EASE }}
-                style={{ width, background: theme.toolbar.panel, borderColor: theme.toolbar.border, color: theme.node.text }}
-                data-canvas-no-zoom
-            >
-                <div className="flex items-center gap-1 px-3 pt-3">
-                    <TabButton label={t("canvas.sidePanel.canvas")} active={tab === "canvas"} theme={theme} onClick={() => setTab("canvas")} />
-                    <TabButton label={t("canvas.sidePanel.assets")} active={tab === "assets"} theme={theme} onClick={() => setTab("assets")} />
-                    <TabButton label={t("canvas.sidePanel.prompts")} active={tab === "prompts"} theme={theme} onClick={() => setTab("prompts")} />
-                </div>
-                <div className="min-h-0 flex-1 overflow-hidden">
-                    {tab === "canvas" ? (
-                        <CanvasNodesTab nodes={nodes} selectedNodeIds={selectedNodeIds} onFocusNode={onFocusNode} onPreviewNode={onPreviewNode} theme={theme} />
-                    ) : tab === "assets" ? (
-                        <CanvasAssetsTab onInsert={onInsertAsset} theme={theme} />
-                    ) : (
-                        <CanvasPromptsTab onInsert={onInsertAsset} theme={theme} />
-                    )}
-                </div>
-                <button type="button" className="absolute inset-y-0 right-0 z-40 w-4 translate-x-1/2 cursor-col-resize" onPointerDown={startResize} aria-label={t("canvas.sidePanel.resize")} />
-            </motion.aside>
+            <aside className={`${panelStyles.panel} relative flex min-h-0 min-w-0 flex-1 flex-col`} style={{ pointerEvents: panelOpen && !panelClosing ? "auto" : "none" }}>
+            <div className="flex items-center gap-1 px-3 pt-3">
+                <TabButton label={t("canvas.sidePanel.canvas")} active={tab === "canvas"} onClick={() => setTab("canvas")} />
+                <TabButton label={t("canvas.sidePanel.assets")} active={tab === "assets"} onClick={() => setTab("assets")} />
+                <TabButton label={t("canvas.sidePanel.prompts")} active={tab === "prompts"} onClick={() => setTab("prompts")} />
+                <Tooltip trigger={["hover", "focus"]} title={t("canvas.collapsePanel")}>
+                    <button type="button" onClick={closePanel} aria-label={t("canvas.collapsePanel")} className="ml-auto grid size-7 shrink-0 place-items-center rounded-full hover:bg-black/5 focus-visible:outline-2 focus-visible:outline-current dark:hover:bg-white/10">
+                        <PanelLeftClose className="size-4" />
+                    </button>
+                </Tooltip>
+            </div>
+            <div className="min-h-0 flex-1 overflow-hidden rounded-b-[inherit]">
+                {tab === "canvas" ? (
+                    <CanvasNodesTab nodes={nodes} selectedNodeIds={selectedNodeIds} onFocusNode={onFocusNode} onPreviewNode={onPreviewNode} />
+                ) : tab === "assets" ? (
+                    <CanvasAssetsTab onInsert={onInsertAsset} />
+                ) : (
+                    <CanvasPromptsTab onInsert={onInsertAsset} />
+                )}
+            </div>
+            <button type="button" className="absolute inset-y-0 right-0 z-40 w-4 translate-x-1/2 cursor-col-resize" onPointerDown={startResize} aria-label={t("canvas.sidePanel.resize")} />
+            </aside>
         </motion.div>
+        </ConfigProvider>
     );
 }
 
-function TabButton({ label, active, theme, onClick }: { label: string; active: boolean; theme: CanvasTheme; onClick: () => void }) {
+function TabButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
     return (
         <button
             type="button"
             onClick={onClick}
             className="relative rounded-full px-2.5 py-1.5 text-[13px] font-medium transition-colors hover:bg-black/5 dark:hover:bg-white/10"
-            style={{ color: theme.node.text, opacity: active ? 1 : 0.45 }}
+            style={{ color: "var(--wb-text)", opacity: active ? 1 : 0.45 }}
         >
             {label}
-            {active ? <motion.span layoutId="sidePanelTabIndicator" className="absolute inset-x-2.5 -bottom-px h-0.5 rounded-full" style={{ background: theme.toolbar.activeText }} transition={{ type: "spring", stiffness: 500, damping: 34 }} /> : null}
+            {active ? <motion.span layoutId="sidePanelTabIndicator" className="absolute inset-x-2.5 -bottom-px h-0.5 rounded-full" style={{ background: "var(--wb-text)" }} transition={{ type: "spring", stiffness: 500, damping: 34 }} /> : null}
         </button>
     );
 }
@@ -144,7 +146,7 @@ function nodePreviewText(node: CanvasNodeData) {
     return getNodeDefinition(node.type)?.title || node.type;
 }
 
-function CanvasNodesTab({ nodes, selectedNodeIds, onFocusNode, onPreviewNode, theme }: { nodes: CanvasNodeData[]; selectedNodeIds: Set<string>; onFocusNode: (nodeId: string) => void; onPreviewNode: (nodeId: string) => void; theme: CanvasTheme }) {
+function CanvasNodesTab({ nodes, selectedNodeIds, onFocusNode, onPreviewNode }: { nodes: CanvasNodeData[]; selectedNodeIds: Set<string>; onFocusNode: (nodeId: string) => void; onPreviewNode: (nodeId: string) => void }) {
     const { message } = App.useApp();
     const { t } = useTranslation();
     useSyncExternalStore(subscribeImagePreviews, getImagePreviewRevision);
@@ -216,7 +218,7 @@ function CanvasNodesTab({ nodes, selectedNodeIds, onFocusNode, onPreviewNode, th
                     type="button"
                     onClick={() => (selectMode ? exitSelect() : setSelectMode(true))}
                     className="ml-auto flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium opacity-70 transition hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
-                    style={selectMode ? { color: theme.toolbar.activeText, opacity: 1 } : undefined}
+                    style={selectMode ? { color: "var(--wb-text)", opacity: 1 } : undefined}
                 >
                     <ListChecks className="size-3.5" />
                     {selectMode ? t("common.cancel") : t("canvas.sidePanel.select")}
@@ -235,29 +237,33 @@ function CanvasNodesTab({ nodes, selectedNodeIds, onFocusNode, onPreviewNode, th
                             const isChecked = checked.has(node.id);
                             const active = selectMode ? isChecked : selectedNodeIds.has(node.id);
                             return (
-                                <div key={node.id} className={cn("group relative flex items-center rounded-lg transition", depth && "ml-5", active ? "" : "hover:bg-black/5 dark:hover:bg-white/5")} style={active ? { background: theme.toolbar.activeBg } : undefined}>
-                                    {depth ? <span className="pointer-events-none absolute -left-3 top-[calc(-50%-0.4rem)] h-[calc(100%+0.4rem)] w-3 rounded-bl-md border-b border-l opacity-45" style={{ borderColor: theme.node.stroke }} /> : null}
+                                <div key={node.id} className={cn("group relative flex items-center rounded-lg transition", depth && "ml-5", active ? "" : "hover:bg-black/5 dark:hover:bg-white/5")} style={active ? { background: "var(--wb-selected)" } : undefined}>
+                                    {depth ? <span className="pointer-events-none absolute -left-3 top-[calc(-50%-0.4rem)] h-[calc(100%+0.4rem)] w-3 rounded-bl-md border-b border-l opacity-45" style={{ borderColor: "var(--wb-border)" }} /> : null}
                                     {node.type === CanvasNodeType.Group && hasChildren ? (
                                         <button type="button" onClick={() => setCollapsedGroups((prev) => (prev.has(node.id) ? new Set([...prev].filter((id) => id !== node.id)) : new Set(prev).add(node.id)))} className="ml-1 grid size-6 shrink-0 place-items-center opacity-55 transition hover:opacity-100" aria-label={node.title}>
                                             <ChevronRight className={cn("size-3.5 transition-transform", !collapsedGroups.has(node.id) && "rotate-90")} />
                                         </button>
                                     ) : null}
-                                    <button type="button" onClick={() => (selectMode ? toggleChecked(node.id) : onFocusNode(node.id))} className={cn("flex min-w-0 flex-1 items-center gap-3 py-2 pr-2 text-left", node.type === CanvasNodeType.Group && hasChildren ? "pl-0" : "pl-2")} title={selectMode ? undefined : t("canvas.sidePanel.focusNode")}>
-                                        {selectMode ? <CheckMark checked={isChecked} theme={theme} /> : null}
-                                        <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md">
-                                            {isImage ? <img src={previewUrlFor(node.metadata?.storageKey) || node.metadata?.content} alt={node.title} className="size-full object-cover" /> : <Icon className="size-5 opacity-55" />}
-                                        </span>
-                                        <span className="min-w-0 flex-1 space-y-0.5">
-                                            <span className="block truncate text-sm font-medium leading-snug">{node.title || getNodeDefinition(node.type)?.title || t("canvas.node.untitled")}</span>
-                                            <span className="block truncate text-xs leading-snug opacity-50">{nodePreviewText(node)}</span>
-                                        </span>
-                                        {node.metadata?.status && node.metadata.status !== "idle" ? <span className="size-1.5 shrink-0 rounded-full" style={{ background: STATUS_COLOR[node.metadata.status] || "transparent" }} /> : null}
-                                    </button>
+                                    <Tooltip title={selectMode ? undefined : t("canvas.sidePanel.focusNode")}>
+                                        <button type="button" onClick={() => (selectMode ? toggleChecked(node.id) : onFocusNode(node.id))} className={cn("flex min-w-0 flex-1 items-center gap-3 py-2 pr-2 text-left", node.type === CanvasNodeType.Group && hasChildren ? "pl-0" : "pl-2")} aria-label={selectMode ? undefined : t("canvas.sidePanel.focusNode")}>
+                                            {selectMode ? <CheckMark checked={isChecked} /> : null}
+                                            <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md">
+                                                {isImage ? <img src={previewUrlFor(node.metadata?.storageKey) || node.metadata?.content} alt={node.title} className="size-full object-cover" /> : <Icon className="size-5 opacity-55" />}
+                                            </span>
+                                            <span className="min-w-0 flex-1 space-y-0.5">
+                                                <span className="block truncate text-sm font-medium leading-snug">{node.title || getNodeDefinition(node.type)?.title || t("canvas.node.untitled")}</span>
+                                                <span className="block truncate text-xs leading-snug opacity-50">{nodePreviewText(node)}</span>
+                                            </span>
+                                            {node.metadata?.status && node.metadata.status !== "idle" ? <span className="size-1.5 shrink-0 rounded-full" style={{ background: STATUS_COLOR[node.metadata.status] || "transparent" }} /> : null}
+                                        </button>
+                                    </Tooltip>
                                     {selectMode || !isImage ? null : (
                                         <div className="flex shrink-0 flex-col items-center gap-0.5 pr-1.5">
-                                            <button type="button" onClick={() => onPreviewNode(node.id)} className="grid size-7 place-items-center rounded-full opacity-55 transition hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10" aria-label={t("canvas.sidePanel.preview")} title={t("canvas.sidePanel.preview")}>
-                                                <Eye className="size-3.5" />
-                                            </button>
+                                            <Tooltip title={t("canvas.sidePanel.preview")}>
+                                                <button type="button" onClick={() => onPreviewNode(node.id)} className="grid size-7 place-items-center rounded-full opacity-55 transition hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10" aria-label={t("canvas.sidePanel.preview")}>
+                                                    <Eye className="size-3.5" />
+                                                </button>
+                                            </Tooltip>
                                         </div>
                                     )}
                                 </div>
@@ -269,7 +275,7 @@ function CanvasNodesTab({ nodes, selectedNodeIds, onFocusNode, onPreviewNode, th
                 )}
             </div>
             {selectMode ? (
-                <div className="flex items-center gap-2 border-t px-3 py-2.5" style={{ borderColor: theme.toolbar.border }}>
+                <div className="flex items-center gap-2 border-t px-3 py-2.5" style={{ borderColor: "var(--wb-border)" }}>
                     <button type="button" onClick={toggleAll} className="rounded-full px-2 py-1 text-xs font-medium opacity-70 transition hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10">
                         {allChecked ? t("canvas.sidePanel.clearAll") : t("workbench.selectAll")}
                     </button>
@@ -279,7 +285,7 @@ function CanvasNodesTab({ nodes, selectedNodeIds, onFocusNode, onPreviewNode, th
                         onClick={() => void handleExport()}
                         disabled={!checked.size || exporting}
                         className="ml-auto flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-white/10"
-                        style={{ color: theme.node.text }}
+                        style={{ color: "var(--wb-text)" }}
                     >
                         <Download className="size-3.5" />
                         {t("canvas.exportSelected")}
@@ -290,10 +296,10 @@ function CanvasNodesTab({ nodes, selectedNodeIds, onFocusNode, onPreviewNode, th
     );
 }
 
-function CheckMark({ checked, theme }: { checked: boolean; theme: CanvasTheme }) {
+function CheckMark({ checked }: { checked: boolean }) {
     return (
-        <span className="grid size-4 shrink-0 place-items-center rounded border transition" style={{ borderColor: checked ? theme.toolbar.activeText : theme.node.stroke, background: checked ? theme.toolbar.activeText : "transparent" }}>
-            {checked ? <Check className="size-3 text-white" /> : null}
+        <span className="grid size-4 shrink-0 place-items-center rounded border transition" style={{ borderColor: checked ? "var(--wb-text)" : "var(--wb-border)", background: checked ? "var(--wb-text)" : "transparent" }}>
+            {checked ? <Check className="size-3 text-[var(--wb-surface)]" /> : null}
         </span>
     );
 }
@@ -314,7 +320,7 @@ function buildInsertPayload(asset: Asset): InsertAssetPayload {
     return { kind: "image", dataUrl: asset.data.dataUrl, storageKey: asset.data.storageKey, title: asset.title };
 }
 
-const CanvasAssetsTab = memo(function CanvasAssetsTab({ onInsert, theme }: { onInsert: (payload: InsertAssetPayload) => void; theme: CanvasTheme }) {
+const CanvasAssetsTab = memo(function CanvasAssetsTab({ onInsert }: { onInsert: (payload: InsertAssetPayload) => void }) {
     const { message } = App.useApp();
     const { t } = useTranslation();
     const assets = useAssetStore((state) => state.assets);
@@ -374,7 +380,7 @@ const CanvasAssetsTab = memo(function CanvasAssetsTab({ onInsert, theme }: { onI
                     disabled={uploading}
                     onClick={() => fileInputRef.current?.click()}
                     className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition hover:bg-black/5 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-white/10"
-                    style={{ color: theme.node.text }}
+                    style={{ color: "var(--wb-text)" }}
                 >
                     <Plus className="size-3.5" />
                     {t("canvas.sidePanel.add")}
@@ -413,7 +419,7 @@ const CanvasAssetsTab = memo(function CanvasAssetsTab({ onInsert, theme }: { onI
                                     {isCollapsed ? null : (
                                         <div className="grid grid-cols-2 gap-2 px-1 pb-2 pt-1">
                                             {group.items.map((asset) => (
-                                                <AssetCard key={asset.id} asset={asset} theme={theme} onInsert={() => onInsert(buildInsertPayload(asset))} onRemove={() => (removeAsset(asset.id), message.success(t("canvas.sidePanel.assetRemoved")))} />
+                                                <AssetCard key={asset.id} asset={asset} onInsert={() => onInsert(buildInsertPayload(asset))} onRemove={() => (removeAsset(asset.id), message.success(t("canvas.sidePanel.assetRemoved")))} />
                                             ))}
                                         </div>
                                     )}
@@ -429,10 +435,10 @@ const CanvasAssetsTab = memo(function CanvasAssetsTab({ onInsert, theme }: { onI
     );
 });
 
-function AssetCard({ asset, theme, onInsert, onRemove }: { asset: Asset; theme: CanvasTheme; onInsert: () => void; onRemove: () => void }) {
+function AssetCard({ asset, onInsert, onRemove }: { asset: Asset; onInsert: () => void; onRemove: () => void }) {
     const { t } = useTranslation();
     return (
-        <div className="group relative aspect-square overflow-hidden rounded-xl border transition duration-200 hover:-translate-y-0.5 hover:shadow-lg" style={{ borderColor: theme.node.stroke, background: theme.node.panel }}>
+        <div className="group relative aspect-square overflow-hidden rounded-xl border transition duration-200 hover:-translate-y-0.5 hover:shadow-lg" style={{ borderColor: "var(--wb-border)", background: "var(--wb-surface)" }}>
             <AssetCover asset={asset} />
             <div className="absolute inset-0 flex items-center justify-center gap-2.5 opacity-0 transition duration-200 group-hover:opacity-100">
                 <button
@@ -470,7 +476,7 @@ function AssetCover({ asset }: { asset: Asset }) {
 // Prompt library tab: collapsible source groups, lazy loading, and copy or text-node insertion actions.
 // ---------------------------------------------------------------------------
 
-const CanvasPromptsTab = memo(function CanvasPromptsTab({ onInsert, theme }: { onInsert: (payload: InsertAssetPayload) => void; theme: CanvasTheme }) {
+const CanvasPromptsTab = memo(function CanvasPromptsTab({ onInsert }: { onInsert: (payload: InsertAssetPayload) => void }) {
     const { message } = App.useApp();
     const { t } = useTranslation();
     const sources = usePromptSourceStore((state) => state.sources);
@@ -502,7 +508,6 @@ const CanvasPromptsTab = memo(function CanvasPromptsTab({ onInsert, theme }: { o
                             sourceName={source.name}
                             keyword={keyword}
                             open={!!expanded[source.id]}
-                            theme={theme}
                             onToggle={() => setExpanded((prev) => ({ ...prev, [source.id]: !prev[source.id] }))}
                             onInsert={onInsert}
                             onView={setDetail}
@@ -520,7 +525,6 @@ function PromptSourceGroup({
     sourceName,
     keyword,
     open,
-    theme,
     onToggle,
     onInsert,
     onView,
@@ -529,7 +533,6 @@ function PromptSourceGroup({
     sourceName: string;
     keyword: string;
     open: boolean;
-    theme: CanvasTheme;
     onToggle: () => void;
     onInsert: (payload: InsertAssetPayload) => void;
     onView: (prompt: Prompt) => void;
@@ -569,7 +572,7 @@ function PromptSourceGroup({
                     ) : filtered.length ? (
                         <div className="space-y-1.5">
                             {filtered.map((item) => (
-                                <PromptRow key={item.id} item={item} theme={theme} onInsert={() => insertPrompt(item)} onView={() => onView(item)} />
+                                <PromptRow key={item.id} item={item} onInsert={() => insertPrompt(item)} onView={() => onView(item)} />
                             ))}
                         </div>
                     ) : (
@@ -581,7 +584,7 @@ function PromptSourceGroup({
     );
 }
 
-function PromptRow({ item, theme, onInsert, onView }: { item: Prompt; theme: CanvasTheme; onInsert: () => void; onView: () => void }) {
+function PromptRow({ item, onInsert, onView }: { item: Prompt; onInsert: () => void; onView: () => void }) {
     const { t } = useTranslation();
     return (
         <div className="group relative flex items-center gap-2.5 rounded-lg px-2 py-2 transition hover:bg-black/5 dark:hover:bg-white/5">
@@ -597,19 +600,22 @@ function PromptRow({ item, theme, onInsert, onView }: { item: Prompt; theme: Can
                 <div className="mt-0.5 truncate text-xs leading-snug opacity-50">{item.prompt}</div>
             </button>
             <div className="flex shrink-0 flex-col items-center gap-0.5">
-                <button type="button" onClick={onView} className="grid size-6 place-items-center rounded-full opacity-60 transition hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10" aria-label={t("canvas.sidePanel.viewDetails")} title={t("canvas.sidePanel.viewDetails")}>
-                    <Eye className="size-3.5" />
-                </button>
-                <button
-                    type="button"
-                    onClick={onInsert}
-                    className="grid size-6 place-items-center rounded-full opacity-60 transition hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
-                    style={{ color: theme.toolbar.activeText }}
-                    aria-label={t("canvas.sidePanel.inserted")}
-                    title={t("canvas.sidePanel.inserted")}
-                >
-                    <Plus className="size-3.5" />
-                </button>
+                <Tooltip title={t("canvas.sidePanel.viewDetails")}>
+                    <button type="button" onClick={onView} className="grid size-6 place-items-center rounded-full opacity-60 transition hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10" aria-label={t("canvas.sidePanel.viewDetails")}>
+                        <Eye className="size-3.5" />
+                    </button>
+                </Tooltip>
+                <Tooltip title={t("canvas.sidePanel.inserted")}>
+                    <button
+                        type="button"
+                        onClick={onInsert}
+                        className="grid size-6 place-items-center rounded-full opacity-60 transition hover:bg-black/5 hover:opacity-100 dark:hover:bg-white/10"
+                        style={{ color: "var(--wb-text)" }}
+                        aria-label={t("canvas.sidePanel.inserted")}
+                    >
+                        <Plus className="size-3.5" />
+                    </button>
+                </Tooltip>
             </div>
         </div>
     );

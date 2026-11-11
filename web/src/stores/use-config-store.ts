@@ -60,8 +60,6 @@ export type AiConfig = {
     background: string;
     count: string;
     canvasImageCount: string;
-    proxyEnabled: boolean;
-    proxyUrl: string;
 };
 
 export type WebdavSyncConfig = {
@@ -71,7 +69,7 @@ export type WebdavSyncConfig = {
     directory: string;
     lastSyncedAt: string;
 };
-export type ConfigTabKey = "channels" | "local-proxy" | "preferences" | "prompt-sources" | "webdav" | "local-storage";
+export type ConfigTabKey = "channels" | "preferences" | "prompt-sources" | "webdav" | "local-storage";
 
 export type ChannelCredentialsImportResult = {
     status: "created" | "updated" | "missing-base-url" | "invalid-base-url";
@@ -82,8 +80,6 @@ export const CONFIG_STORE_KEY = "oioi-canvas:ai_config_store";
 const CHANNEL_MODEL_SEPARATOR = "::";
 const OPENAI_BASE_URL = "https://api.openai.com";
 const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com";
-export const LOCAL_PROXY_PACKAGE = "@basketikun/canvas-proxy";
-export const DEFAULT_LOCAL_PROXY_URL = "http://127.0.0.1:23210";
 
 export const defaultConfig: AiConfig = {
     channelMode: "local",
@@ -127,8 +123,6 @@ export const defaultConfig: AiConfig = {
     background: "",
     count: "1",
     canvasImageCount: "1",
-    proxyEnabled: false,
-    proxyUrl: DEFAULT_LOCAL_PROXY_URL,
 };
 
 export const defaultWebdavSyncConfig: WebdavSyncConfig = {
@@ -148,7 +142,7 @@ type ConfigStore = {
     updateConfig: <K extends keyof AiConfig>(key: K, value: AiConfig[K]) => void;
     importChannelCredentials: (input: { baseUrl?: string | null; apiKey?: string | null }) => ChannelCredentialsImportResult;
     updateWebdavConfig: <K extends keyof WebdavSyncConfig>(key: K, value: WebdavSyncConfig[K]) => void;
-    isAiConfigReady: (config: AiConfig, model: string) => boolean;
+    isAiConfigReady: (config: AiConfig, model: string, capability?: ModelCapability) => boolean;
     openConfigDialog: (shouldPromptContinue?: boolean, tab?: ConfigTabKey) => void;
     setConfigDialogOpen: (isOpen: boolean) => void;
     clearPromptContinue: () => void;
@@ -184,6 +178,11 @@ export function modelCapabilityOf(config: AiConfig, value: string): ModelCapabil
     return findChannelModel(config, value)?.model.capability;
 }
 
+export function modelApiFormatOf(config: AiConfig, value: string) {
+    const matched = findChannelModel(config, value);
+    return matched?.model.apiFormat || matched?.channel.apiFormat || config.apiFormat;
+}
+
 export function modelMatchesCapability(config: AiConfig, value: string, capability?: ModelCapability) {
     if (!capability) return true;
     return modelCapabilityOf(config, value) === capability;
@@ -191,10 +190,9 @@ export function modelMatchesCapability(config: AiConfig, value: string, capabili
 
 export function resolveModelForCapability(config: AiConfig, currentModel: string | undefined, capability: ModelCapability) {
     const defaultModel = capability === "image" ? config.imageModel : capability === "video" ? config.videoModel : capability === "audio" ? config.audioModel : config.textModel;
-    const fallbackModel = capability === "image" ? defaultConfig.imageModel : capability === "video" ? defaultConfig.videoModel : capability === "audio" ? defaultConfig.audioModel : defaultConfig.textModel;
     if (currentModel && modelMatchesCapability(config, currentModel, capability)) return currentModel;
     if (defaultModel && modelMatchesCapability(config, defaultModel, capability)) return defaultModel;
-    return config.channelMode === "remote" ? selectableModelsByCapability(config, capability)[0] || "" : fallbackModel;
+    return selectableModelsByCapability(config, capability)[0] || "";
 }
 
 export function selectableModelsByCapability(config: AiConfig, capability?: ModelCapability) {
@@ -208,7 +206,8 @@ export function resolveModelScript(config: AiConfig, value: string) {
     return findChannelModel(config, value)?.model.script?.trim() || "";
 }
 
-function isAiConfigReady(config: AiConfig, model: string) {
+function isAiConfigReady(config: AiConfig, model: string, capability?: ModelCapability) {
+    if (!findChannelModel(config, model) || !modelMatchesCapability(config, model, capability)) return false;
     if (NEW_API_ENABLED) {
         const state = useNewApiStore.getState();
         return state.status === "ready" && config.newApiUserId === state.session?.user.id && config.newApiSessionId === state.session?.session.sid && Boolean(findChannelModel(config, model));
@@ -245,7 +244,7 @@ export const useConfigStore = create<ConfigStore>()(
                         [key]: value,
                     },
                 })),
-            isAiConfigReady: (config, model) => isAiConfigReady(config, model),
+            isAiConfigReady,
             openConfigDialog: (shouldPromptContinue = false, configTab = "channels") => set({ isConfigOpen: true, shouldPromptContinue, configTab }),
             setConfigDialogOpen: (isConfigOpen) => set({ isConfigOpen }),
             clearPromptContinue: () => set({ shouldPromptContinue: false }),
@@ -285,8 +284,6 @@ export const useConfigStore = create<ConfigStore>()(
                         videoWatermark: config.videoWatermark || "false",
                         videoMode: config.videoMode === "reference" ? "reference" : "frames",
                         canvasImageCount: config.canvasImageCount || "1",
-                        proxyEnabled: Boolean(config.proxyEnabled),
-                        proxyUrl: config.proxyUrl || DEFAULT_LOCAL_PROXY_URL,
                     },
                 };
             },
@@ -312,13 +309,13 @@ function buildEffectiveConfig(config: AiConfig, state: NewApiRuntimeState): AiCo
     const models: ChannelModel[] = state.models.flatMap((model) => {
         const endpoints = (model.supported_endpoint_types || []).map((endpoint) => endpoint === "videos" ? "openai-video" : endpoint);
         const category = model.category?.trim().toLowerCase() || "";
-        const capability = NEW_API_CATEGORY_CAPABILITIES.get(category) ?? (endpoints.includes("openai-video") ? "video" : endpoints.includes("image-generation") ? "image" : /banana/i.test(model.id) ? "image" : guessCapability(model.id));
-        const responseEndpoint = endpoints.includes("openai-response") ? "openai-response" : endpoints.includes("openai-response-compact") ? "openai-response-compact" : "";
-        const endpoint = capability === "image" ? "image-generation" : capability === "video" ? "openai-video" : responseEndpoint || "openai";
-        const apiFormat: ApiCallFormat = endpoints.includes(endpoint) || !endpoints.includes("gemini") ? "openai" : "gemini";
-        const textEndpoint = capability === "text" && apiFormat === "openai" ? category === "chat" && endpoints.includes("openai") ? "chat" : endpoint === "openai" ? "chat" : "responses" : undefined;
-        if (endpoints.length && capability !== "audio" && !endpoints.includes(endpoint) && !endpoints.includes("gemini")) return [];
-        if (capability === "audio" && apiFormat === "gemini") return [];
+        const capability = NEW_API_CATEGORY_CAPABILITIES.get(category);
+        if (!capability) return [];
+        const supported = capability === "image" ? ["gemini-image", "image-generation", "gemini"] : capability === "video" ? ["openai-video", "gemini"] : capability === "audio" ? ["openai"] : ["openai", "openai-response", "gemini"];
+        const endpoint = supported.find((item) => endpoints.includes(item));
+        if (!endpoint) return [];
+        const apiFormat: ApiCallFormat = endpoint === "gemini" || endpoint === "gemini-image" ? "gemini" : "openai";
+        const textEndpoint = capability === "text" && apiFormat === "openai" ? endpoint === "openai" ? "chat" : "responses" : undefined;
         const entry: ChannelModel = { name: model.id, capability, apiFormat, ...(textEndpoint ? { textEndpoint } : {}) };
         return [entry];
     });
@@ -344,7 +341,6 @@ function buildEffectiveConfig(config: AiConfig, state: NewApiRuntimeState): AiCo
         videoModel: pick("video", config.videoModel),
         textModel: pick("text", config.textModel),
         audioModel: pick("audio", config.audioModel),
-        proxyEnabled: false,
     };
 }
 
@@ -488,7 +484,7 @@ export function resolveModelChannel(config: AiConfig, value: string) {
     return matched || config.channels[0] || createModelChannel({ id: "default", name: i18n.t("config.channels.defaultName"), baseUrl: config.baseUrl, apiKey: config.apiKey, apiFormat: config.apiFormat, models: config.models.map(modelOptionName).map((name) => ({ name, capability: guessCapability(name) })) });
 }
 
-export function resolveModelRequestConfig(config: AiConfig, value: string): AiConfig {
+export function resolveModelRequestConfig(config: AiConfig, value: string, capability?: ModelCapability): AiConfig {
     if (NEW_API_ENABLED) {
         const state = useNewApiStore.getState();
         if (state.status !== "ready" || !state.session || config.newApiUserId !== state.session.user.id || config.newApiSessionId !== state.session.session.sid) throw new Error("登录状态已变化，请重新选择模型后再试");
@@ -496,8 +492,10 @@ export function resolveModelRequestConfig(config: AiConfig, value: string): AiCo
         const effective = buildEffectiveConfig(config, state);
         const model = effective.channels[0].models.find((item) => item.name === name);
         if (!model) throw new Error("该模型当前不可用，请重新选择");
+        if (capability && model.capability !== capability) throw new Error("所选模型不支持当前生成类型，请重新选择");
         return { ...config, model: name, baseUrl: NEW_API_BASE_URL, apiKey: state.apiKey, apiFormat: model.apiFormat || "openai", textEndpoint: model.textEndpoint };
     }
+    if (capability && !modelMatchesCapability(config, value, capability)) throw new Error("所选模型不支持当前生成类型，请重新选择");
     const channel = resolveModelChannel(config, value);
     return {
         ...config,
@@ -509,9 +507,9 @@ export function resolveModelRequestConfig(config: AiConfig, value: string): AiCo
     };
 }
 
-export async function prepareModelRequestConfig(config: AiConfig, value: string) {
+export async function prepareModelRequestConfig(config: AiConfig, value: string, capability: ModelCapability) {
     if (NEW_API_ENABLED) await useNewApiStore.getState().ensureReady();
-    return resolveModelRequestConfig(config, value);
+    return resolveModelRequestConfig(config, value, capability);
 }
 
 function normalizeChannels(config: AiConfig) {
@@ -556,21 +554,5 @@ export function buildApiUrl(baseUrl: string, path: string) {
     const normalizedBaseUrl = baseUrl.trim().replace(/\/+$/, "");
     const lowerBaseUrl = normalizedBaseUrl.toLowerCase();
     const apiBaseUrl = lowerBaseUrl.endsWith("/v1") ? normalizedBaseUrl : `${normalizedBaseUrl}/v1`;
-    return withLocalProxy(`${apiBaseUrl}${path}`);
-}
-
-export function normalizeLocalProxyUrl(value: string) {
-    const trimmed = value.trim().replace(/\/+$/, "");
-    if (!trimmed) return "";
-    return /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
-}
-
-/** Prefix an outgoing request with the local forwarding proxy so the browser is not blocked by CORS. */
-export function withLocalProxy(url: string) {
-    if (NEW_API_ENABLED) return url;
-    const { proxyEnabled, proxyUrl } = useConfigStore.getState().config;
-    if (!proxyEnabled || !/^https?:\/\//i.test(url)) return url;
-    const base = normalizeLocalProxyUrl(proxyUrl);
-    if (!base || url.startsWith(`${base}/`)) return url;
-    return `${base}/${url}`;
+    return `${apiBaseUrl}${path}`;
 }

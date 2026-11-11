@@ -438,22 +438,24 @@ function CompactReferenceThumb({
                 {/* Subtle border overlay */}
                 <div className="absolute inset-0 rounded-lg ring-1 ring-inset ring-black/10 dark:ring-white/10 pointer-events-none" />
                 {/* Remove button on hover */}
-                <button
-                    type="button"
-                    title="移除参考"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onRemove();
-                    }}
-                    className="absolute inset-0 bg-black/50 text-red-500 hover:text-red-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer backdrop-blur-[1px]"
-                >
-                    <X
-                        className="size-4 stroke-[2.8] text-red-500 hover:scale-115 transition-transform"
-                        style={{
-                            filter: "drop-shadow(0 0 1.5px rgba(0,0,0,0.95)) drop-shadow(0 1px 2px rgba(0,0,0,0.9))",
+                <Tooltip title="移除参考">
+                    <button
+                        type="button"
+                        aria-label="移除参考"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onRemove();
                         }}
-                    />
-                </button>
+                        className="absolute inset-0 bg-black/50 text-red-500 hover:text-red-400 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer backdrop-blur-[1px]"
+                    >
+                        <X
+                            className="size-4 stroke-[2.8] text-red-500 hover:scale-115 transition-transform"
+                            style={{
+                                filter: "drop-shadow(0 0 1.5px rgba(0,0,0,0.95)) drop-shadow(0 1px 2px rgba(0,0,0,0.9))",
+                            }}
+                        />
+                    </button>
+                </Tooltip>
             </div>
         </Popover>
     );
