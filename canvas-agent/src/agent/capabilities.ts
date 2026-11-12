@@ -8,7 +8,7 @@ const policy = (value: unknown) => string(value) || (value && typeof value === "
 export async function readCapabilities(rpc: AgentTransport, cwd: string, session: RpcParams): Promise<AgentCapabilities> {
     const result: AgentCapabilities = {
         runtimeId: "codex", model: string(session.model), modelProvider: string(session.modelProvider), reasoningEffort: string(session.reasoningEffort),
-        approvalPolicy: policy(session.approvalPolicy), sandbox: string(session.sandbox?.type),
+        approvalPolicy: policy(session.approvalPolicy), approvalsReviewer: string(session.approvalsReviewer), sandbox: string(session.sandbox?.type),
         defaults: { model: null, reasoningEffort: null, approvalPolicy: null, sandbox: null }, models: [], skills: [], mcpServers: [], errors: [],
     };
     const read = async (name: string, task: () => Promise<void>) => {
@@ -18,7 +18,7 @@ export async function readCapabilities(rpc: AgentTransport, cwd: string, session
     await Promise.all([
         read("本地配置", async () => {
             const { config } = await rpc.request("config/read", { cwd, includeLayers: false });
-            if (!session.thread?.id) { result.model = string(config.model); result.modelProvider = string(config.model_provider); result.reasoningEffort = string(config.model_reasoning_effort); result.approvalPolicy = policy(config.approval_policy); result.sandbox = string(config.sandbox_mode); }
+            if (!session.thread?.id) { result.model = string(config.model); result.modelProvider = string(config.model_provider); result.reasoningEffort = string(config.model_reasoning_effort); result.approvalPolicy = policy(config.approval_policy); result.approvalsReviewer = string(config.approvals_reviewer); result.sandbox = string(config.sandbox_mode); }
             result.defaults = { model: string(config.model), reasoningEffort: string(config.model_reasoning_effort), approvalPolicy: policy(config.approval_policy), sandbox: string(config.sandbox_mode) };
         }),
         read("模型目录", async () => {

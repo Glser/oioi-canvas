@@ -32,7 +32,7 @@ export function ConnectionPath({
     const pathD = `M ${startX} ${startY} C ${startX + curvature} ${startY}, ${endX - curvature} ${endY}, ${endX} ${endY}`;
 
     return (
-        <g>
+        <g color={theme.node.activeStroke} style={{ "--beam-highlight": theme.connection.flowHighlight, "--beam-tip": theme.connection.flowTip } as CSSProperties}>
             <path
                 data-connection-id={connection.id}
                 d={pathD}
@@ -51,22 +51,17 @@ export function ConnectionPath({
                 }}
             />
             <path
+                className={generating ? styles.generatingPath : undefined}
                 d={pathD}
                 stroke={active ? theme.node.activeStroke : theme.node.muted}
                 strokeWidth={active ? 1.75 : 1.25}
                 strokeOpacity={active ? 1 : 0.82}
                 strokeLinecap="round"
                 fill="none"
-                style={{ filter: active ? `drop-shadow(0 0 8px ${theme.node.activeStroke}66)` : undefined, pointerEvents: "none" }}
+                style={{ filter: active && !generating ? `drop-shadow(0 0 8px ${theme.node.activeStroke}66)` : undefined, pointerEvents: "none" }}
             />
             {generating ? (
-                <g
-                    className={styles.traffic}
-                    stroke={theme.node.activeStroke}
-                    color={theme.node.activeStroke}
-                    style={{ "--beam-highlight": theme.connection.flowHighlight, "--beam-tip": theme.connection.flowTip } as CSSProperties}
-                    aria-hidden="true"
-                >
+                <g className={styles.traffic} stroke="currentColor" aria-hidden="true">
                     <path d={pathD} pathLength={100} className={styles.trail} />
                     <path d={pathD} pathLength={100} className={styles.beam} />
                     <path d={pathD} pathLength={100} className={styles.tip} />

@@ -41,11 +41,19 @@ export async function fetchAgentJson<T>(endpoint: string, token: string, path: s
 
 
 export { AGENT_PROTOCOL_VERSION } from "../../../../canvas-agent/src/agent/types";
-export type { AgentConversation, AgentConversationUpdate, AgentRequest, AgentAnswer, AgentCapabilities, AgentModelSelection, DetectedRuntime, RuntimeCatalog, RuntimeInfo } from "../../../../canvas-agent/src/agent/types";
-import type { AgentConversation, AgentAnswer, AgentModelSelection, RuntimeCatalog, RuntimeInfo } from "../../../../canvas-agent/src/agent/types";
+export type { AgentConversation, AgentConversationUpdate, AgentConversationSummary, AgentDirectory, AgentRequest, AgentAnswer, AgentInputValue, AgentCapabilities, AgentModelSelection, AgentPermissionMode, DetectedRuntime, RuntimeCatalog, RuntimeInfo } from "../../../../canvas-agent/src/agent/types";
+import type { AgentConversation, AgentConversationSummary, AgentDirectory, AgentAnswer, AgentModelSelection, AgentPermissionMode, RuntimeCatalog, RuntimeInfo } from "../../../../canvas-agent/src/agent/types";
 
-export function callAgentSession(endpoint: string, token: string, action: "connect" | "send" | "interrupt" | "answer" | "capabilities", target: { clientId: string; projectId: string }, input: ({ submissionId?: string; text?: string } & AgentModelSelection) | AgentAnswer = {}) {
+export function callAgentSession(endpoint: string, token: string, action: "connect" | "open" | "send" | "interrupt" | "answer" | "capabilities" | "permissions", target: { clientId: string; projectId: string; conversationId?: string }, input: ({ submissionId?: string; text?: string } & AgentModelSelection) | AgentAnswer | { mode: AgentPermissionMode } | { id?: string; cwd?: string } = {}) {
     return fetchAgentJson<AgentConversation>(endpoint, token, `/agent/${action}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...target, ...input }) });
+}
+
+export function fetchAgentConversations(endpoint: string, token: string, target: { clientId: string; projectId: string }) {
+    return fetchAgentJson<AgentConversationSummary[]>(endpoint, token, "/agent/conversations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(target) });
+}
+
+export function fetchAgentDirectories(endpoint: string, token: string, target: { clientId: string; projectId: string }, path?: string) {
+    return fetchAgentJson<AgentDirectory>(endpoint, token, "/agent/directories", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...target, path }) });
 }
 
 export function localConnectorCommand(origin = window.location.origin) {

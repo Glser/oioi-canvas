@@ -1,0 +1,43 @@
+.composer { min-width: 0; padding: 0 12px 12px; color: var(--composer-ink); }
+.surface { overflow: hidden; border-radius: 24px; background: var(--composer-bg); box-shadow: 0 4px 16px color-mix(in srgb, var(--composer-ink) 7%, transparent); transition: box-shadow 200ms cubic-bezier(.22, 1, .36, 1); }
+.surface:focus-within { box-shadow: 0 6px 20px color-mix(in srgb, var(--composer-ink) 10%, transparent); }
+.editor:global(.ant-input) { padding: 16px 16px 4px; color: var(--composer-ink); font-size: 14px; line-height: 24px; border-radius: 0; background: transparent; }
+.editor:global(.ant-input)::placeholder { color: var(--composer-muted); }
+.toolbar { display: flex; min-width: 0; min-height: 48px; align-items: center; gap: 4px; padding: 4px 12px 10px; container-type: inline-size; }
+.iconButton, .permission, .send, .modelTrigger, .remove, .modelOption { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; cursor: pointer; font: inherit; transition: background-color 200ms cubic-bezier(.22, 1, .36, 1), color 200ms cubic-bezier(.22, 1, .36, 1); }
+.iconButton, .permission, .modelTrigger { height: 32px; border-radius: 999px; color: var(--composer-muted); background: transparent; }
+.iconButton { width: 32px; flex-shrink: 0; }
+.permission { min-width: 0; flex-shrink: 0; max-width: 30%; padding: 0 8px; font-size: 12px; background: var(--composer-tint); }
+.permissionLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.permission.fullAccess { color: var(--composer-warning); background: color-mix(in srgb, var(--composer-warning) 10%, transparent); }
+.iconButton:hover, .permission:hover, .modelTrigger:hover, .remove:hover { background: var(--composer-hover); color: var(--composer-ink); }
+.send { width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%; color: var(--composer-bg); background: var(--composer-ink); }
+.send:hover { background: color-mix(in srgb, var(--composer-ink) 85%, var(--composer-bg)); }
+.send:disabled { opacity: .3; }
+.composer button:disabled, .modelMenu button:disabled, .infoMenu button:disabled { cursor: not-allowed; }
+.iconButton:disabled, .modelTrigger:disabled { opacity: .5; }
+.composer button:focus-visible, .composer [tabindex]:focus-visible, .modelMenu button:focus-visible, .infoMenu button:focus-visible { outline: 2px solid var(--composer-muted); outline-offset: 2px; }
+.modelTrigger { max-width: 44%; min-width: 0; flex-shrink: 1; padding: 0 6px; font-size: 12px; }
+.modelTrigger > span:first-of-type { color: var(--composer-ink); font-weight: 500; }
+.footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 4px 0; font-size: 11px; color: var(--composer-muted); }
+.directory { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 2px 4px; border: 0; border-radius: 4px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.directory:hover:not(:disabled) { background: var(--composer-hover); }
+.directory:disabled { opacity: .5; cursor: default; }
+.attachments { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 12px 0; }
+.attachment { display: flex; align-items: center; gap: 8px; max-width: 100%; padding: 8px 10px; border-radius: 12px; background: var(--composer-tint); font-size: 12px; }
+.remove { width: 20px; height: 20px; flex-shrink: 0; border-radius: 50%; background: transparent; color: var(--composer-muted); }
+.infoMenu, .modelMenu { width: min(264px, calc(100vw - 48px)); max-height: calc(100dvh - 80px); overflow-y: auto; color: var(--composer-ink); font-size: 12px; }
+.modelList { max-height: min(200px, 30dvh); overflow-y: auto; overscroll-behavior: contain; }
+.sectionLabel { padding: 4px 8px 8px; color: var(--composer-muted); }
+.modelOption { justify-content: space-between; width: 100%; padding: 8px; border-radius: 8px; text-align: left; color: var(--composer-muted); background: transparent; }
+.modelOption:hover, .modelOption[aria-pressed="true"] { color: var(--composer-ink); background: var(--composer-tint); }
+.modelOption:disabled { opacity: .5; }
+.optionDescription { display: block; margin-top: 3px; color: var(--composer-muted); font-size: 11px; line-height: 1.6; }
+.effort { margin-top: 8px; padding: 12px 8px 4px; border-top: 1px solid var(--composer-border); }
+.effortValue { color: var(--composer-ink); font-weight: 500; }
+.settings { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 12px; }
+.settings dt, .muted { color: var(--composer-muted); }
+.settings dd { margin: 0; overflow-wrap: anywhere; text-align: right; }
+.caption { margin-top: 10px; color: var(--composer-muted); line-height: 1.7; }
+@container (max-width: 320px) { .permissionLabel { display: none; } .permission { max-width: none; } .modelTrigger > svg:first-child { display: none; } }
+@media (prefers-reduced-motion: reduce) { .surface, .composer button, .modelMenu button { transition: none; } }

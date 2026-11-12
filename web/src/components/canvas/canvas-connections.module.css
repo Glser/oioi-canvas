@@ -1,4 +1,16 @@
 /* Matches New API topology-flow's layered traffic beam and timing. */
+.generatingPath {
+    stroke: color-mix(in oklab, currentColor 78%, var(--beam-highlight));
+    stroke-width: 3.2px;
+    stroke-dasharray: 10 7;
+    stroke-opacity: 1;
+    animation: dashes 0.9s linear infinite;
+}
+
+:global(.dark) .generatingPath {
+    stroke: color-mix(in oklab, currentColor 80%, var(--beam-highlight));
+}
+
 .traffic {
     fill: none;
     pointer-events: none;
@@ -44,22 +56,17 @@
     to { stroke-dashoffset: calc(var(--beam-length) - 100px); }
 }
 
+@keyframes dashes {
+    from { stroke-dashoffset: 0; }
+    to { stroke-dashoffset: -34; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-    .traffic,
-    .traffic path {
+    .generatingPath {
         animation: none;
     }
 
-    .traffic path {
-        stroke-dasharray: none;
-    }
-
-    .trail {
-        filter: none;
-        opacity: 0.16;
-    }
-
-    .tip {
+    .traffic {
         display: none;
     }
 }

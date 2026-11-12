@@ -1,0 +1,41 @@
+.slider {
+    --effort-ratio: 0;
+    --effort-hue: calc(210 + var(--effort-ratio) * var(--effort-ratio) * 63);
+    min-width: 0;
+}
+.input { position: relative; display: flex; align-items: center; width: 100%; height: 30px; touch-action: none; user-select: none; cursor: grab; }
+.slider[data-dragging] .input { cursor: grabbing; }
+.track { position: relative; width: 100%; height: 30px; overflow: hidden; border-radius: 999px; corner-shape: round; background: var(--composer-tint); }
+.fill { position: absolute; inset: 0; pointer-events: none; clip-path: inset(0 calc((100% - 32px) * (1 - var(--effort-ratio))) 0 0 round 999px); }
+.fill canvas { display: block; width: 100%; height: 100%; }
+.dots { position: absolute; inset: 0 16px; display: flex; align-items: center; justify-content: space-between; pointer-events: none; transition: opacity 300ms; }
+.dots span { width: 4px; height: 4px; border-radius: 50%; background: color-mix(in srgb, var(--composer-ink) 30%, transparent); }
+.slider[data-maximum] .dots { opacity: 0; }
+.thumb {
+    position: absolute;
+    left: calc((100% - 32px) * var(--effort-ratio) + 3px);
+    top: 2px;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--effort-jelly-left, 50%) var(--effort-jelly-right, 50%) var(--effort-jelly-right, 50%) var(--effort-jelly-left, 50%) / 50%;
+    corner-shape: round;
+    border: 1px solid color-mix(in srgb, var(--composer-ink) 10%, transparent);
+    background: #fafafa;
+    box-shadow: 0 1px 3px #0002;
+    pointer-events: none;
+    scale: var(--effort-press, 1);
+    transform: translateX(var(--effort-jelly-offset, 0px)) skewX(var(--effort-jelly-skew, 0deg)) scale(var(--effort-jelly-x, 1), var(--effort-jelly-y, 1));
+    transform-origin: center;
+}
+.input:hover .thumb { border-color: color-mix(in srgb, var(--composer-ink) 20%, transparent); }
+.slider[data-dragging] .thumb { box-shadow: 0 2px 5px #0003; }
+.inputThumb { display: block; width: 32px; height: 30px; background: transparent; outline: none; }
+.input:has(:focus-visible) { border-radius: 999px; outline: 2px solid var(--composer-accent); outline-offset: 2px; }
+.stops { display: grid; align-items: center; margin-top: 6px; font-size: 11px; }
+.stops button { min-width: 0; justify-self: center; padding: 3px 2px; background: transparent; color: var(--composer-muted); border-radius: 4.8px; font-size: 11px; white-space: nowrap; cursor: pointer; }
+.stops button:first-child { justify-self: start; }
+.stops button:last-child { justify-self: end; }
+.stops button[aria-pressed="true"] { color: var(--composer-ink); font-weight: 600; }
+.stops button:focus-visible { outline: 2px solid var(--composer-accent); outline-offset: 2px; }
+.slider[data-disabled] { opacity: .5; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .slider *, .slider *::after { transition: none !important; } }

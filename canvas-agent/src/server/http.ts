@@ -88,22 +88,36 @@ export function startHttpServer() {
     app.post("/api/tools", route(async (req, res) => res.json({ ok: true, result: await session.callTool(req.body?.name, req.body?.input || {}, req.body?.bindingId) })));
     const targetSchema = z.object({ clientId: z.string().min(1), projectId: z.string().min(1) });
     const target = (req: Request) => ({ ...targetSchema.parse(req.body), origin: req.headers.origin || "" });
+    const conversationTarget = (req: Request) => ({ ...target(req), conversationId: z.string().uuid().parse(req.body.conversationId) });
     app.get("/agent/runtime-info", route(async (_req, res) => {
         const rpc = await spawnCodex(() => {}, async () => { throw new Error("能力检测不执行交互操作"); }, () => {});
         try { res.json(await inspectRuntime(rpc, process.cwd())); }
         finally { rpc.close(); }
     }));
     app.get("/agent/runtimes", route(async (req, res) => res.json(await discovery.list(req.query.refresh === "true"))));
-    app.post("/agent/capabilities", route(async (req, res) => res.json(await conversations.refreshCapabilities(target(req)))));
+    app.post("/agent/capabilities", route(async (req, res) => res.json(await conversations.refreshCapabilities(conversationTarget(req)))));
     app.post("/agent/connect", route(async (req, res) => res.json(await conversations.connect(target(req)))));
+    app.post("/agent/conversations", route(async (req, res) => res.json(conversations.list(target(req)))));
+    app.post("/agent/open", route(async (req, res) => {
+        const options = z.object({ id: z.string().uuid().optional(), cwd: z.string().min(1).optional() }).parse(req.body);
+        res.json(await conversations.open(conversationTarget(req), options));
+    }));
+    app.post("/agent/directories", route(async (req, res) => {
+        const { path: directory } = z.object({ path: z.string().optional() }).parse(req.body);
+        res.json(await conversations.directories(target(req), directory));
+    }));
+    app.post("/agent/permissions", route(async (req, res) => {
+        const { mode } = z.object({ mode: z.enum(["runtime", "request", "readOnly", "fullAccess"]) }).parse(req.body);
+        res.json(await conversations.setPermissions(conversationTarget(req), mode));
+    }));
     app.post("/agent/send", route(async (req, res) => {
         const { submissionId, text, model, reasoningEffort } = z.object({ submissionId: z.string().uuid(), text: z.string().trim().min(1), model: z.string().min(1).optional(), reasoningEffort: z.string().min(1).optional() }).parse(req.body);
-        res.json(await conversations.send(target(req), submissionId, text, { model, reasoningEffort }));
+        res.json(await conversations.send(conversationTarget(req), submissionId, text, { model, reasoningEffort }));
     }));
-    app.post("/agent/interrupt", route(async (req, res) => res.json(await conversations.interrupt(target(req)))));
+    app.post("/agent/interrupt", route(async (req, res) => res.json(await conversations.interrupt(conversationTarget(req)))));
     app.post("/agent/answer", route(async (req, res) => {
-        const answer = z.object({ requestId: z.string(), decision: z.enum(["accept", "decline"]).optional(), answers: z.record(z.string()).optional() }).parse(req.body);
-        res.json(conversations.answer(target(req), answer));
+        const answer = z.object({ requestId: z.string(), decision: z.enum(["accept", "decline"]).optional(), answers: z.record(z.string()).optional(), content: z.record(z.union([z.string(), z.number(), z.boolean(), z.array(z.string())])).optional() }).parse(req.body);
+        res.json(conversations.answer(conversationTarget(req), answer));
     }));
     app.post("/api/agent/tools", route(async (req, res) => {
         const { bindingId, name } = z.object({ bindingId: z.string().uuid(), name: z.string() }).parse(req.body);
