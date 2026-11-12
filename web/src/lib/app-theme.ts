@@ -179,6 +179,7 @@ export function getWorkbenchAppearance(dark: boolean) {
         theme,
         style,
         modal: { styles: { root: style, container: { border: `1px solid ${palette.border}`, borderRadius: 16 } } },
+        configModal: { styles: { root: style, mask: { background: dark ? "rgb(0 0 0 / 50%)" : "rgb(20 20 16 / 24%)", backdropFilter: "blur(4px)" }, container: { background: palette.surface, border: `1px solid ${palette.border}`, borderRadius: 16, boxShadow: popupShadow } } },
         popover: { styles: { container: dark ? { boxShadow: popupShadow } : {} } },
         tooltip: getTooltipConfig(dark),
         drawer: { styles: { root: style, mask: { background: "rgb(0 0 0 / 10%)", backdropFilter: "blur(2px)" }, wrapper: { boxShadow: "none" }, section: { borderLeft: `1px solid ${palette.border}` }, header: { padding: "16px 20px" } } },

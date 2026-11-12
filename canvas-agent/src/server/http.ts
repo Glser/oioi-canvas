@@ -1,28 +1,41 @@
 import crypto from "node:crypto";
 import express, { type NextFunction, type Request, type Response } from "express";
-import net from "node:net";
+import path from "node:path";
+import { z } from "zod";
+import { AgentConversations } from "../agent/conversations.js";
+import { inspectRuntime } from "../agent/capabilities.js";
+import { RuntimeDiscovery } from "../agent/runtimes.js";
+import { createCodexTransport, type AgentTransportFactory } from "../agent/codex-rpc.js";
+import { ConversationManifest } from "../agent/manifest.js";
 
 import { AGENT_PROTOCOL_VERSION, CanvasSession } from "../canvas/session.js";
-import { DEFAULT_PORT, loadConfig, saveConfig, type CanvasAgentConfig } from "../config.js";
+import { CONFIG_DIR, DEFAULT_PORT, loadConfig, saveConfig, mergeOrigins, originAllowed, readStartupOrigins, type CanvasAgentConfig } from "../config.js";
 import { logger } from "../utils/logger.js";
 import { checkVersions } from "../version-check.js";
 
 const PAIR_CODE_LENGTH = 6;
 const PAIR_MAX_ATTEMPTS = 5;
 const PAIR_LOCK_MS = 60_000;
-const WEB_DEV_PORT = 3100;
-/** 这些路径无需 Origin 白名单：前两个是状态探测，/pair 是首次连接换取 token 的唯一入口。 */
-const CORS_EXEMPT_PATHS = new Set(["/health", "/config", "/pair"]);
+/** 这些路径无需 Origin 白名单：/health、/config 用于探测，/bootstrap 与 /pair 用于首次领取 token。 */
+const CORS_EXEMPT_PATHS = new Set(["/health", "/config", "/pair", "/bootstrap"]);
 
 /** 启动仅监听本机的 Canvas Agent HTTP 服务。 */
 export function startHttpServer() {
     const config = loadConfig(true);
     const port = Number(process.env.PORT) || Number(new URL(config.url).port) || DEFAULT_PORT;
     config.url = `http://127.0.0.1:${port}`;
+    mergeOrigins(config, readStartupOrigins());
     saveConfig(config);
 
     const session = new CanvasSession();
     const pairing = createPairing(config.token);
+    const discovery = new RuntimeDiscovery(process.cwd());
+    const spawnCodex: AgentTransportFactory = async (notify, request, closed) => {
+        const runtime = (await discovery.list()).runtimes.find((item) => item.id === "codex");
+        if (!runtime?.path || runtime.status !== "detected") throw new Error(runtime?.error || "未检测到可用 Codex CLI，请安装后点击重新检测");
+        return createCodexTransport(runtime.path)(notify, request, closed);
+    };
+    const conversations = new AgentConversations(session, new ConversationManifest(path.join(CONFIG_DIR, "conversations.json")), process.cwd(), spawnCodex);
     const app = express();
     app.disable("x-powered-by");
     app.use(express.json({ limit: "30mb" }));
@@ -49,12 +62,16 @@ export function startHttpServer() {
         if (!result.ok) return void res.status(result.status).json({ ok: false, error: result.error });
         res.json({ ok: true, token: config.token, url: config.url });
     });
+    app.post("/bootstrap", (req, res) => {
+        if (!originAllowed(req.headers.origin, config.origins)) return void res.status(403).json({ ok: false, error: "origin not allowed" });
+        res.json({ ok: true, token: config.token, url: config.url });
+    });
     app.use((req, res, next) => {
         if (validToken(req, requestUrl(req, config), config.token)) return next();
         res.status(401).json({ ok: false, error: "invalid token" });
     });
     app.get("/events", (req, res) => {
-        session.openEvents(requestUrl(req, config), res);
+        session.openEvents(requestUrl(req, config), res, req.headers.origin || "");
     });
     app.post("/canvas/state", (req, res) => {
         session.updateState(req.body, String(req.query.clientId || ""));
@@ -69,45 +86,49 @@ export function startHttpServer() {
         res.status(ok ? 200 : 409).json({ ok });
     });
     app.post("/api/tools", route(async (req, res) => res.json({ ok: true, result: await session.callTool(req.body?.name, req.body?.input || {}, req.body?.bindingId) })));
+    const targetSchema = z.object({ clientId: z.string().min(1), projectId: z.string().min(1) });
+    const target = (req: Request) => ({ ...targetSchema.parse(req.body), origin: req.headers.origin || "" });
+    app.get("/agent/runtime-info", route(async (_req, res) => {
+        const rpc = await spawnCodex(() => {}, async () => { throw new Error("能力检测不执行交互操作"); }, () => {});
+        try { res.json(await inspectRuntime(rpc, process.cwd())); }
+        finally { rpc.close(); }
+    }));
+    app.get("/agent/runtimes", route(async (req, res) => res.json(await discovery.list(req.query.refresh === "true"))));
+    app.post("/agent/capabilities", route(async (req, res) => res.json(await conversations.refreshCapabilities(target(req)))));
+    app.post("/agent/connect", route(async (req, res) => res.json(await conversations.connect(target(req)))));
+    app.post("/agent/send", route(async (req, res) => {
+        const { submissionId, text, model, reasoningEffort } = z.object({ submissionId: z.string().uuid(), text: z.string().trim().min(1), model: z.string().min(1).optional(), reasoningEffort: z.string().min(1).optional() }).parse(req.body);
+        res.json(await conversations.send(target(req), submissionId, text, { model, reasoningEffort }));
+    }));
+    app.post("/agent/interrupt", route(async (req, res) => res.json(await conversations.interrupt(target(req)))));
+    app.post("/agent/answer", route(async (req, res) => {
+        const answer = z.object({ requestId: z.string(), decision: z.enum(["accept", "decline"]).optional(), answers: z.record(z.string()).optional() }).parse(req.body);
+        res.json(conversations.answer(target(req), answer));
+    }));
+    app.post("/api/agent/tools", route(async (req, res) => {
+        const { bindingId, name } = z.object({ bindingId: z.string().uuid(), name: z.string() }).parse(req.body);
+        res.json({ ok: true, result: await conversations.callTool(bindingId, name, req.body.input || {}) });
+    }));
     app.use((_req, res) => res.status(404).json({ ok: false, error: "not found" }));
     app.use((error: Error, req: Request, res: Response, _next: NextFunction) => {
         logger.error("HTTP request failed", { method: req.method, path: req.path, error });
         res.status(500).json({ ok: false, error: error.message });
     });
 
-    app.listen(port, "127.0.0.1", () => {
-        console.log("oioi-canvas Agent");
+    const server = app.listen(port, "127.0.0.1", () => {
+        console.log("oioi-canvas 连接器已启动");
         checkVersions();
-        console.log(`Local URL: ${config.url}`);
-        console.log(`配对码: ${pairing.code}`);
-        console.log("Register MCP in your own Codex or Claude Code (skip if the plugin already provides it).");
-        console.log("Codex: codex mcp add oioi-canvas -- npx -y @oioi-npm/canvas-agent@latest mcp");
-        console.log("Claude: claude mcp add --scope user --transport stdio oioi-canvas -- npx -y @oioi-npm/canvas-agent@latest mcp");
-        console.log("After connecting the browser, use canvas_list_clients and canvas_bind_client in your Agent.");
+        console.log("请保持此窗口运行。网页会自动检测本机 Agent 并连接。");
+        if (config.origins?.length) console.log(`已允许网页：${config.origins.join("、")}`);
+        console.log(`工作目录: ${process.cwd()}`);
+        void discovery.list().then((catalog) => catalog.runtimes.forEach((runtime) => console.log(`${runtime.name}: ${runtime.status}${runtime.version ? ` · ${runtime.version}` : ""}${runtime.status === "detected" && !runtime.supported ? "（已安装，网页执行暂未适配）" : ""}`)));
         if (logger.enabled) console.log(`Debug log: ${logger.filePath}`);
         logger.info("Canvas Agent started", { url: config.url, debugLog: logger.filePath });
-        void openCanvasPage(config);
     });
-}
-
-/** 本机网页已在运行时自动打开画布页并带上连接参数，省去手动复制地址和 token。 */
-async function openCanvasPage(config: CanvasAgentConfig) {
-    if (!(await probePort(WEB_DEV_PORT))) {
-        logger.info("Canvas web dev server is not running, skip opening browser");
-        return;
-    }
-    const hash = `#agentUrl=${encodeURIComponent(config.url)}&agentToken=${encodeURIComponent(config.token)}`;
-    const target = `http://localhost:${WEB_DEV_PORT}/?mode=new${hash}`;
-    try {
-        const { spawn } = await import("node:child_process");
-        // Windows 下必须走 explorer.exe：cmd /c start 会把 URL 里的 & 当成命令分隔符。
-        const [command, args] = process.platform === "win32" ? ["explorer.exe", [target]] : process.platform === "darwin" ? ["open", [target]] : ["xdg-open", [target]];
-        const child = spawn(command, args, { stdio: "ignore", detached: true });
-        child.on("error", (error) => logger.warn("Failed to open browser automatically", { error: error.message }));
-        child.unref();
-    } catch (error) {
-        logger.warn("Failed to open browser automatically", { error: String(error) });
-    }
+    const shutdown = () => { conversations.close(); session.close(); server.close(); process.exitCode = 0; };
+    process.once("SIGINT", shutdown);
+    process.once("SIGTERM", shutdown);
+    server.once("error", () => conversations.close());
 }
 
 /** 将异步 Express 路由异常交给统一错误处理中间件。 */
@@ -166,19 +187,4 @@ function createPairing(token: string) {
     };
 
     return { exchange, code };
-}
-
-/** 探测本机端口是否已有服务在监听。 */
-function probePort(port: number) {
-    return new Promise<boolean>((resolve) => {
-        const socket = net.connect({ port, host: "127.0.0.1" });
-        const done = (result: boolean) => {
-            socket.destroy();
-            resolve(result);
-        };
-        socket.setTimeout(1000);
-        socket.once("connect", () => done(true));
-        socket.once("timeout", () => done(false));
-        socket.once("error", () => done(false));
-    });
 }

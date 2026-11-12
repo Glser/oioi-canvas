@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { Empty, Input, Modal, Pagination, Tag } from "antd";
+import { paginationTooltipProps } from "@/components/themed-controls";
 import { Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -128,7 +129,7 @@ function MyAssetsTab({ onInsert }: { onInsert: (payload: InsertAssetPayload) => 
 
             {filtered.length > PAGE_SIZE && (
                 <div className="flex justify-center">
-                    <Pagination size="small" current={page} pageSize={PAGE_SIZE} total={filtered.length} onChange={setPage} showSizeChanger={false} />
+                    <Pagination {...paginationTooltipProps} size="small" current={page} pageSize={PAGE_SIZE} total={filtered.length} onChange={setPage} showSizeChanger={false} />
                 </div>
             )}
         </div>

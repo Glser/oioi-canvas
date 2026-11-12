@@ -1,63 +1,84 @@
 ---
 title: 本地 Agent 连接画布原理
-description: 本地原生 Agent 如何通过 stdio MCP 和 loopback HTTP 操作浏览器画布
+description: npm CLI 如何通过 Codex app-server 承接网页会话，并复用 MCP 操作画布
 ---
 
 # 本地 Agent 连接画布原理
 
-Codex / Claude Code 等本地原生 Agent 不直接控制 DOM。工具调用经过本机桥接服务，最终由浏览器应用到画布状态：
+当前源码采用「网页对话 + npm CLI 本地服务 + 原生 Agent 运行时」。首版接入 Codex；不新增桌面客户端，不自行实现 Agent 推理循环。新版 npm 包尚未发布，当前使用仓库 `canvas-agent` 的开发入口，实际运行验收见待测试清单。
+
+## 双向调用链
 
 ```text
-本地原生 Agent
-  -> stdio MCP（canvas-agent mcp）
-  -> POST /api/tools（本机 Canvas Agent HTTP）
-  -> SSE tool_call
+首页 / Agent 对话面板
+  -> 本机 HTTP 会话接口
+  -> codex app-server（stdio JSON-RPC）
+  -> 原生会话、工具执行及审批
+  -> SSE agent_state
+  -> 网页展示回复、进展及确认请求
+
+Codex 调用受管画布 MCP
+  -> POST /api/agent/tools
+  -> SSE tool_call（固定 clientId / expectedProjectId）
   -> 浏览器画布 React 状态
   -> POST /canvas/result
-  -> 返回 MCP 工具结果
+  -> MCP 工具结果
 ```
 
-网页 Agent 面板只提供连接指引与状态。对话、技能、历史、文件权限和工具批准由原生 Agent 负责，网页不托管这些能力。
+网页不直接启动本地进程。用户需在同一台电脑上安装并启动 CLI，以及安装、完成认证的 Codex。服务保持前台运行；关闭终端会中断连接。无需手动注册受管会话的 MCP，也无需复制业务需求。
 
-## 两个本地进程
+## 连接与首页提交
 
-- `npx -y @oioi-npm/canvas-agent@latest` 启动 HTTP 桥接服务，默认监听 `http://127.0.0.1:17371` 并输出连接 token。
-- 原生 Agent 通过 `npx -y @oioi-npm/canvas-agent@latest mcp` 启动 stdio MCP。该进程读取同一份本机配置并调用 HTTP 服务，不提供网页连接服务。
+本机服务默认监听 `http://127.0.0.1:17371`，通过配对码换取连接 token。线上网站也由浏览器直连本机，不经过项目后端或内网穿透；另一台设备的 loopback 不指向这台电脑。浏览器要求本地网络权限时须由用户确认。
 
-安装插件或配置 MCP 不等于已经启动 HTTP 服务；网页也不能直接启动本地进程。
+首页输入创建画布，并把带唯一提交标识的需求保存到浏览器 localforage。连接完成后，先上报目标画布状态，再创建或恢复会话，随后自动提交。侧栏支持继续对话、工具进展、命令/文件/权限确认、结构化问题及停止执行。
 
-## 浏览器连接和快照
+服务连接状态与 Codex 会话状态分开显示。运行时缺失、认证失败或协议不支持时展示错误并保留需求，修复后手动恢复会话；不会自动安装或升级 Agent。
 
-**公网站点必须在运行 Canvas Agent 的同一台电脑上的浏览器里打开**，由该浏览器直接连接 loopback。公网站点不代理本机请求，也不需要内网穿透。远程浏览器或另一台设备的 `127.0.0.1` 不是用户电脑；浏览器要求本地网络访问权限时须由用户授权。
+## 自动发现与配置复用
 
-浏览器使用 token 建立 SSE 连接并上报状态：
+CLI 查找系统 PATH/PATHEXT 下的 Codex、Claude Code、CodeBuddy、OpenCode，并读取版本；自动检测不等于执行适配，目前网页只接入 Codex，其他已安装工具明确标为尚未适配。
 
-```text
-GET /events?token=xxx&clientId=xxx
-POST /canvas/state?token=xxx&clientId=xxx
-POST /canvas/result?token=xxx&clientId=xxx
-```
+配对后通过原生 `config/read`、`model/list`、`skills/list`、`mcpServerStatus/list` 读取能力。配置默认值与会话实际生效值分开呈现；只向网页返回必要字段，不回传原始配置、环境变量或凭证。模型目录失败时保留当前配置，不自行生成候选模型。
 
-画布快照包含画布 ID、标题、节点、连线、选区和视口。Canvas Agent 在内存中保存各网页的最新快照；`canvas_get_state`、`canvas_get_selection` 等工具读的是快照，不是 DOM，也不是云端存储。
+网页自动探测服务，首次授权后可在 CLI 重启时恢复连接；用户主动断开时暂停自动连接。运行时检测结果使用 localforage 缓存，服务离线时仅作历史状态展示。
 
-## 工具操作与目标
+## 会话接口
 
-- 单个文本节点使用 `canvas_create_text_node`；生成流程使用 `canvas_create_generation_flow`；批量修改使用 `canvas_apply_ops`。
-- 高层画布工具转换为 `add_node`、`update_node`、`delete_node`、`connect_nodes`、`set_viewport`、`select_nodes` 等结构化操作，由浏览器执行并回传结果。
-- 网页收到有效工具请求后自动执行，不做二次审批；不要为方便执行关闭或绕过原生 Agent 的权限批准流程。
-- 所有业务工具调用前，先 `canvas_list_clients({})` 查看已连接网页，再用 `canvas_bind_client({clientId, projectId})` 绑定。可选 `projectId` 使用列表值以防列表后换画布；省略它仍会固定网页当时的画布 ID。
-- 每个 stdio MCP 进程有独立的内部 `bindingId`，不是用户工具参数。切换标签页不改变目标，画布读写校验绑定的 `projectId`；导航或换画布后须重新列出并绑定。
-- `canvas_release_client({})` 解除绑定；目标断开时报错，不回退其他标签页。
-- 前端保留最近一次画布工具操作前的快照用于撤销；撤销不代表取消已提交的外部生成请求。
+以下接口需要连接 token；会话操作还校验已连接网页的来源、clientId 与当前 projectId：
 
-目标绑定相关协议为版本 `7`。`canvas_list_clients({})` 返回 `clients`（各项含 `clientId`、`path`、`pageTitle`、`projectId`、`title`、`active`）和当前 `binding`；未绑定时 `binding` 为 `null`。`canvas_bind_client` 返回绑定的 `clientId` 与 `projectId`，`canvas_release_client({})` 返回 `{released: true}`。
+- `GET /agent/runtimes`：读取自动检测的机器和运行时，`refresh=true` 可重新检测。
+- `GET /agent/runtime-info`：无需新建对话即可读取 Codex 本机默认能力，仅返回经过筛选的字段。
+- `POST /agent/capabilities`：刷新当前会话的配置、模型目录、Skills 和 MCP 信息。
+- `POST /agent/connect`：创建或恢复当前画布会话。
+- `POST /agent/send`：使用 submissionId 提交一轮输入，可带原生目录中的 model / reasoningEffort；默认不覆盖运行时选择。
+- `POST /agent/answer`：回传批准、拒绝或问题回答。
+- `POST /agent/interrupt`：请求中断当前 turn，不代表撤销已执行的画布或外部生成操作。
+- `GET /events`：复用 SSE，分别发送 `agent_state` 与 `tool_call`。
+- `POST /canvas/state`、`POST /canvas/result`：继续承担画布快照与工具结果。
 
-SSE `tool_call` 携带目标 `clientId`；画布工具还携带 `expectedProjectId`，浏览器须校验页面及画布归属后执行。本轮目标选择与绑定调整仍待用户测试，使用时以当前 MCP 工具声明为准。
+网页通信协议为 `9`，与会话映射清单的版本独立管理。
 
-## 安全和数据边界
+## 目标与权限
 
-- Canvas Agent 默认只监听 `127.0.0.1`；网页和 MCP 请求需要 token。网页来源经 token 授权后加入允许列表，不是只绑定第一个 Origin。
-- token 是本机桥接凭据，不要公开分享或写入日志。网页会在本地保存连接配置，不保存原生 Agent 的登录态或文件权限。
-- 画布项目和「我的素材」主要保存在浏览器本地，不提供云同步；HTTP 桥接不是备份服务。
-- 网页不记录或处理原生 Agent 的对话、技能或日志，但工具输入和结果会进入原生 Agent 的处理范围。
-- 画布生成服务的 API Key 保存在浏览器本地，生成请求仍由前端直接发送给用户配置的外部服务，不经过原生 Agent 执行引擎。
+每个网站来源下的画布关联一个原生 thread。受管 MCP 的目标由本地服务固定；不暴露重新绑定工具，运行中的会话不能被其他标签页夺取。网页换画布、断开或返回错误目标时拒绝工具调用，不静默切换到最近焦点页。
+
+新会话使用启动 CLI 时的目录；原生会话恢复时保留已记录的目录。网页不能任意指定可执行程序或工作目录。受管会话默认沿用原生模型、权限与指令，不再覆盖 sandbox/approvalPolicy。网页回显实际生效值；原生配置已关闭部分保护时明确提示，不替用户静默放宽权限。受管 MCP 配置只作用于该会话，不写入用户全局 Agent 配置。
+
+尚未实现的原生交互明确拒绝并显示原因。网页接收到已授权的画布工具后执行操作，不另造一套重复的画布审批。
+
+## 历史与恢复
+
+Codex 保管原生正文历史。本地 `~/.oioi-canvas/conversations.json` 只保存网站/画布到 thread 的映射、工作目录和提交回执；未知版本、损坏内容或外部修改拒绝覆盖。没有数量或体积裁剪，也没有旧格式静默迁移。
+
+实时消息同时按 threadId、turnId、itemId 归属。完整原生历史成为权威后，不再重复合并对应 turn 的实时事件；完成通知没有加载 items 时，读取原生条目后替换，不把空通知当作空历史。
+
+发送前记录提交标识，已接收的提交不会再次执行。连接中断导致接收状态不确定时，先检查历史，不自动重放；同一提交的重试继续使用原标识。网页关闭时画布工具不可用，后台 Agent 仍运行不代表能完成画布操作。
+
+画布项目与「我的素材」仍主要保存在浏览器本地；此能力不提供云同步。内容会交给所选 Agent 及其模型服务，画布生成仍使用原有前端生成接口与凭证。
+
+## 独立 MCP 模式
+
+保留原生 Codex / Claude Code 直接操作画布的入口：`canvas-agent mcp`。该进程读取同一份本机服务配置，通过 `/api/tools` 调用桥接；对话继续留在原生界面。
+
+独立模式每个 MCP 进程有自己的 bindingId，业务工具前需要 `canvas_list_clients` 和 `canvas_bind_client`，结束时可 `canvas_release_client`。安装 MCP 不代表已经启动 HTTP 服务。不要重复安装已有插件提供的同名 MCP。

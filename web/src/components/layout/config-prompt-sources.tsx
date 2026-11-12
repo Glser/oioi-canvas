@@ -1,8 +1,10 @@
-import { App, Button, Select, Switch, Tag } from "antd";
+import { App, Button, Switch, Tag, Tooltip } from "antd";
+import { Select } from "@/components/themed-controls";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eye, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import styles from "./app-config-modal.module.css";
 
 import { PromptSourceEditorDrawer } from "./prompt-source-editor-drawer";
 import { PromptSourceContentModal } from "./prompt-source-content-modal";
@@ -91,36 +93,36 @@ export function ConfigPromptSources() {
     return (
         <div>
             <div className="mb-4 flex flex-wrap items-center justify-end gap-3">
-                <Button type="primary" className="!h-8 !rounded-full !px-3.5 !text-xs font-medium" icon={<Plus className="size-3.5" />} onClick={() => setEditingSource(addSource())}>
+                <Button type="primary" className="!h-8 !rounded-lg !px-3.5 !text-xs font-medium" icon={<Plus className="size-3.5" />} onClick={() => setEditingSource(addSource())}>
                     {t("config.promptSources.add")}
                 </Button>
             </div>
 
-            <div className="space-y-2">
+            <div className={styles.sourceList}>
                 {sources.map((source) => {
                     const status = statusQuery.data?.[source.id];
                     return (
-                        <div key={source.id} className="flex flex-wrap items-center gap-3 py-3">
+                        <div key={source.id} className={styles.sourceRow}>
                             <Switch size="small" checked={source.enabled} onChange={(checked) => { toggleSource(source.id, checked); void invalidatePrompts(); }} />
-                            <div className="min-w-[220px] flex-1">
+                            <div className="min-w-0">
                                 <div className="flex min-w-0 items-center gap-2">
                                     <span className="truncate text-sm font-semibold text-foreground">{source.name}</span>
                                     {source.builtIn ? <Tag className="m-0 shrink-0 rounded-full text-[10px]">{t("config.promptSources.builtIn")}</Tag> : null}
                                 </div>
                                 <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                    <a className="max-w-full truncate hover:text-foreground hover:underline dark:hover:text-stone-200" href={source.homepage || source.url} target="_blank" rel="noreferrer">
+                                    <a className="max-w-full truncate hover:text-foreground hover:underline" href={source.homepage || source.url} target="_blank" rel="noreferrer">
                                         {source.homepage || source.url}
                                     </a>
                                     <span className="tabular-nums">{t("config.promptSources.itemCount", { count: status?.count ?? 0 })}</span>
-                                    {status?.lastError ? <Tag color="error" className="m-0 rounded-full text-[10px]" title={status.lastError}>{t("config.promptSources.failed")}</Tag> : status?.lastSuccessAt ? <Tag color="success" className="m-0 rounded-full text-[10px]">{t("config.promptSources.healthy")}</Tag> : <Tag className="m-0 rounded-full text-[10px]">{t("config.promptSources.unsynced")}</Tag>}
+                                    {status?.lastError ? <Tooltip title={status.lastError}><Tag tabIndex={0} color="error" className="m-0 rounded-full text-[10px]">{t("config.promptSources.failed")}</Tag></Tooltip> : status?.lastSuccessAt ? <Tag color="success" className="m-0 rounded-full text-[10px]">{t("config.promptSources.healthy")}</Tag> : <Tag className="m-0 rounded-full text-[10px]">{t("config.promptSources.unsynced")}</Tag>}
                                     <span>{status?.lastSuccessAt ? t("config.promptSources.lastSuccess", { time: formatTime(status.lastSuccessAt, i18n.resolvedLanguage) }) : t("config.promptSources.neverFetched")}</span>
                                 </div>
                             </div>
-                            <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
-                                <Button size="small" className="!h-7.5 !rounded-full !px-2.5 !text-xs font-medium" icon={<Eye className="size-3" />} onClick={() => setViewingId(source.id)}>
+                            <div className={styles.sourceActions}>
+                                <Button type="text" size="small" className="!h-7.5 !rounded-lg !px-2.5 !text-xs font-medium" icon={<Eye className="size-3" />} onClick={() => setViewingId(source.id)}>
                                     {t("config.promptSources.view")}
                                 </Button>
-                                <Button size="small" className="!h-7.5 !rounded-full !px-2.5 !text-xs font-medium" icon={<RefreshCw className="size-3" />} loading={refreshingId === source.id} onClick={() => void handleRefreshOne(source)}>
+                                <Button type="text" size="small" className="!h-7.5 !rounded-lg !px-2.5 !text-xs font-medium" icon={<RefreshCw className="size-3" />} loading={refreshingId === source.id} onClick={() => void handleRefreshOne(source)}>
                                     {t("config.promptSources.refresh")}
                                 </Button>
                                 {!source.builtIn ? <Button size="small" className="!h-7.5 !rounded-full !px-2.5 !text-xs font-medium" icon={<Pencil className="size-3" />} onClick={() => setEditingSource(source)}>{t("config.promptSources.edit")}</Button> : null}
@@ -131,7 +133,7 @@ export function ConfigPromptSources() {
                 })}
             </div>
 
-            <section className="mt-5 py-4">
+            <section className={styles.sourceSchedule}>
                 <div className="mb-3 text-sm font-semibold text-foreground">{t("config.promptSources.schedule")}</div>
                 <div className="flex flex-wrap items-center gap-3">
                     <div className="flex items-center gap-2">

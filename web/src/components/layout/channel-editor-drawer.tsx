@@ -1,4 +1,5 @@
-import { Button, Drawer, Input, Segmented, Select, Space } from "antd";
+import { Button, Drawer, Input, Space, Tooltip } from "antd";
+import { Segmented, Select } from "@/components/themed-controls";
 import { ListPlus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -97,9 +98,9 @@ export function ChannelEditorDrawer({ open, channel, onSave, onClose }: { open: 
                 {draft.models.length ? (
                     draft.models.map((model) => (
                         <div key={model.name} className="flex flex-wrap items-center gap-3 rounded-xl border border-black/[0.04] bg-card px-3 py-2 shadow-xs transition-colors hover:border-black/10 dark:border-white/[0.06] dark:hover:border-white/15">
-                            <span className="min-w-0 flex-1 truncate text-sm" title={model.name}>
+                            <Tooltip title={model.name}><span tabIndex={0} className="min-w-0 flex-1 truncate text-sm">
                                 {model.name}
-                            </span>
+                            </span></Tooltip>
                             <div className="flex shrink-0 items-center gap-2">
                                 <Segmented size="small" value={model.capability} options={capabilityOptions} onChange={(value) => setCapability(model.name, value as ModelCapability)} />
                                 <Button size="small" type={model.script ? "primary" : "default"} ghost={Boolean(model.script)} className="!h-7 !rounded-full !px-2.5 !text-xs font-medium" onClick={() => setScriptTarget({ name: model.name, capability: model.capability, value: model.script || "" })}>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Button, Modal, Segmented, Slider } from "antd";
+import { Button, Modal, Slider } from "antd";
+import { Segmented } from "@/components/themed-controls";
 import { RotateCcw, WandSparkles } from "lucide-react";
 import { useTranslation } from "react-i18next";
 

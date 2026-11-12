@@ -6,6 +6,8 @@
 
 作者只写节点 UI 与逻辑,**类型、JSX、宿主 React、构建全部由 [`@infinite-canvas/plugin-sdk`](./sdk/README.md) 提供**,写 TSX 全程有代码提示;产物仍是宿主加载器现有契约的 ESM(React external、宿主单例)。
 
+插件控件的悬停说明使用 `data-tooltip="说明文字"`，由画布宿主展示全局 Ant Design Tooltip 并继承浅深主题，不使用原生 `title` 或另写提示样式。图标按钮仍须提供 `aria-label`；宿主同时支持鼠标悬停和键盘聚焦。iframe 的语义 `title` 保留。
+
 ## 目录约定
 
 ```

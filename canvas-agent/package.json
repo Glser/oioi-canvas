@@ -1,6 +1,6 @@
 {
   "name": "@oioi-npm/canvas-agent",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.js",
@@ -23,13 +23,18 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
+    "cross-spawn": "^7.0.6",
     "express": "^5.2.1",
+    "json-rpc-2.0": "^1.8.1",
+    "which": "^2.0.2",
     "winston": "^3.19.0",
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/cross-spawn": "^6.0.6",
     "@types/express": "^5.0.6",
     "@types/node": "^22.20.5",
+    "@types/which": "^2.0.2",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3"
   },

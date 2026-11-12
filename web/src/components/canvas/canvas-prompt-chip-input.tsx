@@ -8,6 +8,7 @@ import { isImeComposing, isPlainEnterKey } from "@/lib/keyboard-event";
 import { useThemeStore } from "@/stores/use-theme-store";
 import type { CanvasResourceReference } from "@/lib/canvas/canvas-resource-references";
 import { ImageDetailModal } from "@/components/image-detail-modal";
+import { useDomTooltip } from "@/hooks/use-dom-tooltip";
 
 type Props = {
     value: string;
@@ -33,6 +34,7 @@ type Token =
 export function CanvasPromptChipInput({ value, references, onChange, onSubmit, className, style, placeholder }: Props) {
     const theme = canvasThemes[useThemeStore((state) => state.theme)];
     const editorRef = useRef<HTMLDivElement>(null);
+    const referenceTooltip = useDomTooltip(editorRef);
     const composingRef = useRef(false);
     // Track the last value emitted to the parent. An identical focused value is this component's own echo,
     // so skip rebuilding to preserve the caret and IME. Rebuild external changes even while focused.
@@ -189,6 +191,7 @@ export function CanvasPromptChipInput({ value, references, onChange, onSubmit, c
                 }}
                 onBlur={() => window.setTimeout(closeMention, 120)}
             />
+            {referenceTooltip}
             {mention && candidates.length ? (
                 <MentionMenu rect={mention.rect} references={candidates} activeIndex={Math.min(activeIndex, candidates.length - 1)} theme={theme} onSelect={insertReference} />
             ) : null}
@@ -296,7 +299,9 @@ function createReferenceChip(reference: CanvasResourceReference, theme: (typeof 
     } else {
         wrapper.className = "mx-px inline-flex h-6 max-w-40 items-center justify-center overflow-hidden rounded-md border px-1 text-xs leading-none align-middle";
         Object.assign(wrapper.style, { background: theme.toolbar.panel, borderColor: theme.node.stroke, color: theme.node.text } as CSSProperties);
-        wrapper.title = reference.text || reference.title;
+        wrapper.dataset.tooltip = reference.text || reference.title;
+        wrapper.tabIndex = 0;
+        wrapper.setAttribute("aria-label", reference.text || reference.title);
         const text = document.createElement("span");
         text.className = "block truncate";
         text.textContent = reference.kind === "text" ? reference.text || reference.title : reference.label;

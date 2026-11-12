@@ -39,3 +39,48 @@ export async function fetchAgentJson<T>(endpoint: string, token: string, path: s
     return data;
 }
 
+
+export { AGENT_PROTOCOL_VERSION } from "../../../../canvas-agent/src/agent/types";
+export type { AgentConversation, AgentConversationUpdate, AgentRequest, AgentAnswer, AgentCapabilities, AgentModelSelection, DetectedRuntime, RuntimeCatalog, RuntimeInfo } from "../../../../canvas-agent/src/agent/types";
+import type { AgentConversation, AgentAnswer, AgentModelSelection, RuntimeCatalog, RuntimeInfo } from "../../../../canvas-agent/src/agent/types";
+
+export function callAgentSession(endpoint: string, token: string, action: "connect" | "send" | "interrupt" | "answer" | "capabilities", target: { clientId: string; projectId: string }, input: ({ submissionId?: string; text?: string } & AgentModelSelection) | AgentAnswer = {}) {
+    return fetchAgentJson<AgentConversation>(endpoint, token, `/agent/${action}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...target, ...input }) });
+}
+
+export function localConnectorCommand(origin = window.location.origin) {
+    return `npx -y @oioi-npm/canvas-agent --origin ${origin}`;
+}
+
+export async function bootstrapAgent(endpoint: string) {
+    const response = await fetch(`${endpoint}/bootstrap`, { method: "POST", headers: { "content-type": "application/json" } });
+    const data = await response.json() as { token?: string; url?: string; error?: string };
+    if (!response.ok || !data.token) throw new Error(data.error || i18n.t("agent.connect.pairFailed"));
+    return data.token;
+}
+
+export async function pairAgent(endpoint: string, pairCode: string) {
+    const response = await fetch(`${endpoint}/pair`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pairCode }) });
+    const data = await response.json() as { token?: string; error?: string };
+    if (!response.ok || !data.token) throw new Error(data.error || i18n.t("agent.connect.pairFailed"));
+    return data.token;
+}
+
+export function fetchAgentRuntimes(endpoint: string, token: string, refresh = false) {
+    return fetchAgentJson<RuntimeCatalog>(endpoint, token, `/agent/runtimes?refresh=${refresh}`);
+}
+
+export async function probeAgentService(endpoint: string, expectedProtocolVersion: number): Promise<{ status: "running" | "stopped" | "outdated"; protocolVersion?: number }> {
+    const base = endpoint.trim().replace(/\/$/, "") || "http://127.0.0.1:17371";
+    try {
+        const response = await fetch(`${base}/config`, { signal: AbortSignal.timeout(2000) });
+        if (!response.ok) return { status: "stopped" };
+        const data = await response.json() as { protocolVersion?: number };
+        if (data.protocolVersion !== expectedProtocolVersion) return { status: "outdated", protocolVersion: data.protocolVersion };
+        return { status: "running", protocolVersion: data.protocolVersion };
+    } catch { return { status: "stopped" }; }
+}
+
+export function fetchAgentRuntimeInfo(endpoint: string, token: string) {
+    return fetchAgentJson<RuntimeInfo>(endpoint, token, "/agent/runtime-info");
+}

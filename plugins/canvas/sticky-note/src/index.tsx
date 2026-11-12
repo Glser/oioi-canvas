@@ -87,7 +87,8 @@ function StickyNoteContent({ ctx }: CanvasNodeContentProps) {
             <div style={{ position: "absolute", top: 8, right: 8, zIndex: 5 }} onMouseDown={stop} onDoubleClick={stop}>
                 <button
                     type="button"
-                    title="选择颜色"
+                    aria-label="选择颜色"
+                    data-tooltip="选择颜色"
                     onClick={() => setPaletteOpen((v) => !v)}
                     style={{ width: 22, height: 22, borderRadius: "50%", border: "2px solid rgba(0,0,0,.25)", background: color, cursor: "pointer", padding: 0, boxShadow: "0 1px 3px rgba(0,0,0,.2)" }}
                 />
@@ -97,7 +98,8 @@ function StickyNoteContent({ ctx }: CanvasNodeContentProps) {
                             <button
                                 key={c}
                                 type="button"
-                                title={c}
+                                aria-label={c}
+                                data-tooltip={c}
                                 onClick={() => {
                                     commitColor(c);
                                     setPaletteOpen(false);
@@ -106,8 +108,8 @@ function StickyNoteContent({ ctx }: CanvasNodeContentProps) {
                             />
                         ))}
                         {/* 自定义取色:点击彩环唤起系统取色器。拖动时本地预览 + 节流提交,松开(blur)时立即提交 */}
-                        <label title="自定义颜色" style={{ position: "relative", width: 20, height: 20, borderRadius: "50%", cursor: "pointer", background: "conic-gradient(red, yellow, lime, aqua, blue, magenta, red)", border: "2px solid rgba(0,0,0,.12)", boxSizing: "border-box" }}>
-                            <input type="color" value={color} onChange={(e) => previewColor(e.target.value)} onBlur={(e) => commitColor(e.target.value)} style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", border: "none", padding: 0, cursor: "pointer" }} />
+                        <label data-tooltip="自定义颜色" style={{ position: "relative", width: 20, height: 20, borderRadius: "50%", cursor: "pointer", background: "conic-gradient(red, yellow, lime, aqua, blue, magenta, red)", border: "2px solid rgba(0,0,0,.12)", boxSizing: "border-box" }}>
+                            <input aria-label="自定义颜色" type="color" value={color} onChange={(e) => previewColor(e.target.value)} onBlur={(e) => commitColor(e.target.value)} style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", border: "none", padding: 0, cursor: "pointer" }} />
                         </label>
                     </div>
                 ) : null}

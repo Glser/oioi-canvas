@@ -1,7 +1,7 @@
 .panel { min-width: 0; color: var(--foreground); }
 .panel :global(.ant-form-item) { margin-bottom: 0; }
 .panel [data-slot="select-trigger"] { height: 36px; border-radius: 8px; box-shadow: none; }
-.tabs :global(.ant-tabs-nav) { flex-shrink: 0; margin-bottom: 24px; }
+.tabs :global(.ant-tabs-nav) { flex-shrink: 0; margin-bottom: 16px; }
 .tabs :global(.ant-tabs-nav)::before { border: 0; }
 .tabs :global(.ant-tabs-tab) { margin: 0 !important; padding: 8px 12px; border-radius: 8px; }
 .tabs :global(.ant-tabs-tab + .ant-tabs-tab) { margin-left: 4px !important; }
@@ -10,15 +10,26 @@
 .tabs :global(.ant-tabs-ink-bar) { display: none; }
 .tabs :global(.ant-tabs-tab-btn) { font-size: 13px; }
 .tabs :global(.ant-tabs-tab-active .ant-tabs-tab-btn) { font-weight: 500; text-shadow: none; }
-.modal :global(.ant-modal-header) { margin-bottom: 20px; }
-.modal :global(.ant-modal-body) { height: min(500px, calc(100dvh - 200px)); }
-.modal .panel { display: flex; flex-direction: column; height: 100%; }
-.modal .tabs { flex: 1; min-height: 0; }
-.modal .tabs :global(.ant-tabs-body-holder) { overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; padding-right: 4px; }
+.modal { max-width: calc(100vw - 32px); padding-bottom: 0; }
+.modal :global(.ant-modal-container) { display: flex; flex-direction: column; max-height: calc(100dvh - 32px); overflow: hidden; padding: 0; }
+.modal :global(.ant-modal-header) { flex-shrink: 0; margin: 0; padding: 22px 24px 18px; border-bottom: 1px solid var(--border); }
+.modal :global(.ant-modal-body) { display: flex; flex: 1 1 auto; min-height: 0; height: min(580px, calc(100dvh - 132px)); overflow: hidden; }
+.modal .panel { display: flex; flex-direction: column; width: 100%; min-height: 0; padding: 0 24px; }
+.modal .tools { margin: 0; padding: 16px 0; }
+.modal .tabs { flex: 1; min-height: 0; overflow: hidden; }
+.modal .tabs :global(.ant-tabs-content-holder) { min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--border) transparent; padding: 0 4px 20px 0; }
+.modal .footer { margin-top: 0; padding: 14px 0; border-top: 1px solid var(--border); }
 .modal :global(.ant-btn) { border-radius: 8px; }
+.sourceList { display: grid; gap: 10px; }
+.sourceRow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--card); }
+.sourceActions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 4px; }
+.sourceSchedule { margin-top: 20px; padding: 20px 0 0; border-top: 1px solid var(--border); }
 @media (max-width: 575px) {
-    .modal :global(.ant-modal-container) { padding: 20px 16px; }
-    .modal :global(.ant-modal-body) { height: calc(100dvh - 200px); }
-    .tabs :global(.ant-tabs-nav) { margin-bottom: 16px; }
+    .modal { max-width: calc(100vw - 16px); margin: 8px auto; }
+    .modal :global(.ant-modal-container) { max-height: calc(100dvh - 16px); }
+    .modal :global(.ant-modal-header) { padding: 18px 16px 14px; }
+    .modal .panel { padding-inline: 16px; }
     .tabs :global(.ant-tabs-tab) { padding: 8px 10px; }
+    .sourceRow { grid-template-columns: auto minmax(0, 1fr); padding: 12px; }
+    .sourceActions { grid-column: 2; justify-content: flex-start; }
 }

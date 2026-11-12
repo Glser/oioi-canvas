@@ -45,7 +45,7 @@ function SvgContent({ ctx }: CanvasNodeContentProps) {
                 setEditing(true);
             }}
         >
-            <button type="button" style={toggle} onMouseDown={stop} onClick={() => setEditing((v) => !v)} title={editing ? "预览" : "编辑源码"}>
+            <button type="button" style={toggle} onMouseDown={stop} onClick={() => setEditing((v) => !v)} aria-label={editing ? "预览" : "编辑源码"} data-tooltip={editing ? "预览" : "编辑源码"}>
                 {editing ? "👁" : "✎"}
             </button>
             {editing ? (

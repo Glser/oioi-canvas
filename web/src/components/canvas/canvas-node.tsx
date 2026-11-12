@@ -10,6 +10,7 @@ import { previewUrlFor, subscribeImagePreviews, getImagePreviewRevision } from "
 import { getNodeDefinition } from "@/lib/canvas/node-registry";
 import { buildNodeContext } from "@/lib/canvas/plugin-node-context";
 import { useThemeStore } from "@/stores/use-theme-store";
+import { useDomTooltip } from "@/hooks/use-dom-tooltip";
 import { CanvasResourceMentionTextarea } from "./canvas-resource-mention-textarea";
 import { CanvasNodeType, type CanvasNodeData, type CanvasNodeImage, type CanvasNodeText, type Position } from "@/types/canvas";
 import type { CanvasNodeContext, CanvasPluginHost } from "@/types/canvas-plugin";
@@ -468,7 +469,7 @@ function NodeContent(props: NodeContentRendererProps) {
     const definition = getNodeDefinition(props.node.type);
     if (definition?.Content && props.pluginContext) {
         const PluginContent = definition.Content;
-        return <PluginContent ctx={props.pluginContext} />;
+        return <PluginTooltipBoundary><PluginContent ctx={props.pluginContext} /></PluginTooltipBoundary>;
     }
     return <MissingPluginContent theme={props.theme} type={props.node.type} />;
 }
@@ -481,6 +482,12 @@ const nodeContentRenderers = {
     [CanvasNodeType.Audio]: AudioNodeContent,
     [CanvasNodeType.Group]: GroupNodeContent,
 } satisfies Record<CanvasNodeType, (props: NodeContentRendererProps) => ReactNode>;
+
+function PluginTooltipBoundary({ children }: { children: ReactNode }) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const tooltip = useDomTooltip(containerRef);
+    return <div ref={containerRef} className="h-full w-full">{children}{tooltip}</div>;
+}
 
 function GroupNodeContent({ node, theme, groupChildCount }: NodeContentRendererProps) {
     const { t } = useTranslation();

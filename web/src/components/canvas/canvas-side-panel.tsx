@@ -1,5 +1,6 @@
 import { memo, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from "react";
-import { App, ConfigProvider, Empty, Input, Popconfirm, Select, Spin, Tag, Tooltip } from "antd";
+import { App, ConfigProvider, Empty, Input, Popconfirm, Spin, Tag, Tooltip } from "antd";
+import { Select } from "@/components/themed-controls";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Check, ChevronRight, Download, Eye, FileText, Image as ImageIcon, ListChecks, Music2, PanelLeftClose, Plus, Search, Settings2, Square, Trash2, Type, Video } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";

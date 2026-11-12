@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Input, Popover, Segmented, Select, Tooltip } from "antd";
+import { Button, Input, Popover, Tooltip } from "antd";
+import { Segmented, Select } from "@/components/themed-controls";
 import { ChevronDown, Info, SlidersHorizontal, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -49,7 +50,7 @@ export function GenerationSettings() {
                     open={modelOpen}
                     onOpenChange={setModelOpen}
                     className="w-full"
-                    showSearch={{ optionFilterProp: "label" }}
+                    showSearch={false}
                     value={model || undefined}
                     placeholder={t("settingsPanels.model.select")}
                     options={Array.from(new Set(models)).map((value) => ({ value, label: modelOptionLabel(config, value) }))}

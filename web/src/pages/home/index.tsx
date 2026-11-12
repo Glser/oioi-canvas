@@ -32,6 +32,7 @@ import { readZip } from "@/lib/zip";
 import { setMediaBlob } from "@/services/file-storage";
 import { setImageBlob } from "@/services/image-storage";
 import type { CanvasExportFile } from "@/types/canvas-export";
+import { useAgentChatStore } from "@/stores/use-agent-chat-store";
 import { useAgentStore } from "@/stores/use-agent-store";
 import { fetchPrompts } from "@/services/api/prompts";
 
@@ -54,7 +55,6 @@ export default function IndexPage() {
     const agentConnected = useAgentStore((state) => state.connected);
     const togglePanel = useAgentStore((state) => state.togglePanel);
     const openAgentPanel = useAgentStore((state) => state.openPanel);
-    const setPendingTask = useAgentStore((state) => state.setPendingTask);
 
     const [inputPrompt, setInputPrompt] = useState("");
     const [quickPrompts, setQuickPrompts] = useState<string[]>([
@@ -112,22 +112,21 @@ export default function IndexPage() {
         navigate(`/canvas/${id}`);
     };
 
-    // 连接本地 Agent 后才能发送：新建画布并把任务交给 Agent 处理，不在本地构造文本节点
-    const handlePromptSubmit = () => {
+    // 首页是会话的第一条消息入口；未连接时也保留需求，配对后在目标画布自动提交。
+    const handlePromptSubmit = async () => {
         const prompt = inputPrompt.trim();
         if (!prompt || submittingRef.current) return;
-        if (!agentConnected) {
-            openAgentPanel();
-            message.warning(t("home.agentConnectRequired"));
-            return;
-        }
-
-        // 以用户输入的前十几个字命名新画布，任务交由 Agent 在画布中落地
         submittingRef.current = true;
-        const title = prompt.length > 20 ? `${prompt.slice(0, 20)}...` : prompt;
-        const newId = createProject(title);
-        setPendingTask(prompt);
-        navigate(`/canvas/${newId}?mode=new`);
+        try {
+            const title = prompt.length > 20 ? `${prompt.slice(0, 20)}...` : prompt;
+            const newId = createProject(title);
+            await useAgentChatStore.getState().queue(newId, prompt);
+            openAgentPanel();
+            navigate(`/canvas/${newId}?mode=new`);
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : String(error));
+            submittingRef.current = false;
+        }
     };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -291,13 +290,13 @@ export default function IndexPage() {
                         {/* 右侧提交与启动按钮 */}
                         <div className="flex items-center gap-2">
                             <span className="hidden text-xs text-stone-400 sm:inline">Enter 发送</span>
-                            <Tooltip title={t(agentConnected ? "home.agentSendHint" : "home.agentConnectRequired")}>
+                            <Tooltip title={t("home.agentSendHint")}>
                                 <span className="inline-flex">
                                     <Button
                                         type="primary"
                                         shape="round"
                                         icon={<ArrowUp className="size-4" />}
-                                        disabled={!inputPrompt.trim() || !agentConnected}
+                                        disabled={!inputPrompt.trim()}
                                         onClick={handlePromptSubmit}
                                         className="!h-8 px-4 font-medium"
                                     >

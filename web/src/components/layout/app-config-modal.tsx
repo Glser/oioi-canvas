@@ -1,7 +1,8 @@
-import { App, Button, Form, Input, Modal, Progress, Select, Tabs } from "antd";
+import { App, Button, ConfigProvider, Form, Input, Modal, Progress, Tabs } from "antd";
+import { Select } from "@/components/themed-controls";
 import type { TFunction } from "i18next";
 import { Cloud, Download, Pencil, Plus, RefreshCw, Trash2, Upload, Wifi } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ModelPicker } from "@/components/model-picker";
@@ -15,6 +16,8 @@ import { exportAppConfig, importAppConfig } from "@/services/config-file";
 import { syncAppDataToWebdav, type AppSyncDomainKey, type AppSyncProgressEvent } from "@/services/app-sync";
 import { testWebdavConnection, WEBDAV_MANIFEST_FILE_NAME } from "@/services/webdav-sync";
 import { audioFormatOptions, audioVoiceOptions, normalizeAudioSpeedValue } from "@/lib/audio-generation";
+import { getWorkbenchAppearance } from "@/lib/app-theme";
+import { useThemeStore } from "@/stores/use-theme-store";
 import { createModelChannel, modelOptionsFromChannels, normalizeModelOptionValue, selectableModelsByCapability, useConfigStore, useEffectiveConfig, type AiConfig, type ApiCallFormat, type ConfigTabKey, type ModelCapability, type ModelChannel } from "@/stores/use-config-store";
 import styles from "./app-config-modal.module.css";
 
@@ -167,7 +170,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
 
     return (
         <div className={styles.panel}>
-            <div className="mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3">
+            <div className={`${styles.tools} mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3`}>
                 <div className="min-w-0 text-xs leading-relaxed text-muted-foreground">{NEW_API_ENABLED ? "账户登录凭证与自动获取的调用令牌不包含在配置文件中。" : t("config.fileSecurity")}</div>
                 <div className="flex shrink-0 gap-1">
                     <Button type="text" size="small" icon={<Upload className="size-3.5" />} onClick={() => configInputRef.current?.click()}>
@@ -333,7 +336,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                 ]}
             />
             {showDoneButton ? (
-                <div className="flex shrink-0 justify-end pt-4">
+                <div className={`${styles.footer} flex shrink-0 justify-end pt-4`}>
                     <Button type="primary" className="min-w-20" onClick={finishConfig}>
                         {t("common.done")}
                     </Button>
@@ -346,26 +349,30 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
 
 export function AppConfigModal() {
     const { t } = useTranslation();
+    const theme = useThemeStore((state) => state.theme);
+    const appearance = useMemo(() => getWorkbenchAppearance(theme === "dark"), [theme]);
     const isConfigOpen = useConfigStore((state) => state.isConfigOpen);
     const configTab = useConfigStore((state) => state.configTab);
     const setConfigDialogOpen = useConfigStore((state) => state.setConfigDialogOpen);
     return (
-        <Modal
-            className={styles.modal}
-            title={
-                <div className="pr-8">
-                    <div className="text-base font-semibold">{t("config.title")}</div>
-                    <div className="mt-1 text-xs font-normal text-muted-foreground">{t("config.modalDescription")}</div>
-                </div>
-            }
-            open={isConfigOpen}
-            width={980}
-            centered
-            onCancel={() => setConfigDialogOpen(false)}
-            footer={null}
-        >
-            <AppConfigPanel showDoneButton initialTab={configTab} />
-        </Modal>
+        <ConfigProvider theme={appearance.theme} modal={appearance.configModal} tooltip={appearance.tooltip} popover={appearance.popover} drawer={appearance.drawer}>
+            <Modal
+                className={styles.modal}
+                title={
+                    <div className="pr-8">
+                        <div className="text-base font-semibold">{t("config.title")}</div>
+                        <div className="mt-1 text-xs font-normal text-muted-foreground">{t("config.modalDescription")}</div>
+                    </div>
+                }
+                open={isConfigOpen}
+                width={980}
+                centered
+                onCancel={() => setConfigDialogOpen(false)}
+                footer={null}
+            >
+                <AppConfigPanel showDoneButton initialTab={configTab} />
+            </Modal>
+        </ConfigProvider>
     );
 }
 

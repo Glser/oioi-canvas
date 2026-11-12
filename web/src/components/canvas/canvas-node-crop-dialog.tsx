@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { Button, Modal, Segmented, Tooltip } from "antd";
+import { Button, Modal, Tooltip } from "antd";
+import { Segmented } from "@/components/themed-controls";
 import { Check, X, ZoomIn, ZoomOut } from "lucide-react";
 import { useTranslation } from "react-i18next";
 

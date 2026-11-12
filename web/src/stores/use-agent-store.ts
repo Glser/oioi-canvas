@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import i18n from "@/i18n";
+import type { AgentServiceStatus } from "@/hooks/use-agent-service-probe";
 
 import type { CanvasAgentOp, CanvasAgentSnapshot } from "@/lib/canvas/canvas-agent-ops";
 
@@ -16,11 +17,12 @@ type AgentStoreData = {
     connected: boolean;
     clientId: string;
     enabled: boolean;
+    manualDisconnect: boolean;
+    serviceStatus: AgentServiceStatus;
     silentConnect: boolean;
     fragmentBootstrap: boolean;
     activity: string;
     connectError: string;
-    pendingTask: string;
 };
 
 type AgentStore = AgentStoreData & {
@@ -29,7 +31,7 @@ type AgentStore = AgentStoreData & {
     closePanel: () => void;
     togglePanel: () => void;
     setCanvasContext: (context: AgentCanvasContext | null) => void;
-    setPendingTask: (task: string) => void;
+    setConnectionSettings: (patch: Partial<Pick<AgentStoreData, "url" | "token">>) => void;
     connectAgent: (options?: { silent?: boolean }) => void;
     disconnectAgent: (patch?: Partial<AgentStoreData>) => void;
 };
@@ -47,11 +49,12 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     connected: false,
     clientId: "",
     enabled: false,
+    manualDisconnect: false,
+    serviceStatus: "idle",
     silentConnect: false,
     fragmentBootstrap: false,
     activity: i18n.t("agent.state.ready"),
     connectError: "",
-    pendingTask: "",
     setAgentState: (patch) => set(patch),
     openPanel: () => set({ panelOpen: true, panelMounted: true, panelClosing: false }),
     closePanel: () => {
@@ -63,7 +66,14 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
     },
     togglePanel: () => (get().panelOpen ? get().closePanel() : get().openPanel()),
     setCanvasContext: (canvasContext) => set({ canvasContext }),
-    setPendingTask: (pendingTask) => set({ pendingTask }),
+    setConnectionSettings: (patch) => {
+        if (get().enabled) return;
+        const url = patch.url ?? get().url;
+        const token = patch.token ?? get().token;
+        localStorage.setItem("oioi-canvas-agent-url", url);
+        localStorage.setItem("oioi-canvas-agent-token", token);
+        set({ url, token, connectError: "" });
+    },
     connectAgent: (options) => {
         const silent = options?.silent ?? false;
         const endpoint = get().url.trim().replace(/\/$/, "");
@@ -77,9 +87,9 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
         }
         localStorage.setItem("oioi-canvas-agent-url", endpoint);
         localStorage.setItem("oioi-canvas-agent-token", token);
-        set({ url: endpoint, token, enabled: true, silentConnect: silent, fragmentBootstrap: false, activity: i18n.t("agent.status.connecting"), connectError: "" });
+        set({ url: endpoint, token, enabled: true, manualDisconnect: false, silentConnect: silent, fragmentBootstrap: false, activity: i18n.t("agent.status.connecting"), connectError: "" });
     },
     disconnectAgent: (patch = {}) => {
-        set({ enabled: false, connected: false, silentConnect: false, fragmentBootstrap: false, activity: i18n.t("agent.state.offline"), ...patch });
+        set({ enabled: false, connected: false, manualDisconnect: true, silentConnect: false, fragmentBootstrap: false, activity: i18n.t("agent.state.offline"), ...patch });
     },
 }));

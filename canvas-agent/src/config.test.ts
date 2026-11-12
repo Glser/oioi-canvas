@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { writeConfigFile, type CanvasAgentConfig } from "./config.js";
+import { mergeOrigins, normalizeOrigin, originAllowed, readStartupOrigins, writeConfigFile, type CanvasAgentConfig } from "./config.js";
 
 const sample: CanvasAgentConfig = { url: "http://127.0.0.1:17371", token: "test-token", origins: ["http://localhost:3100", "https://canvas.example.com"] };
 
@@ -52,4 +52,27 @@ test("writeConfigFile persists the config content", () => {
     } finally {
         fs.rmSync(base, { recursive: true, force: true });
     }
+});
+
+test("normalizeOrigin keeps http and https origins", () => {
+    assert.equal(normalizeOrigin("http://localhost:3100/canvas/abc"), "http://localhost:3100");
+    assert.equal(normalizeOrigin("https://app.example.com"), "https://app.example.com");
+    assert.equal(normalizeOrigin("file:///tmp"), null);
+    assert.equal(normalizeOrigin("not a url"), null);
+});
+
+test("readStartupOrigins collects unique --origin and env values", () => {
+    assert.deepEqual(
+        readStartupOrigins(["--debug", "--origin", "http://localhost:3100/x", "--origin", "http://localhost:3100"], { OIOI_CANVAS_ORIGIN: "https://app.example.com/path" }),
+        ["http://localhost:3100", "https://app.example.com"],
+    );
+});
+
+test("mergeOrigins and originAllowed only accept listed origins", () => {
+    const config: CanvasAgentConfig = { url: "http://127.0.0.1:17371", token: "test-token" };
+    assert.equal(mergeOrigins(config, ["http://localhost:3100"]), true);
+    assert.equal(mergeOrigins(config, ["http://localhost:3100"]), false);
+    assert.equal(originAllowed("http://localhost:3100", config.origins), true);
+    assert.equal(originAllowed("https://evil.example", config.origins), false);
+    assert.equal(originAllowed("", config.origins), false);
 });

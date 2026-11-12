@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
-import { Button, Popover, Segmented, Select, Slider } from "antd";
+import { Button, Popover, Slider } from "antd";
+import { Segmented, Select } from "@/components/themed-controls";
 import { ChevronDown, SlidersHorizontal, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { AspectIcon } from "@/components/image-settings-panel";
@@ -29,7 +30,7 @@ export function VideoGenerationSettings() {
     };
     return (
         <div className={styles.settings}>
-            <Select aria-label={t("settingsPanels.model.select")} className="w-full" showSearch={{ optionFilterProp: "label" }} value={config.videoModel || undefined} placeholder={t("settingsPanels.model.select")} options={selectableModelsByCapability(config, "video").map((value) => ({ value, label: modelOptionLabel(config, value) }))} onChange={(value) => updateConfig("videoModel", value)} notFoundContent={<Button block type="text" className="!justify-start" onClick={() => openConfigDialog(false)}>{t("imageWorkbench.configureModels")}</Button>} />
+            <Select aria-label={t("settingsPanels.model.select")} className="w-full" showSearch={false} value={config.videoModel || undefined} placeholder={t("settingsPanels.model.select")} options={selectableModelsByCapability(config, "video").map((value) => ({ value, label: modelOptionLabel(config, value) }))} onChange={(value) => updateConfig("videoModel", value)} notFoundContent={<Button block type="text" className="!justify-start" onClick={() => openConfigDialog(false)}>{t("imageWorkbench.configureModels")}</Button>} />
             <Popover trigger="click" placement="top" arrow={false} open={open} onOpenChange={setOpen} content={
                 <div className={styles.settingsPanel} style={appearance.style} role="dialog" aria-label={t("settingsPanels.video.title")} onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}>
                     <div className={styles.sectionHeader} style={{ marginBottom: 0 }}><span className="text-sm font-medium">{t("settingsPanels.video.title")}</span><Button type="text" size="small" icon={<X size={14} />} aria-label={t("common.close")} onClick={close} /></div>

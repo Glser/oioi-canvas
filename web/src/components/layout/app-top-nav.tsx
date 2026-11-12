@@ -2,7 +2,7 @@ import { Bot, Menu } from "lucide-react";
 import { Tooltip } from "antd";
 import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { navigationTools, type NavigationToolSlug } from "@/constant/navigation-tools";
 import { AppConfigModal } from "@/components/layout/app-config-modal";
@@ -22,11 +22,6 @@ export function AppTopNav() {
     const appearance = useMemo(() => getWorkbenchAppearance(theme === "dark"), [theme]);
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
     const [isScrolled, setIsScrolled] = useState(false);
-    const autoConnectRef = useRef(false);
-    const agentToken = useAgentStore((state) => state.token);
-    const agentEnabled = useAgentStore((state) => state.enabled);
-    const agentConnected = useAgentStore((state) => state.connected);
-    const connectAgent = useAgentStore((state) => state.connectAgent);
     const togglePanel = useAgentStore((state) => state.togglePanel);
     const panelOpen = useAgentStore((state) => state.panelOpen);
     const hideHeader = /^\/canvas\/[^/]+/.test(pathname);
@@ -58,12 +53,6 @@ export function AppTopNav() {
         window.addEventListener("scroll", handleScroll, true);
         return () => window.removeEventListener("scroll", handleScroll, true);
     }, [pathname]);
-
-    useEffect(() => {
-        if (autoConnectRef.current || agentEnabled || agentConnected || !agentToken.trim()) return;
-        autoConnectRef.current = true;
-        connectAgent({ silent: true });
-    }, [agentConnected, agentEnabled, agentToken, connectAgent]);
 
     const isCompact = panelOpen || isScrolled;
 

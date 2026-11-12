@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { App, Tooltip, theme as antdTheme } from "antd";
-import { Bot, PanelRightClose } from "lucide-react";
+import { ArrowLeft, Bot, PanelRightClose, Settings2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/react/shallow";
 
@@ -9,13 +9,17 @@ import i18n from "@/i18n";
 import { readAgentUrlBootstrap } from "@/lib/agent/agent-url-bootstrap";
 import { isSiteTool, runSiteTool } from "@/lib/agent/agent-site-tools";
 import { randomId } from "@/lib/utils";
-import { activateAgentClient, postState, postToolResult } from "@/services/api/canvas-agent";
+import { AGENT_PROTOCOL_VERSION, activateAgentClient, postState, postToolResult } from "@/services/api/canvas-agent";
 import { useAgentStore, type AgentCanvasContext } from "@/stores/use-agent-store";
 import { type CanvasAgentOp, type CanvasAgentSnapshot } from "@/lib/canvas/canvas-agent-ops";
+import { useAgentChatStore } from "@/stores/use-agent-chat-store";
+import type { AgentConversationUpdate } from "@/services/api/canvas-agent";
+import { useAgentServiceProbe } from "@/hooks/use-agent-service-probe";
+import { useAgentRuntimeStore } from "@/stores/use-agent-runtime-store";
+import { AgentChatView } from "./agent-chat-view";
 import { AgentConnectView } from "./agent-connect-view";
 
 const DEFAULT_AGENT_URL = "http://127.0.0.1:17371";
-const AGENT_PROTOCOL_VERSION = 7;
 const rt = (key: string, options?: Record<string, unknown>) => i18n.t(`agent.runtime.${key}`, options);
 
 type AgentPendingToolCall = { requestId: string; clientId: string; expectedProjectId?: string; name: string; input?: { ops?: CanvasAgentOp[]; path?: string } & Record<string, unknown> };
@@ -37,25 +41,47 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
     const { hash, pathname } = useLocation();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
-    const { url, token, connected, enabled, connectError } = useAgentStore(
+    const { url, token, connected, enabled } = useAgentStore(
         useShallow((state) => ({
             url: state.url,
             token: state.token,
             connected: state.connected,
             enabled: state.enabled,
-            connectError: state.connectError,
         })),
     );
     const setAgentState = useAgentStore((state) => state.setAgentState);
     const closePanel = useAgentStore((state) => state.closePanel);
+    const projectId = useAgentStore((state) => state.canvasContext?.snapshot.projectId || "");
+    const pendingMessage = useAgentChatStore((state) => state.pending);
+    const hasSession = useAgentChatStore((state) => Boolean(state.conversation?.threadId));
+    const sessionStatus = useAgentChatStore((state) => state.conversation?.status);
+    const runtimeStatus = useAgentRuntimeStore((state) => state.info?.status);
+    const runtimeError = useAgentRuntimeStore((state) => state.error);
+    const runtimeDetecting = useAgentRuntimeStore((state) => state.detecting);
+    const codexStatus = useAgentRuntimeStore((state) => state.catalog?.runtimes.find((runtime) => runtime.id === "codex")?.status);
+    const [showSettings, setShowSettings] = useState(false);
+    useEffect(() => { void useAgentChatStore.getState().activate(projectId); }, [projectId, connected, url, token]);
     const canvasContextRef = useRef<AgentCanvasContext | null>(useAgentStore.getState().canvasContext);
     const autoConnectRef = useRef(false);
+    const autoAttemptRef = useRef("");
+    const manualDisconnect = useAgentStore((state) => state.manualDisconnect);
+    const { status: serviceStatus } = useAgentServiceProbe(url, AGENT_PROTOCOL_VERSION);
     const connectedRef = useRef(false);
     const errorLoggedRef = useRef(false);
     const clientIdRef = useRef("");
     const [clientReady, setClientReady] = useState(false);
     const endpoint = useMemo(() => url.trim().replace(/\/$/, ""), [url]);
     const urlAgentAutoConnect = searchParams.has("agentUrl") && searchParams.has("agentToken");
+
+    useEffect(() => { setAgentState({ serviceStatus }); }, [serviceStatus, setAgentState]);
+    useEffect(() => { void useAgentRuntimeStore.getState().load(); }, [connected, url, token]);
+    useEffect(() => {
+        if (serviceStatus !== "running") { autoAttemptRef.current = ""; return; }
+        const key = `${url}|${token}`;
+        if (!clientReady || !token || enabled || connected || manualDisconnect || autoAttemptRef.current === key) return;
+        autoAttemptRef.current = key;
+        useAgentStore.getState().connectAgent({ silent: true });
+    }, [clientReady, serviceStatus, url, token, enabled, connected, manualDisconnect]);
 
     useEffect(() => {
         let disposed = false;
@@ -117,17 +143,21 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
             void postState(endpoint, token, clientId, canvasContextRef.current?.snapshot || null);
             if (document.visibilityState === "visible" && document.hasFocus()) void activateAgentClient(endpoint, token, clientId);
         });
+        source.addEventListener("agent_state", (event) => {
+            if (!isCurrentConnection()) return;
+            const state = parseEventData<AgentConversationUpdate>(event);
+            if (state) useAgentChatStore.getState().receive(state);
+        });
         source.addEventListener("tool_call", (event) => {
             if (!isCurrentConnection()) return;
             const data = parseEventData<AgentPendingToolCall>(event);
             if (!data || data.clientId !== clientIdRef.current) return;
-            // Agent 已开始操作当前页面，待处理任务视为已接手
-            if (useAgentStore.getState().pendingTask) setAgentState({ pendingTask: "" });
             void runToolCall(endpoint, token, data, navigate, clientIdRef);
         });
         source.onerror = () => {
             if (disposed || protocolRejected) return;
             const wasConnected = connectedRef.current;
+            if (wasConnected) autoAttemptRef.current = "";
             const silent = useAgentStore.getState().silentConnect && !wasConnected;
             const text = rt(wasConnected ? "connectionLostDescription" : "connectionFailedDescription");
             if (!errorLoggedRef.current || wasConnected) {
@@ -138,7 +168,7 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
             setAgentState({
                 activity: rt(wasConnected ? "connectionLost" : "connectionFailed"),
                 connected: false,
-                connectError: silent ? "" : text,
+                connectError: text,
                 silentConnect: false,
                 fragmentBootstrap: false,
             });
@@ -170,7 +200,7 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
 
     const toggleAgentConnection = ({ silent = false, token: tokenOverride }: { silent?: boolean; token?: string } = {}) => {
         if (enabled) {
-            setAgentState({ enabled: false, connected: false, activity: rt("offline"), connectError: "", fragmentBootstrap: false, silentConnect: false });
+            setAgentState({ enabled: false, connected: false, manualDisconnect: true, activity: rt("offline"), connectError: "", fragmentBootstrap: false, silentConnect: false });
             return;
         }
         const urlToken = searchParams.get("agentToken") || "";
@@ -205,7 +235,7 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
             return;
         }
         errorLoggedRef.current = false;
-        setAgentState({ url: nextEndpoint, token: nextToken, enabled: true, connected: false, silentConnect: silent, fragmentBootstrap: false, activity: rt("connecting"), connectError: "" });
+        setAgentState({ url: nextEndpoint, token: nextToken, enabled: true, connected: false, manualDisconnect: false, silentConnect: silent, fragmentBootstrap: false, activity: rt("connecting"), connectError: "" });
     };
 
     useLayoutEffect(() => {
@@ -226,7 +256,7 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
             return;
         }
         errorLoggedRef.current = false;
-        setAgentState({ url: bootstrap.url.replace(/\/$/, ""), token: bootstrap.token, enabled: true, connected: false, silentConnect: true, fragmentBootstrap: true, activity: rt("connecting"), connectError: "" });
+        setAgentState({ url: bootstrap.url.replace(/\/$/, ""), token: bootstrap.token, enabled: true, connected: false, manualDisconnect: false, silentConnect: true, fragmentBootstrap: true, activity: rt("connecting"), connectError: "" });
     }, [hash, navigate, setAgentState]);
 
     useEffect(() => {
@@ -235,8 +265,10 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
         void toggleAgentConnection({ silent: true });
     }, [connected, enabled, urlAgentAutoConnect]);
 
-    const connectionStatus = t(connectError ? "agent.status.failed" : connected ? "agent.status.connected" : enabled ? "agent.status.connecting" : "agent.status.disconnected");
-    const connectionStatusColor = connectError ? colors.colorError : connected ? colors.colorSuccess : enabled ? colors.colorWarning : colors.colorTextSecondary;
+    const notReady = connected && (sessionStatus === "error" || runtimeStatus === "needsAuth" || Boolean(runtimeError) || (!runtimeDetecting && (codexStatus === "missing" || codexStatus === "error")));
+    const showConversation = Boolean(projectId) && connected && !notReady && (hasSession || runtimeStatus === "ready");
+    const connectionStatus = t(!connected ? "agent.runtimeDiscovery.offline" : notReady ? "agent.connectionGuide.notReady" : showConversation ? "agent.runtimeDiscovery.online" : "agent.status.connecting");
+    const connectionStatusColor = notReady ? colors.colorWarning : showConversation ? colors.colorSuccess : colors.colorTextSecondary;
 
     if (!embedded) return null;
     return (
@@ -250,6 +282,8 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
                         <span className="truncate">{connectionStatus}</span>
                     </span>
                 </div>
+                <div className="flex items-center gap-1">
+                {showConversation ? <Tooltip title={t(showSettings ? "agent.connectionGuide.back" : "agent.runtimeDiscovery.machine")}><button type="button" className="grid size-8 place-items-center rounded-lg hover:bg-black/5 dark:hover:bg-white/10" aria-label={t(showSettings ? "agent.connectionGuide.back" : "agent.runtimeDiscovery.machine")} aria-pressed={showSettings} onClick={() => setShowSettings((value) => !value)}>{showSettings ? <ArrowLeft className="size-4" /> : <Settings2 className="size-4" />}</button></Tooltip> : null}
                 <Tooltip title={t("agent.panel.collapse")}>
                     <button
                         type="button"
@@ -261,8 +295,11 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
                         <PanelRightClose className="size-4" />
                     </button>
                 </Tooltip>
+                </div>
             </div>
-            <AgentConnectView onToggleEnabled={(options) => void toggleAgentConnection(options)} />
+            {!connected && pendingMessage ? <p className="px-4 pb-3 text-xs" style={{ color: colors.colorTextSecondary }}>{t("agent.conversation.saved")}</p> : null}
+            {showConversation && !showSettings ? <AgentChatView key={projectId} /> : <AgentConnectView onToggleEnabled={(options) => void toggleAgentConnection(options)} />}
+
         </>
     );
 }

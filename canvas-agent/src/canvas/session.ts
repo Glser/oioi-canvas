@@ -9,7 +9,8 @@ import type { CanvasSnapshot } from "./types.js";
 
 type ClientBinding = { clientId: string; projectId?: string };
 type PendingRequest = ClientBinding & { resolve: (value: unknown) => void; reject: (error: Error) => void };
-export const AGENT_PROTOCOL_VERSION = 7;
+import { AGENT_PROTOCOL_VERSION } from "../agent/types.js";
+export { AGENT_PROTOCOL_VERSION };
 
 const SITE_TOOLS = new Set<ToolName>([
     "site_navigate",
@@ -27,6 +28,7 @@ const SITE_TOOLS = new Set<ToolName>([
 /** 管理网页连接与每个 MCP 进程独立的目标绑定。 */
 export class CanvasSession {
     private clients = new Map<string, ServerResponse>();
+    private origins = new Map<string, string>();
     private pending = new Map<string, PendingRequest>();
     private canvasStates = new Map<string, CanvasSnapshot>();
     private bindings = new Map<string, ClientBinding>();
@@ -38,12 +40,13 @@ export class CanvasSession {
     }
 
     /** 建立网页与本机桥接服务之间的 SSE 连接。 */
-    openEvents(url: URL, res: ServerResponse) {
+    openEvents(url: URL, res: ServerResponse, origin = "") {
         const clientId = url.searchParams.get("clientId") || crypto.randomUUID();
         const previous = this.clients.get(clientId);
         logger.info("SSE client connected", { clientId });
         res.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
         this.clients.set(clientId, res);
+        this.origins.set(clientId, origin);
         this.canvasStates.delete(clientId);
         previous?.end();
         if (previous) this.rejectClientRequests(clientId, "网页连接已替换，请重新调用工具");
@@ -55,11 +58,28 @@ export class CanvasSession {
             logger.info("SSE client disconnected", { clientId });
             if (this.clients.get(clientId) !== res) return;
             this.clients.delete(clientId);
+            this.origins.delete(clientId);
             this.canvasStates.delete(clientId);
             this.rejectClientRequests(clientId, "绑定网页已断开，请重新连接原页面或明确绑定其他页面");
             // 保留绑定身份，断线不能静默切换到其他标签页。
             if (this.activeClientId === clientId) this.activeClientId = "";
         });
+    }
+
+    /** 会话接口必须来自已连接的原网站和当前画布。 */
+    assertClient(clientId: string, projectId: string, origin: string) {
+        if (!this.clients.has(clientId) || this.origins.get(clientId) !== origin) throw new Error("当前网页未连接或来源不匹配");
+        if (this.canvasStates.get(clientId)?.projectId !== projectId) throw new Error("画布尚未就绪或已经切换，请重新连接会话");
+    }
+
+    emitToClient(clientId: string, event: string, payload: unknown) {
+        const client = this.clients.get(clientId);
+        if (client && !client.destroyed) sendEvent(client, event, payload);
+    }
+
+    close() {
+        for (const client of this.clients.values()) client.end();
+        this.clients.clear();
     }
 
     /** 保存精确客户端上报的页面和画布状态，不以焦点页兜底。 */

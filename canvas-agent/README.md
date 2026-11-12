@@ -1,61 +1,73 @@
 # oioi-canvas Agent
 
-本机 HTTP bridge 将同电脑浏览器的 oioi Canvas 接到用户自己的原生 Codex / Claude Code：`原生 Agent → stdio MCP → 本机 bridge → 浏览器工具`。对话、模型、权限、技能和历史由原生 Agent 管理，bridge 不运行 Agent 执行引擎。
+通过 npm CLI 将同一台电脑上的 Flow 网页接到本地 Codex：网页承接对话，本地服务管理原生会话，画布操作继续使用 stdio MCP。无需桌面安装包，也不在网页重建 Agent 推理循环。
 
-## 快速开始
+> 当前源码已增加网页会话能力，尚未发布新的 npm 版本。npm 上已有的 0.6.0 仅提供原生 Agent → 画布桥接，不能用于新版网页协议。当前请使用源码开发入口；发布后再使用下面的安装方式。
 
-`@oioi-npm/canvas-agent@0.6.0` 已公开发布到 npm，以下命令可直接使用。Windows PowerShell 中可使用 `npx.cmd` 避免脚本执行策略限制；调试源码时按「连接与开发」启动。
+## 使用方式
 
-1. 在电脑终端启动 bridge，保持终端运行：
+已有本地 Agent 的用户只需准备 Node.js，并在允许 Agent 操作的工作目录中启动连接器。CLI 会自动检测现有程序，不需要填写 Agent 安装路径、重新录入模型或手动注册受管 MCP：
 
-   ```bash
-   npx -y @oioi-npm/canvas-agent@latest
-   ```
+```bash
+npx -y @oioi-npm/canvas-agent --origin <网页地址>
+# 例如：npx -y @oioi-npm/canvas-agent --origin http://localhost:3100
+```
 
-   终端会输出 `Local URL: http://127.0.0.1:17371` 和一个 6 位 `配对码`。网页会自动检测服务；本机开发网页（默认 `http://localhost:3100`）已在运行时，bridge 还会用默认浏览器打开带连接参数的画布页。线上网页使用配对码连接，无需填写地址和 Token。`@latest` 避免 npx 一直使用旧缓存；排查问题时可在命令后加 `--debug`，日志位于 `~/.oioi-canvas/logs/`，token 与图片 Data URL 会隐藏。
+仅未安装 Codex 时需要 `npm install -g @openai/codex`，仅原生运行时报告需要认证时才需要 `codex login`；已有可用配置不要求重新登录。Windows PowerShell 可使用 `npm.cmd` / `npx.cmd`。当前对接 Codex app-server 的会话、历史分页和审批协议；旧 CLI 缺少对应接口时需要升级。网页对话首版仅支持 Codex，原有外部 Agent MCP 接入仍保留。
 
-2. 给原生 Agent 注册 MCP；已有 oioi-canvas 插件提供 MCP 时跳过，避免重复注册。
+1. 在网页复制连接器命令，在本机终端运行并保持运行。命令中的 `--origin` 是当前网页地址，用于自动连接，不需要输入地址、Token 或配对码。关闭终端会断开连接，当前没有后台常驻。
+2. 网页检测到连接器后自动接入本机 Agent。后续只要再次启动连接器即可恢复；手动断开会暂停自动重连。
+3. 在首页输入需求会创建画布并保存待发送内容；未连接也不会要求复制需求。画布就绪并连接 Codex 后自动提交第一条消息。
+4. 在 Agent 侧栏继续对话、查看工具进展、回答问题、允许或拒绝操作、停止当前执行。连接服务与 Codex 会话状态分开显示。
 
-   Codex：
+受管会话自动注入画布 MCP，不要求用户注册全局 MCP。新会话使用启动 CLI 时的目录，模型、权限和原生指令沿用 Codex 的生效配置，不再写死 sandbox/approvalPolicy。网页展示实际权限；本机已配置无审批或不受限沙箱时会明确提示。网页不能任意指定本地执行程序或目录。
 
-   ```bash
-   codex mcp add oioi-canvas -- npx -y @oioi-npm/canvas-agent@latest mcp
-   ```
+## 自动发现和能力读取
 
-   Claude Code：
+- CLI 启动后使用系统 PATH/PATHEXT 查找 Codex、Claude Code、CodeBuddy、OpenCode，并读取版本；网页显示机器、安装路径、检测结果和「重新检测」入口。离线时展示本浏览器上次检测结果并标为离线，不把缓存当作实时可用状态。
+- 当前仅 Codex 具有网页执行适配；其他运行时即便已安装，也明确显示「尚未适配」，不会声称能够执行。不会静默安装或升级第三方工具。
+- 在创建对话前即可通过原生接口读取本地配置、模型目录、Skills 和 MCP；网页不显示账号内容、API Key、Token、环境变量或原始配置对象。
+- 默认「跟随 Runtime」不覆盖当前模型/推理参数。模型与推理强度选项来自原生目录，当前自定义模型即便不在目录也保留显示；目录失败不猜测其他模型。网页选择随下一轮提交传给 Codex，只作用于该会话，不写全局配置。
+- 网页协议为 9；前台进程、首次授权和原生认证仍然是必要条件，本轮没有实现后台 daemon 或所有 Agent 的执行接入。
 
-   ```bash
-   claude mcp add --scope user --transport stdio oioi-canvas -- npx -y @oioi-npm/canvas-agent@latest mcp
-   ```
+## 会话、目标与历史
 
-   默认启动命令仅运行 bridge，`mcp` 子命令仅提供 stdio 工具，两者不是同一个进程。MCP 从 `~/.oioi-canvas/canvas-agent.json` 读取同一地址和 token。
-
-3. 连接网页。网页侧 Agent 面板会轮询检测本机服务：检测到服务后，把终端显示的 6 位配对码填进「配对码」输入框并点「连接画布」，即可用配对码换回连接 token 并自动连接，不需要复制 36 位 token。自动打开的浏览器页面已完成这一步。服务未运行时面板会提示先启动；手动填写地址/token 的兜底表单位于「连接设置与排查」。云端网页也连接你电脑的 loopback 地址，不需要内网穿透；本地网页开发地址通常为 `http://localhost:3100`，它不是 bridge 地址。
-
-   配对码只存在 bridge 内存中、不落盘、每次启动重新生成；连续输错 5 次会锁定 60 秒。`/pair` 与 `/config`、`/health` 一样对未授权 Origin 开放，因为首次连接的用户此时还没有进入 Origin 白名单。面板将地址、Token、clientId 和断开操作放在「连接设置与排查」中；连接后复制连接指令或任务指令到原生 Agent 对话执行，网页不会自动发送任务或创建 Agent 会话。
-
-## 目标选择与工具
-
-- 首先调用 `canvas_list_clients({})`，根据页面路径、标题、画布 ID 选择目标；多个标签页无法确定时询问用户，不以焦点自动选择。
-- 调用 `canvas_bind_client({clientId, projectId?})`。可传列表中的 `projectId` 检查选择期间画布未变化；绑定始终记录此刻页面的画布 ID。
-- 每个 MCP 进程独立保持绑定，后续站点工具只发到该页面，画布工具还会核对项目 ID。焦点变化不改目标，断线不回退到其他标签页。
-- `site_navigate` 可以在绑定页面打开其他画布；项目加载后重新 list/bind 才能操作新画布。旧绑定不会跟随导航自动更新。
-- 结束或换目标时调用 `canvas_release_client({})`，再明确重新绑定。
-
-保留画布读取/批量操作/生成、画布项目列表、站点导航、图片/视频工作台、提示词库和素材工具。图片素材可用 `assets_add` 的 `imageUrl`（URL 或 dataURL）；画布图片节点用 `canvas_create_node`/`canvas_apply_ops` 的真实媒体 metadata。原生 Agent 的附件和原生生图结果不会自动导入浏览器。
-
-权限审批遵循原生 Agent 配置；浏览器收到已授权工具后直接执行，不提供网页聊天或第二套审批流程。
+- 同一网站来源、同一画布关联一个原生 thread。执行目标固定为 `clientId + projectId`；运行中不能由另一个标签页夺取，网页换画布或断开后工具会报错，不回退到其他页面。
+- 网页待发送内容使用 localforage；每条提交带唯一标识。服务保存提交回执，刷新与重连不会自动重复发送已接收的任务。接收状态不确定时保留待核对提示，不自动重放。
+- 原生 Codex 保存正文历史；`~/.oioi-canvas/conversations.json` 只保存会话映射、目录和回执。该清单的版本独立于网页协议，损坏或未知版本拒绝覆盖，不按数量截断历史元数据。
+- 消息使用 `threadId / turnId / itemId` 归属；完成的原生历史快照替代实时内容，不重复拼接。网页关闭并不代表画布工具仍可执行，重新打开后需恢复连接。
+- 当前仅转发命令/文件/权限确认和结构化用户问题；未支持的原生交互明确拒绝并提示，不静默放行。
 
 ## 连接与开发
 
-bridge 默认只监听 `127.0.0.1`。每个带正确 token 的网页 Origin 都可以被授权并记录到配置，不是首个 Origin 独占；token 属于连接凭证，不要分享。`/config` 只返回地址、协议版本和是否配置 token，不泄露 token。
+网页给用户看的是连接器命令，不是源码启动步骤。本地开发可在仓库根目录运行：
 
-开发时在本目录安装依赖后使用 `npm run dev`，或构建后运行 `node dist/index.js`。注册开发 MCP 时，将命令改成 `node /绝对路径/canvas-agent/dist/index.js mcp`。
+```bash
+npm --prefix canvas-agent run dev -- --origin http://localhost:3100
+```
 
-手动移除 MCP 使用 `codex mcp remove oioi-canvas` 或 `claude mcp remove --scope user oioi-canvas`；插件安装的 MCP 应通过对应 Agent 移除插件。
+也可以在本目录安装依赖后运行：
 
-## 文档与发布
+```bash
+npm install
+npm run dev -- --origin http://localhost:3100
+```
 
-操作指令见 [agent-instructions.md](./agent-instructions.md)，完整文档和待测试变更见仓库 `docs/`，插件入口见 `plugins/oioi-canvas/`。
+`npm run dev` 使用当前包目录作为新会话的工作目录。需要其他目录时，从对应目录运行本包 CLI 入口。
 
-本包版本独立于根目录 `VERSION`。npm 旧包不会自动迁移到新包名；首次发布须具备 `@oioi-npm` scope 的真实发布权限，并以 public 发布。使用本机已登录的 npm 账号手动发布，按 npm 提示完成双重验证；仓库不提供此包的 GitHub Actions 发布工作流，推送代码不会发布 npm 包。发布前检查编译产物和安装包，并验证 HTTP 与 stdio MCP 两个入口。
+排查时可加 `--debug`，桥接日志位于 `~/.oioi-canvas/logs/`；Codex 的进程诊断输出保留在终端，不向网页转发。连接配置位于 `~/.oioi-canvas/canvas-agent.json`。
+
+## 保留的外部 Agent MCP 模式
+
+仍可从原生 Codex / Claude Code 调用画布工具；这与网页托管对话是两个入口。已有插件提供 MCP 时不要重复注册：
+
+```bash
+codex mcp add oioi-canvas -- npx -y @oioi-npm/canvas-agent@latest mcp
+claude mcp add --scope user --transport stdio oioi-canvas -- npx -y @oioi-npm/canvas-agent@latest mcp
+```
+
+该模式仍需启动 HTTP 服务，业务工具调用前通过 `canvas_list_clients`、`canvas_bind_client` 明确目标。受管网页会话的 MCP 不暴露这些重新绑定工具。
+
+## 发布
+
+本包版本独立于根目录 `VERSION`；本次未执行构建、npm 发布或版本提升。后续发布需检查 HTTP 与 stdio MCP 两个入口、实际 Codex 协议和 Windows 路径行为，再使用拥有 scope 权限的 npm 账号发布。推送仓库不会自动发布此包。

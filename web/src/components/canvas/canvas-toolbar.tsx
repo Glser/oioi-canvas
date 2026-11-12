@@ -1,6 +1,7 @@
 import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
-import { Button, Segmented, Switch, Tooltip } from "antd";
+import { Button, Switch, Tooltip } from "antd";
+import { Segmented } from "@/components/themed-controls";
 import { CircleDot, Eraser, Grid2x2, Group, Hand, Image as ImageIcon, Info, Moon, MousePointer2, Music2, Palette, Puzzle, Redo2, Settings2, Square, Sun, Trash2, Type, Undo2, Upload, Video } from "lucide-react";
 
 import { canvasThemes, type CanvasBackgroundMode, type CanvasColorTheme, type CanvasTheme } from "@/lib/canvas-theme";

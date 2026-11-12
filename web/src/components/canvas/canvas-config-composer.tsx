@@ -8,6 +8,7 @@ import i18n from "@/i18n";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { useThemeStore } from "@/stores/use-theme-store";
 import { ImageDetailModal } from "@/components/image-detail-modal";
+import { useDomTooltip } from "@/hooks/use-dom-tooltip";
 import type { NodeGenerationInput } from "./canvas-node-generation";
 import { CanvasNodeReferenceBar } from "./canvas-node-reference-bar";
 import type { CanvasNodeData } from "@/types/canvas";
@@ -38,6 +39,7 @@ export function CanvasConfigComposer({ nodeId, nodes, value, inputs, connectedNo
     const { t } = useTranslation();
     const theme = canvasThemes[useThemeStore((state) => state.theme)];
     const editorRef = useRef<HTMLDivElement>(null);
+    const referenceTooltip = useDomTooltip(editorRef);
     const composingRef = useRef(false);
     const [mention, setMention] = useState<MentionState | null>(null);
     const [activeIndex, setActiveIndex] = useState(0);
@@ -131,6 +133,7 @@ export function CanvasConfigComposer({ nodeId, nodes, value, inputs, connectedNo
                 </div>
                 <Button size="small" type="text" className="!h-7 !w-7 !min-w-7 !p-0" icon={<X className="size-3.5" />} onClick={onClose} />
             </div>
+            {referenceTooltip}
             <CanvasNodeReferenceBar nodeId={nodeId} nodes={nodes} connectedNodes={connectedNodes} onDisconnect={onDisconnectReference} onStartSelection={onStartReferenceSelection} />
             <div className="relative rounded-xl">
                 {!value.trim() ? <div className="pointer-events-none absolute left-3 top-2 text-sm leading-7" style={{ color: theme.node.placeholder }}>{t("canvas.composer.placeholder")}</div> : null}
@@ -266,7 +269,9 @@ function createReferenceChip(input: NodeGenerationInput, inputs: NodeGenerationI
             onImagePreview(input);
         });
     } else {
-        wrapper.title = input.type === "group" ? input.title : input.text || input.title;
+        wrapper.dataset.tooltip = input.type === "group" ? input.title : input.text || input.title;
+        wrapper.tabIndex = 0;
+        wrapper.setAttribute("aria-label", wrapper.dataset.tooltip);
         const text = document.createElement("span");
         text.className = "block truncate";
         text.textContent = input.type === "text" ? input.text || input.title : input.title;

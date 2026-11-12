@@ -1,4 +1,5 @@
 import { App, Button, Empty, Modal, Space, Table, Tag } from "antd";
+import { paginationTooltipProps } from "@/components/themed-controls";
 import { Copy, FolderPlus, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -67,7 +68,7 @@ export function PromptSourceContentModal({ source, onClose }: { source: PromptSo
                     size="small"
                     loading={loading}
                     dataSource={items}
-                    pagination={{ pageSize: 10, showSizeChanger: false, size: "small" }}
+                    pagination={{ ...paginationTooltipProps, pageSize: 10, showSizeChanger: false, size: "small" }}
                     scroll={{ y: "56vh" }}
                     locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("config.promptSources.content.empty")} /> }}
                     columns={[
