@@ -15,8 +15,6 @@
 
 ## Development and Data
 
-- [Elastic Panel Resize: Core and Six Framework Examples](../examples/elastic-panel-resize/README.md)
-
 - [Local Development](/docs/development/local-development)
 - [New API Integration](/docs/development/newapi-integration)
 - [Canvas Data Structure](/docs/development/canvas-data-structure)
