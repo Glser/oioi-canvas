@@ -13,7 +13,7 @@ export default function UserLayout({ children }: { children: ReactNode }) {
     const appearance = useMemo(() => getWorkbenchAppearance(theme === "dark"), [theme]);
     const workbench = isWorkbenchPath(pathname);
     return (
-        <ConfigProvider {...(workbench ? { theme: appearance.theme, tooltip: appearance.tooltip, popover: appearance.popover, drawer: appearance.drawer, modal: appearance.modal } : {})}>
+        <ConfigProvider {...(workbench ? { theme: appearance.theme, tooltip: appearance.tooltip, popover: appearance.popover, drawer: appearance.drawer, modal: appearance.modal } : { theme: {} })}>
         <div className="relative flex h-dvh overflow-hidden bg-background text-foreground" style={workbench ? appearance.style : undefined}>
             <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
                 <AppTopNav />

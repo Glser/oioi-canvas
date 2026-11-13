@@ -1,4 +1,5 @@
-import type { PointerEvent as ReactPointerEvent } from "react";
+import { useRef } from "react";
+import { ElasticPanelResizeHandle } from "@/components/elastic-panel-resize/ElasticPanelResize";
 import { ConfigProvider } from "antd";
 import { getWorkbenchAppearance } from "@/lib/app-theme";
 import styles from "./agent-panel.module.css";
@@ -20,34 +21,19 @@ export function AgentPanel() {
     const panelOpen = useAgentStore((state) => state.panelOpen);
     const panelClosing = useAgentStore((state) => state.panelClosing);
     const setAgentState = useAgentStore((state) => state.setAgentState);
-    const startResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
-        event.preventDefault();
-        const startX = event.clientX;
-        const startWidth = width;
-        let nextWidth = startWidth;
-        const onMove = (moveEvent: PointerEvent) => {
-            nextWidth = Math.min(760, Math.max(360, startWidth + startX - moveEvent.clientX));
-            setAgentState({ width: nextWidth });
-        };
-        const onUp = () => {
-            localStorage.setItem("oioi-canvas-agent-panel-width", String(nextWidth));
-            window.removeEventListener("pointermove", onMove);
-            window.removeEventListener("pointerup", onUp);
-        };
-        window.addEventListener("pointermove", onMove);
-        window.addEventListener("pointerup", onUp);
-    };
+    const shell = useRef<HTMLDivElement>(null);
 
     if (!panelMounted) return null;
 
     return (
         <ConfigProvider theme={appearance.theme} tooltip={appearance.tooltip}>
         <motion.div
+            ref={shell}
             className={`${styles.shell} pointer-events-none absolute inset-y-0 right-0 z-[70] flex`}
             initial={{ x: reduceMotion ? 0 : "100%", opacity: 0 }}
             animate={{ x: panelOpen || reduceMotion ? 0 : "100%", opacity: panelOpen ? 1 : 0 }}
             transition={{ duration: PANEL_MOTION_SECONDS, ease: [0.22, 1, 0.36, 1] }}
-            style={{ ...appearance.style, width: width + 1, maxWidth: "100%" }}
+            style={{ ...appearance.style, width, maxWidth: "100%" }}
             inert={!panelOpen || panelClosing}
         >
             <aside
@@ -55,7 +41,11 @@ export function AgentPanel() {
                 data-canvas-shortcuts-ignore
                 style={{ pointerEvents: panelOpen && !panelClosing ? "auto" : "none" }}
             >
-                <button type="button" className="absolute inset-y-0 left-0 z-40 w-4 -translate-x-1/2 cursor-col-resize" onPointerDown={startResize} aria-label={t("agent.panel.resize")} />
+                <ElasticPanelResizeHandle
+                    panelRef={shell} side="right" width={width} defaultWidth={440} minWidth={360} maxWidth={760}
+                    disabled={!panelOpen || panelClosing} label={t("agent.panel.resize")}
+                    onCommit={(nextWidth) => { setAgentState({ width: nextWidth }); localStorage.setItem("oioi-canvas-agent-panel-width", String(nextWidth)); }}
+                />
                 <LocalAgentPanel embedded />
             </aside>
         </motion.div>

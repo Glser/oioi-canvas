@@ -1,5 +1,6 @@
-import { memo, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent as ReactPointerEvent } from "react";
+import { memo, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { App, ConfigProvider, Empty, Input, Popconfirm, Spin, Tag, Tooltip } from "antd";
+import { ElasticPanelResizeHandle } from "@/components/elastic-panel-resize/ElasticPanelResize";
 import { Select } from "@/components/themed-controls";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Check, ChevronRight, Download, Eye, FileText, Image as ImageIcon, ListChecks, Music2, PanelLeftClose, Plus, Search, Settings2, Square, Trash2, Type, Video } from "lucide-react";
@@ -17,7 +18,7 @@ import { uploadMediaFile } from "@/services/file-storage";
 import { previewUrlFor, subscribeImagePreviews, getImagePreviewRevision, uploadImage } from "@/services/image-storage";
 import { useAssetStore, type Asset, type AssetKind } from "@/stores/use-asset-store";
 import { usePromptSourceStore } from "@/stores/use-prompt-source-store";
-import { CANVAS_SIDE_PANEL_MAX_WIDTH, CANVAS_SIDE_PANEL_MIN_WIDTH, CANVAS_SIDE_PANEL_MOTION_MS, useCanvasSidePanelStore } from "@/stores/use-canvas-side-panel-store";
+import { CANVAS_SIDE_PANEL_DEFAULT_WIDTH, CANVAS_SIDE_PANEL_MAX_WIDTH, CANVAS_SIDE_PANEL_MIN_WIDTH, CANVAS_SIDE_PANEL_MOTION_MS, useCanvasSidePanelStore } from "@/stores/use-canvas-side-panel-store";
 import { useThemeStore } from "@/stores/use-theme-store";
 import { CanvasNodeType, type CanvasNodeData } from "@/types/canvas";
 
@@ -64,34 +65,19 @@ export function CanvasSidePanel({ nodes, selectedNodeIds, onFocusNode, onPreview
     const closePanel = useCanvasSidePanelStore((state) => state.closePanel);
     const reduceMotion = useReducedMotion();
 
-    const startResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
-        event.preventDefault();
-        const startX = event.clientX;
-        const startWidth = width;
-        let nextWidth = startWidth;
-        const onMove = (moveEvent: PointerEvent) => {
-            nextWidth = Math.min(CANVAS_SIDE_PANEL_MAX_WIDTH, Math.max(CANVAS_SIDE_PANEL_MIN_WIDTH, startWidth + moveEvent.clientX - startX));
-            setWidth(nextWidth);
-        };
-        const onUp = () => {
-            localStorage.setItem("canvas-side-panel-width", String(nextWidth));
-            window.removeEventListener("pointermove", onMove);
-            window.removeEventListener("pointerup", onUp);
-        };
-        window.addEventListener("pointermove", onMove);
-        window.addEventListener("pointerup", onUp);
-    };
+    const shell = useRef<HTMLDivElement>(null);
 
     if (!panelMounted) return null;
 
     return (
         <ConfigProvider theme={appearance.theme} tooltip={appearance.tooltip}>
         <motion.div
+            ref={shell}
             className="pointer-events-none absolute inset-y-0 left-0 z-[60] flex pb-3 pl-3 pt-[120px] text-[var(--wb-text)] sm:pt-[72px] md:pb-5 md:pl-4"
             initial={{ x: reduceMotion ? 0 : "-100%", opacity: 0 }}
             animate={{ x: panelOpen || reduceMotion ? 0 : "-100%", opacity: panelOpen ? 1 : 0 }}
             transition={{ duration: PANEL_MOTION_SECONDS, ease: PANEL_EASE }}
-            style={{ ...appearance.style, width: width + 1, maxWidth: "100%" }}
+            style={{ ...appearance.style, width, maxWidth: "100%" }}
             inert={!panelOpen || panelClosing}
             data-canvas-no-zoom
         >
@@ -115,7 +101,12 @@ export function CanvasSidePanel({ nodes, selectedNodeIds, onFocusNode, onPreview
                     <CanvasPromptsTab onInsert={onInsertAsset} />
                 )}
             </div>
-            <button type="button" className="absolute inset-y-0 right-0 z-40 w-4 translate-x-1/2 cursor-col-resize" onPointerDown={startResize} aria-label={t("canvas.sidePanel.resize")} />
+            <ElasticPanelResizeHandle
+                panelRef={shell} side="left" width={width} defaultWidth={CANVAS_SIDE_PANEL_DEFAULT_WIDTH}
+                minWidth={CANVAS_SIDE_PANEL_MIN_WIDTH} maxWidth={CANVAS_SIDE_PANEL_MAX_WIDTH}
+                disabled={!panelOpen || panelClosing} label={t("canvas.sidePanel.resize")}
+                onCommit={(nextWidth) => { setWidth(nextWidth); localStorage.setItem("canvas-side-panel-width", String(nextWidth)); }}
+            />
             </aside>
         </motion.div>
         </ConfigProvider>

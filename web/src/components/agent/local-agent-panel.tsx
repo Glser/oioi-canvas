@@ -41,6 +41,8 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
     const { hash, pathname } = useLocation();
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const connectionUiRef = useRef({ message, navigate });
+    useLayoutEffect(() => { connectionUiRef.current = { message, navigate }; }, [message, navigate]);
     const { url, token, connected, enabled } = useAgentStore(
         useShallow((state) => ({
             url: state.url,
@@ -121,6 +123,8 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
         const clientId = clientIdRef.current;
         let disposed = false;
         let protocolRejected = false;
+        let greeted = false;
+        const silentConnect = useAgentStore.getState().silentConnect;
         const isCurrentConnection = () => !disposed && clientIdRef.current === clientId;
         const source = new EventSource(`${endpoint}/events?token=${encodeURIComponent(token)}&clientId=${encodeURIComponent(clientId)}`);
         source.addEventListener("hello", (event) => {
@@ -132,14 +136,14 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
                 source.close();
                 connectedRef.current = false;
                 setAgentState({ enabled: false, connected: false, activity: rt("restartRequired"), connectError: text, silentConnect: false, fragmentBootstrap: false });
-                if (!useAgentStore.getState().silentConnect) message.error(text);
+                if (!useAgentStore.getState().silentConnect) connectionUiRef.current.message.error(text);
                 return;
             }
             errorLoggedRef.current = false;
             connectedRef.current = true;
-            const silent = useAgentStore.getState().silentConnect;
             setAgentState({ connected: true, activity: rt("connected"), connectError: "", silentConnect: false, fragmentBootstrap: false });
-            if (!silent) message.success(rt("localAgentConnected"));
+            if (!silentConnect && !greeted) connectionUiRef.current.message.success(rt("localAgentConnected"));
+            greeted = true;
             void postState(endpoint, token, clientId, canvasContextRef.current?.snapshot || null);
             if (document.visibilityState === "visible" && document.hasFocus()) void activateAgentClient(endpoint, token, clientId);
         });
@@ -152,7 +156,7 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
             if (!isCurrentConnection()) return;
             const data = parseEventData<AgentPendingToolCall>(event);
             if (!data || data.clientId !== clientIdRef.current) return;
-            void runToolCall(endpoint, token, data, navigate, clientIdRef);
+            void runToolCall(endpoint, token, data, connectionUiRef.current.navigate, clientIdRef);
         });
         source.onerror = () => {
             if (disposed || protocolRejected) return;
@@ -161,7 +165,7 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
             const silent = useAgentStore.getState().silentConnect && !wasConnected;
             const text = rt(wasConnected ? "connectionLostDescription" : "connectionFailedDescription");
             if (!errorLoggedRef.current || wasConnected) {
-                if (!silent) message.error(text);
+                if (!silent) connectionUiRef.current.message.error(text);
             }
             errorLoggedRef.current = true;
             connectedRef.current = false;
@@ -182,7 +186,7 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
             source.close();
             connectedRef.current = false;
         };
-    }, [clientReady, enabled, endpoint, message, setAgentState, token, navigate]);
+    }, [clientReady, enabled, endpoint, setAgentState, token]);
 
     useEffect(() => {
         if (!connected) return;

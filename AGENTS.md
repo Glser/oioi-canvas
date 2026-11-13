@@ -22,6 +22,7 @@
 ## 前端规范
 
 - 前端使用 Vite、React、React Router、TypeScript、Ant Design、Tailwind、Zustand。
+- 路由与浅深主题切换不得重挂载承载 Agent 长连接的子树；主题 Provider 保持结构稳定，不在根部包裹没有实际组件用途的 ProConfigProvider。排查重复连接提示须同时覆盖切页和主题按钮，确认 SSE 未重建，不能仅屏蔽成功提示。
 - 编写 Ant Design 相关代码时，参考 https://ant.design/llms-full.txt 理解组件 API、示例和设计规范，并优先结合项目当前 antd 版本与既有写法。
 - 外部服务请求统一放在 `web/src/services/api/`，由浏览器前端直连，不假设存在项目后端。
 - 全局或跨页面状态优先放在 `web/src/stores/`。

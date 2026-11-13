@@ -6,8 +6,7 @@ import type { DetectedRuntime, RuntimeCatalog } from "./types.js";
 const runtimes = [
     { id: "codex", name: "Codex", command: "codex", supported: true },
     { id: "claude", name: "Claude Code", command: "claude", supported: false },
-    { id: "codebuddy", name: "CodeBuddy", command: "codebuddy", supported: false },
-    { id: "opencode", name: "OpenCode", command: "opencode", supported: false },
+    { id: "workbuddy", name: "WorkBuddy", command: "workbuddy", supported: false },
 ];
 
 /** 使用系统 PATH/PATHEXT 查找运行时；只执行版本查询，不安装工具、不读取凭证。 */

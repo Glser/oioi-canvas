@@ -42,6 +42,7 @@ export default defineConfig({
     base: process.env.VITE_BASE || "/",
     plugins: [react(), localPluginsManifest()],
     resolve: {
+        dedupe: ["react", "react-dom"],
         alias: {
             "@": resolve(webDir, "src"),
         },

@@ -1,0 +1,13 @@
+{
+  "name": "elastic-panel-resize-vanilla",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "vite": "^7.3.0",
+    "typescript": "^5.9.0"
+  }
+}

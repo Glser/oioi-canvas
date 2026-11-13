@@ -1,0 +1,16 @@
+{
+  "name": "elastic-panel-resize-preact",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1"
+  },
+  "dependencies": {
+    "preact": "^10.26.0"
+  },
+  "devDependencies": {
+    "vite": "^7.3.0",
+    "typescript": "^5.9.0",
+    "@preact/preset-vite": "^2.10.0"
+  }
+}

@@ -1,4 +1,4 @@
 .shell { padding: 72px 16px 20px 0; color: var(--wb-text); }
-.panel { border: 1px solid var(--wb-border); border-radius: 20px; background: var(--wb-surface); }
+.panel { --elastic-grip: var(--wb-muted); --elastic-grip-active: var(--wb-text); --elastic-outline: var(--wb-surface); --elastic-focus: var(--wb-muted); border: 1px solid var(--wb-border); border-radius: 20px; background: var(--wb-surface); }
 .panel button:focus-visible, .panel summary:focus-visible { outline: 2px solid var(--wb-muted); outline-offset: 2px; }
 @media (max-width: 767px) { .shell { padding: 12px; } .panel { border-radius: 16px; } }

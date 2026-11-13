@@ -176,7 +176,7 @@ export async function ensureImagePreview(storageKey?: string) {
     const cached = previewUrls.get(storageKey);
     if (cached) return cached;
     const stored = await previewStore.getItem<StoredImagePreview>(storageKey).catch(() => null);
-    if (stored?.version === IMAGE_PREVIEW_VERSION) return stored.blob ? cacheImagePreview(storageKey, stored.blob) : undefined;
+    if (stored?.version === IMAGE_PREVIEW_VERSION && stored.blob) return cacheImagePreview(storageKey, stored.blob);
     queueImagePreview(storageKey);
     return undefined;
 }
@@ -193,8 +193,10 @@ function queueImagePreview(storageKey: string) {
 
 async function storeImagePreview(storageKey: string, original: Blob) {
     const preview = await createImageThumbnail(original).catch(() => undefined);
-    await previewStore.setItem<StoredImagePreview>(storageKey, { version: IMAGE_PREVIEW_VERSION, blob: preview }).catch(() => undefined);
-    return preview ? cacheImagePreview(storageKey, preview) : undefined;
+    // 原图小于预览上限时 createImageThumbnail 返回 undefined（语义：原图即预览），此时直接用原图。
+    const previewBlob = preview || original;
+    await previewStore.setItem<StoredImagePreview>(storageKey, { version: IMAGE_PREVIEW_VERSION, blob: previewBlob }).catch(() => undefined);
+    return cacheImagePreview(storageKey, previewBlob);
 }
 
 function cacheImagePreview(storageKey: string, preview: Blob) {

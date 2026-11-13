@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { Check, Clock, Download, MoreVertical, Pencil, Sparkles, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Download, MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Button, Dropdown, Input, Tooltip } from "antd";
+import { Dropdown } from "antd";
 import type { MenuProps } from "antd";
 import { useTranslation } from "react-i18next";
+import { GlassFolder, type GlassFolderHandle } from "@/components/glass-folder/GlassFolder";
+import { useThemeStore } from "@/stores/use-theme-store";
 
 import { useCanvasStore, type CanvasProject } from "@/stores/canvas/use-canvas-store";
 import { useCanvasUiStore } from "@/stores/canvas/use-canvas-ui-store";
@@ -48,20 +50,15 @@ function extractProjectCoverMeta(nodes: CanvasNodeData[]) {
 }
 
 export function CanvasProjectCard({ project }: { project: CanvasProject }) {
-    const { i18n, t } = useTranslation();
+    const { t } = useTranslation();
     const navigate = useNavigate();
+    const theme = useThemeStore((state) => state.theme);
     const [searchParams] = useSearchParams();
     const renameProject = useCanvasStore((state) => state.renameProject);
     const selectedIds = useCanvasUiStore((state) => state.selectedProjectIds);
-    const editingId = useCanvasUiStore((state) => state.editingProjectId);
-    const editingTitle = useCanvasUiStore((state) => state.editingProjectTitle);
-    const startEditing = useCanvasUiStore((state) => state.startEditingProject);
-    const setEditingTitle = useCanvasUiStore((state) => state.setEditingProjectTitle);
-    const stopEditing = useCanvasUiStore((state) => state.stopEditingProject);
     const toggleSelected = useCanvasUiStore((state) => state.toggleSelectedProjectId);
     const setDeleteIds = useCanvasUiStore((state) => state.setDeleteProjectIds);
 
-    const editing = editingId === project.id;
     const selected = selectedIds.includes(project.id);
 
     // 订阅缩略图状态更新
@@ -113,17 +110,12 @@ export function CanvasProjectCard({ project }: { project: CanvasProject }) {
         navigate(`/canvas/${project.id}${searchParams.toString() ? `?${searchParams.toString()}` : ""}${agentHash}`, { replace: Boolean(agentHash) });
     };
 
-    const saveTitle = () => {
-        renameProject(project.id, editingTitle);
-        stopEditing();
-    };
-
     const menuItems: MenuProps["items"] = [
         {
             key: "rename",
             label: t("canvas.project.rename"),
             icon: <Pencil className="size-3" />,
-            onClick: () => startEditing(project.id, project.title),
+            onClick: () => folderRef.current?.startEdit(),
         },
         {
             key: "export",
@@ -145,140 +137,133 @@ export function CanvasProjectCard({ project }: { project: CanvasProject }) {
 
     const formattedDate = useMemo(() => {
         try {
-            return new Date(project.updatedAt).toLocaleString(i18n.resolvedLanguage, {
+            return new Date(project.updatedAt).toLocaleString("zh-CN", {
+                timeZone: "Asia/Shanghai",
+                year: "numeric",
                 month: "2-digit",
                 day: "2-digit",
                 hour: "2-digit",
                 minute: "2-digit",
-            });
+                hour12: false,
+            }).replace(/\//g, "-");
         } catch {
             return project.updatedAt;
         }
-    }, [i18n.resolvedLanguage, project.updatedAt]);
+    }, [project.updatedAt]);
+
+    // 刷新后 content 中的 blob: 已全部失效，文件扇出的图片依赖排队生成/加载的缩略图
+    useEffect(() => {
+        project.nodes.forEach((node) => {
+            const media = extractProjectCoverMeta([node]);
+            if (media?.type === "image" && media.storageKey) void ensureImagePreview(media.storageKey);
+        });
+    }, [project.nodes]);
+
+    const files = project.nodes.filter((node) => node.type !== CanvasNodeType.Group).map((node) => {
+        const media = extractProjectCoverMeta([node]);
+        return { id: node.id, name: node.title, meta: getFileTypeLabel(node.type),
+            url: media?.type === "image" ? previewUrlFor(media.storageKey) || aliveImageUrl(media.content) : undefined,
+            type: media?.type };
+    });
+
+    // 文件夹真实打开状态（引擎根的 data-open）直接驱动封面按钮覆盖层翻转，与玻璃前盖严格同步；
+    // 回调里只改 DOM style、不经过 React 状态，避免悬停触发重渲染打断引擎的文件展开过渡和媒体元素。
+    const folderHost = useRef<HTMLDivElement>(null);
+    const folderOverlay = useRef<HTMLDivElement>(null);
+    const folderRef = useRef<GlassFolderHandle>(null);
+    useEffect(() => {
+        const host = folderHost.current?.querySelector<HTMLElement>("[data-motion-component='glass-folder']");
+        // 引擎把 .gf-root 挂在 motion surface 的 shadow root 里
+        const root = host?.firstElementChild?.shadowRoot?.querySelector<HTMLElement>(".gf-root");
+        const overlay = folderOverlay.current;
+        if (!root || !overlay) return;
+        const apply = () => {
+            overlay.style.transform = root.hasAttribute("data-open") ? "perspective(760px) rotateX(-24deg)" : "";
+        };
+        apply();
+        const observer = new MutationObserver(apply);
+        observer.observe(root, { attributes: true, attributeFilter: ["data-open"] });
+        return () => observer.disconnect();
+    }, []);
 
     return (
         <article
-            className={`group relative flex flex-col overflow-hidden rounded-xl border transition-all duration-200 cursor-pointer ${
-                selected
-                    ? "border-stone-900 shadow-md ring-2 ring-stone-900/10 dark:border-stone-100 dark:ring-stone-100/20"
-                    : "border-stone-200/80 bg-white hover:border-stone-300 hover:shadow-md dark:border-stone-800/80 dark:bg-[#191817] dark:hover:border-stone-700 dark:hover:shadow-stone-950/40"
-            }`}
+            className="group relative flex min-w-0 flex-col rounded-xl transition-colors hover:z-20 focus-within:z-20"
             onClick={() => !editing && open()}
         >
-            {/* 顶部图片/素材封面区域 */}
-            <div className="relative aspect-[16/10] w-full overflow-hidden bg-stone-100 dark:bg-stone-900/40">
-                {resolvedUrl ? (
-                    coverMeta?.type === "video" ? (
-                        <video
-                            src={resolvedUrl}
-                            muted
-                            playsInline
-                            className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.03]"
+            <div className="relative w-full" ref={folderHost}>
+                <GlassFolder ref={folderRef} options={{ id: project.id, label: project.title, meta: `${files.length} 个元素`, tone: theme, renamable: true,
+                    coverUrl: resolvedUrl, coverType: coverMeta?.type, files, onOpen: () => open(),
+                    onRename: (label) => renameProject(project.id, label) }} />
+
+                {/* 跟随文件夹前盖翻转的覆盖层：几何与前盖一致（顶部 74/272、绕底铰链），打开时同角度掀开，静止保持平面 */}
+                <div ref={folderOverlay} className="pointer-events-none absolute inset-x-0 bottom-0 top-[27.2%] z-10 origin-bottom [transition:transform_.8s_cubic-bezier(.34,1.36,.5,1)] motion-reduce:transition-none">
+                    {/* 文件夹封面内侧的选择框 */}
+                    <div
+                        className={`pointer-events-auto absolute left-3 top-[21%] flex size-6.5 items-center justify-center transition-opacity duration-150 motion-reduce:transition-none ${
+                            selected ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
+                        }`}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={() => toggleSelected(project.id, !selected)}
+                            className="size-3.5 cursor-pointer rounded accent-stone-900 shadow-xs dark:accent-stone-100"
+                            aria-label={t("canvas.project.select", { name: project.title })}
                         />
-                    ) : (
-                        <img
-                            src={resolvedUrl}
-                            alt={project.title}
-                            loading="lazy"
-                            className="h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.03]"
-                        />
-                    )
-                ) : (
-                    // 封面无图片时的空卡片展示：使用项目 Logo 图标
-                    <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-stone-100/90 via-stone-50 to-[#ebe7df]/60 dark:from-[#201e1b] dark:via-[#1a1917] dark:to-[#151413]">
-                        <div className="flex size-11 items-center justify-center rounded-xl border border-stone-200/70 bg-white/80 shadow-xs backdrop-blur-xs dark:border-stone-800/80 dark:bg-stone-800/80">
-                            <img src="/logo.png" alt="Logo" className="size-6 object-contain opacity-80 block dark:hidden" />
-                            <img src="/logo-dark.png" alt="Logo" className="hidden size-6 object-contain opacity-80 dark:block" />
-                        </div>
                     </div>
-                )}
 
-                {/* 悬停时的遮罩渐变 */}
-                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/10 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
-
-                {/* 左上角轻量选择框 */}
-                <div
-                    className={`absolute left-2.5 top-2.5 z-10 transition-opacity duration-150 ${
-                        selected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                    }`}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <input
-                        type="checkbox"
-                        checked={selected}
-                        onChange={() => toggleSelected(project.id, !selected)}
-                        className="size-3.5 cursor-pointer rounded accent-stone-900 shadow-xs dark:accent-stone-100"
-                        aria-label={t("canvas.project.select", { name: project.title })}
-                    />
-                </div>
-
-                {/* 右上角精致微型操作按钮 */}
-                <div
-                    className="absolute right-2 top-2 z-10 opacity-0 transition-opacity duration-150 group-hover:opacity-100"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <Dropdown menu={{ items: menuItems }} trigger={["click"]} placement="bottomRight">
-                        <button
-                            type="button"
-                            className="flex size-6.5 items-center justify-center rounded-md bg-black/40 text-white backdrop-blur-md transition hover:bg-black/60 dark:bg-stone-900/80 dark:hover:bg-stone-800"
-                            aria-label="更多操作"
-                        >
-                            <MoreVertical className="size-3.5" />
-                        </button>
-                    </Dropdown>
+                    {/* 文件夹封面内侧的管理入口 */}
+                    <div
+                        className="pointer-events-auto absolute right-3 top-[21%] opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100 motion-reduce:transition-none"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <Dropdown menu={{ items: menuItems }} trigger={["click"]} placement="bottomRight"
+                            styles={{ root: theme === "dark" ? {
+                                background: "rgba(30, 30, 34, .78)",
+                                backdropFilter: "blur(24px) saturate(1.6)",
+                                WebkitBackdropFilter: "blur(24px) saturate(1.6)",
+                                border: "1px solid rgba(255, 255, 255, .1)",
+                                boxShadow: "inset 0 1px 0 rgba(255,255,255,.12), 0 0 0 .5px rgba(255,255,255,.08), 0 24px 48px -16px rgba(0,0,0,.7)",
+                                borderRadius: 16,
+                            } : {
+                                background: "rgba(252, 252, 253, .78)",
+                                backdropFilter: "blur(24px) saturate(1.6)",
+                                WebkitBackdropFilter: "blur(24px) saturate(1.6)",
+                                border: "1px solid rgba(255, 255, 255, .55)",
+                                boxShadow: "inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 .5px rgba(0,0,0,.12), 0 24px 48px -16px rgba(10,12,20,.42)",
+                                borderRadius: 16,
+                            } }}>
+                            <button
+                                type="button"
+                                className="flex size-6.5 items-center justify-center rounded-lg border border-white/60 bg-white/85 text-stone-800 shadow-[inset_0_1px_0_#fff,inset_0_-2px_4px_rgba(0,0,0,.06),0_6px_14px_-6px_rgba(0,0,0,.3)] backdrop-blur-md transition hover:bg-white active:scale-95 dark:border-white/15 dark:bg-white/15 dark:text-stone-100 dark:shadow-[inset_0_1px_0_rgba(255,255,255,.2),0_6px_14px_-6px_rgba(0,0,0,.55)] dark:hover:bg-white/25"
+                                aria-label="更多操作"
+                            >
+                                <MoreVertical className="size-3.5" />
+                            </button>
+                        </Dropdown>
+                    </div>
                 </div>
             </div>
 
-            {/* 卡片下半部分：小云雀风格 —— 标题与时间在同一行单行通栏精致排布 */}
-            <div className="flex items-center justify-between gap-2 px-2.5 py-2 min-h-[34px]">
-                {editing ? (
-                    <div className="flex flex-1 items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                        <Input
-                            size="small"
-                            className="text-xs font-medium"
-                            value={editingTitle}
-                            onChange={(e) => setEditingTitle(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && saveTitle()}
-                            autoFocus
-                        />
-                        <Button
-                            type="text"
-                            size="small"
-                            shape="circle"
-                            icon={<Check className="size-3" />}
-                            onClick={saveTitle}
-                            aria-label={t("canvas.project.saveName")}
-                        />
-                        <Button
-                            type="text"
-                            size="small"
-                            shape="circle"
-                            icon={<X className="size-3" />}
-                            onClick={stopEditing}
-                            aria-label={t("canvas.project.cancelRename")}
-                        />
-                    </div>
-                ) : (
-                    <>
-                        <Tooltip title={project.title}>
-                            <h2
-                                className="min-w-0 flex-1 truncate text-xs font-medium text-stone-800 group-hover:text-stone-950 dark:text-stone-200 dark:group-hover:text-white transition-colors"
-                            >
-                                {project.title}
-                            </h2>
-                        </Tooltip>
-                        <Tooltip title={project.updatedAt}>
-                            <time
-                                className="shrink-0 text-[11px] text-stone-400 dark:text-stone-500 tabular-nums"
-                            >
-                                {formattedDate}
-                            </time>
-                        </Tooltip>
-                    </>
-                )}
-            </div>
+            <time
+                className="pointer-events-auto absolute bottom-[9.9%] right-4 z-10 text-[10px] font-medium tabular-nums text-white/80"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {formattedDate}
+            </time>
         </article>
     );
 }
 
 
+
+function getFileTypeLabel(type: string) {
+    return ({ image: "图片", video: "视频", audio: "音频", text: "文本", config: "生成配置" } as Record<string, string>)[type] || "元素";
+}
+
+// blob: URL 只在创建它的页面会话内有效，刷新后是死链；用作图片源会在加载失败时露出黑底。
+function aliveImageUrl(content?: string) {
+    return content && !content.startsWith("blob:") ? content : undefined;
+}
