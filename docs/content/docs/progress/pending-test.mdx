@@ -6,7 +6,7 @@ description: Implemented changes that still need manual verification
 
 # Pending Tests
 
-- v1.0.4 发布准备：汇总本轮 Agent、画布侧栏、首页与生图工作台变更；Docker 构建补齐前端引用的共享 Agent 协议文件。按用户要求通过 GitHub Actions 构建阿里云镜像，随后部署澳洲服务器；构建和部署结果待完成后补充，真实登录、收费生成与 Agent 连续对话继续保留待验收。
+- v1.0.4 已上线：发布提交 `f4737fb7b1d22755bec982320c187c1156dc0ba1` 与 tag `v1.0.4` 已推送，GitHub Actions `43486224425` 成功构建并推送阿里云 ACR 镜像，Docker 构建已补齐共享 Agent 协议文件。澳洲服务器运行 `oioi-flow-v1.0.4`，固定镜像摘要 `sha256:dd30f8b95fa98b7b978eaaaed0befa8041ef287ec803baa8416b9c45ae06e7f5`；端口映射、网络、重启策略和文件描述符限制保持一致。预检及上线后均已验证首页、生图、视频、登录回调、画布 SPA 路由与入口静态资源，公网 `https://flow.oioi.lat` 返回新版本；浏览器确认首页、生图工作台、已有账户与模型目录正常显示，未发起生成或 Agent 任务。备份及验证报告位于 `/opt/oioi-flow/releases/v1.0.4/`，保留未启动的 `oioi-flow-v1.0.3-rollback` 回滚容器。首次登录完整流程、收费生成、Agent 连续对话与审批恢复仍待用户验收；未执行本地前端构建或测试套件，已检查并同步 todo。
 
 - npm 连接器 0.8.0 已发布至官方 registry，latest 已更新；经用户授权完成编译和打包，官方 SHA-512 与发布包一致。包含协议 13、Claude Code 接入、多轮回复归并及端口占用提示。待停止旧连接器后通过 npm 新版本验证真实连续对话、审批、停止和恢复；网站部署与完整端到端验收不属于本次发布。已检查 todo，无对应事项需要迁移。
 
