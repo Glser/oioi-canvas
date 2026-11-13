@@ -1,13 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
-import { z } from "zod";
+import { z } from "zod/v3";
 
 const entrySchema = z.object({ threadId: z.string(), cwd: z.string(), submissions: z.record(z.object({ status: z.enum(["sending", "accepted", "uncertain"]), turnId: z.string().optional() }).strict()) }).strict();
 const legacySchema = z.object({ version: z.literal(1), conversations: z.record(entrySchema) }).strict();
-const conversationSchema = entrySchema.extend({ title: z.string() });
+const previousConversationSchema = entrySchema.extend({ title: z.string() });
+const previousManifestSchema = z.object({ version: z.literal(2), projects: z.record(z.object({ activeId: z.string().uuid(), conversations: z.record(z.string().uuid(), previousConversationSchema) }).strict().refine((project) => Boolean(project.conversations[project.activeId]), "当前会话不存在")) }).strict();
+const conversationSchema = previousConversationSchema.extend({ runtimeId: z.enum(["codex", "claude"]) });
 const projectSchema = z.object({ activeId: z.string().uuid(), conversations: z.record(z.string().uuid(), conversationSchema) }).strict().refine((project) => Boolean(project.conversations[project.activeId]), "当前会话不存在");
-const manifestSchema = z.object({ version: z.literal(2), projects: z.record(projectSchema) }).strict();
+const manifestSchema = z.object({ version: z.literal(3), projects: z.record(projectSchema) }).strict();
 export type ConversationRecord = z.infer<typeof conversationSchema>;
 
 /** 只保存原生会话映射与提交回执，不复制或裁剪聊天历史。未知/损坏版本拒绝覆盖。 */
@@ -16,13 +18,18 @@ export class ConversationManifest {
     private data: z.infer<typeof manifestSchema>;
     constructor(private file: string) {
         this.source = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : null;
-        const parsed = this.source === null ? { version: 2, projects: {} } : JSON.parse(this.source);
+        const parsed = this.source === null ? { version: 3, projects: {} } : JSON.parse(this.source);
         if (parsed.version === 1) {
             const legacy = legacySchema.parse(parsed);
-            this.data = { version: 2, projects: Object.fromEntries(Object.entries(legacy.conversations).map(([key, record]) => {
+            this.data = { version: 3, projects: Object.fromEntries(Object.entries(legacy.conversations).map(([key, record]) => {
                 const id = crypto.randomUUID();
-                return [key, { activeId: id, conversations: { [id]: { ...record, title: "" } } }];
+                return [key, { activeId: id, conversations: { [id]: { ...record, title: "", runtimeId: "codex" as const } } }];
             })) };
+            this.backup();
+            this.write(this.data);
+        } else if (parsed.version === 2) {
+            const previous = previousManifestSchema.parse(parsed);
+            this.data = { version: 3, projects: Object.fromEntries(Object.entries(previous.projects).map(([key, project]) => [key, { ...project, conversations: Object.fromEntries(Object.entries(project.conversations).map(([id, record]) => [id, { ...record, runtimeId: "codex" as const }])) }])) };
             this.backup();
             this.write(this.data);
         } else this.data = manifestSchema.parse(parsed);

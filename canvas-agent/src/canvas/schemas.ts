@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "zod/v3";
 
 const recordSchema = z.record(z.unknown());
 const positionSchema = z.object({ x: z.number(), y: z.number() });

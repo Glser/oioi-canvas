@@ -5,7 +5,7 @@ import type { DetectedRuntime, RuntimeCatalog } from "./types.js";
 
 const runtimes = [
     { id: "codex", name: "Codex", command: "codex", supported: true },
-    { id: "claude", name: "Claude Code", command: "claude", supported: false },
+    { id: "claude", name: "Claude Code", command: "claude", supported: true },
     { id: "workbuddy", name: "WorkBuddy", command: "workbuddy", supported: false },
 ];
 

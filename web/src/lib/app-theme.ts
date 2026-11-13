@@ -166,6 +166,7 @@ export function getWorkbenchAppearance(dark: boolean) {
         "--wb-bg": palette.background,
         "--wb-nav-bg": dark ? "#282724" : "rgb(255 255 255 / 85%)",
         "--wb-nav-shadow": dark ? "0 2px 16px -6px rgb(0 0 0 / 40%)" : "0 2px 16px -6px rgb(0 0 0 / 8%)",
+        "--wb-panel-shadow": dark ? "0 12px 32px -8px rgb(0 0 0 / 32%), 0 2px 8px rgb(0 0 0 / 12%)" : "0 12px 32px -8px rgb(40 40 37 / 12%), 0 2px 8px rgb(40 40 37 / 4%)",
         "--wb-surface": palette.surface,
         "--wb-text": palette.text,
         "--wb-muted": palette.secondary,

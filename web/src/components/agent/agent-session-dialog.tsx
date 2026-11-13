@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { App, Button, Input, Modal, Tooltip, theme } from "antd";
-import { ArrowRight, ArrowUp, Check, Folder, HardDrive, LoaderCircle, MessageSquare } from "lucide-react";
+import { ArrowRight, ArrowUp, Check, Folder, HardDrive, LoaderCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAgentStore } from "@/stores/use-agent-store";
 import { useAgentChatStore } from "@/stores/use-agent-chat-store";
+import { AGENT_RUNTIME_BRANDS } from "@/lib/agent/agent-runtime-brand";
 import { fetchAgentConversations, fetchAgentDirectories, type AgentConversationSummary, type AgentDirectory } from "@/services/api/canvas-agent";
 
 export function AgentSessionDialog({ mode, onClose }: { mode: "history" | "directory"; onClose: () => void }) {
@@ -61,7 +62,7 @@ export function AgentSessionDialog({ mode, onClose }: { mode: "history" | "direc
         {error ? <p role="alert" className="shrink-0 break-words text-xs leading-5" style={{ color: token.colorError }}>{error}</p> : null}
         {loading ? <div role="status" aria-label={t("agent.sessions.loading")} className="flex justify-center py-8"><LoaderCircle className="size-5 animate-spin motion-reduce:animate-none" /></div> : <div className="thin-scrollbar min-h-0 overflow-y-auto overscroll-contain">
             {mode === "history" ? sessions.map((session) => <button key={session.id} type="button" disabled={busy || session.id === conversation?.conversationId} onClick={() => void open(session.id)} className="flex w-full min-w-0 items-start gap-3 rounded-lg p-3 text-left hover:bg-black/5 dark:hover:bg-white/10 disabled:cursor-default" aria-current={session.id === conversation?.conversationId ? "true" : undefined}>
-                <MessageSquare className="mt-0.5 size-4 shrink-0" style={{ color: token.colorTextSecondary }} />
+                <Tooltip title={AGENT_RUNTIME_BRANDS[session.runtimeId].name}><img src={AGENT_RUNTIME_BRANDS[session.runtimeId].icon} alt={AGENT_RUNTIME_BRANDS[session.runtimeId].name} className="mt-0.5 size-4 shrink-0 object-contain" /></Tooltip>
                 <span className="min-w-0 flex-1"><span className="block truncate text-sm">{session.title || t("agent.sessions.new")}</span><Tooltip title={session.cwd}><span tabIndex={0} className="mt-1 block truncate text-xs" style={{ color: token.colorTextSecondary }}>{session.cwd}</span></Tooltip></span>
                 {session.id === conversation?.conversationId ? <Check className="mt-0.5 size-4 shrink-0" /> : null}
             </button>) : directory?.directories.map((folder) => <button key={folder.path} type="button" disabled={busy} onClick={() => void load(folder.path)} className="flex w-full min-w-0 items-center gap-3 rounded-lg p-3 text-left hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-40"><Folder className="size-4 shrink-0" style={{ color: token.colorTextSecondary }} /><span className="min-w-0 break-all text-sm">{folder.name}</span></button>)}

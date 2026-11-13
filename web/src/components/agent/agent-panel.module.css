@@ -1,4 +1,6 @@
-.shell { padding: 72px 16px 20px 0; color: var(--wb-text); }
+.shell { padding: calc(16px + var(--canvas-toolbar-clearance, 0px)) 16px 16px 0; color: var(--wb-text); }
+.leftShell { padding-inline: 16px 0; }
 .panel { --elastic-grip: var(--wb-muted); --elastic-grip-active: var(--wb-text); --elastic-outline: var(--wb-surface); --elastic-focus: var(--wb-muted); border: 1px solid var(--wb-border); border-radius: 20px; background: var(--wb-surface); }
+.shell > .panel { box-shadow: var(--wb-panel-shadow); }
 .panel button:focus-visible, .panel summary:focus-visible { outline: 2px solid var(--wb-muted); outline-offset: 2px; }
-@media (max-width: 767px) { .shell { padding: 12px; } .panel { border-radius: 16px; } }
+@media (max-width: 767px) { .shell { padding: calc(12px + var(--canvas-toolbar-clearance, 0px)) 12px 12px; } .panel { border-radius: 16px; } }

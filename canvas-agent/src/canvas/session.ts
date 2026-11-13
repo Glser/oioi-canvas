@@ -66,10 +66,10 @@ export class CanvasSession {
         });
     }
 
-    /** 会话接口必须来自已连接的原网站和当前画布。 */
-    assertClient(clientId: string, projectId: string, origin: string) {
+    /** 会话必须来自已连接的原网站；指定画布时额外核对当前目标。 */
+    assertClient(clientId: string, projectId: string | undefined, origin: string) {
         if (!this.clients.has(clientId) || this.origins.get(clientId) !== origin) throw new Error("当前网页未连接或来源不匹配");
-        if (this.canvasStates.get(clientId)?.projectId !== projectId) throw new Error("画布尚未就绪或已经切换，请重新连接会话");
+        if (projectId !== undefined && (this.canvasStates.get(clientId)?.projectId || "") !== projectId) throw new Error("画布尚未就绪或已经切换，请重新确认目标");
     }
 
     emitToClient(clientId: string, event: string, payload: unknown) {
@@ -110,7 +110,7 @@ export class CanvasSession {
         if (!this.clients.has(clientId)) throw new Error("当前网页未连接");
         const state = this.canvasStates.get(clientId);
         if (!state) throw new Error("当前网页尚未上报状态，请稍后重新列出页面");
-        if (projectId !== undefined && state.projectId !== projectId) throw new Error("页面画布已改变，请重新列出并选择目标");
+        if (projectId !== undefined && (state.projectId || "") !== projectId) throw new Error("页面画布已改变，请重新列出并选择目标");
         const binding = { clientId, projectId: state.projectId };
         this.bindings.set(bindingId, binding);
         logger.debug("Canvas client bound", { bindingId, ...binding });

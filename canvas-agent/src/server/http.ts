@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import express, { type NextFunction, type Request, type Response } from "express";
 import path from "node:path";
-import { z } from "zod";
+import { z } from "zod/v3";
 import { AgentConversations } from "../agent/conversations.js";
 import { inspectRuntime } from "../agent/capabilities.js";
 import { RuntimeDiscovery } from "../agent/runtimes.js";
@@ -30,12 +30,17 @@ export function startHttpServer() {
     const session = new CanvasSession();
     const pairing = createPairing(config.token);
     const discovery = new RuntimeDiscovery(process.cwd());
-    const spawnCodex: AgentTransportFactory = async (notify, request, closed) => {
-        const runtime = (await discovery.list()).runtimes.find((item) => item.id === "codex");
-        if (!runtime?.path || runtime.status !== "detected") throw new Error(runtime?.error || "未检测到可用 Codex CLI，请安装后点击重新检测");
+    const spawnRuntime: AgentTransportFactory = async (notify, request, closed, context) => {
+        const runtimeId = context?.runtimeId || "codex";
+        const runtime = (await discovery.list()).runtimes.find((item) => item.id === runtimeId);
+        if (!runtime?.path || runtime.status !== "detected") throw new Error(runtime?.error || `未检测到可用 ${runtime?.name || runtimeId}，请安装后点击重新检测`);
+        if (runtimeId === "claude") {
+            const { createClaudeTransport } = await import("../agent/claude.js");
+            return createClaudeTransport(runtime.path, context?.cwd || process.cwd())(notify, request, closed);
+        }
         return createCodexTransport(runtime.path)(notify, request, closed);
     };
-    const conversations = new AgentConversations(session, new ConversationManifest(path.join(CONFIG_DIR, "conversations.json")), process.cwd(), spawnCodex);
+    const conversations = new AgentConversations(session, new ConversationManifest(path.join(CONFIG_DIR, "conversations.json")), process.cwd(), spawnRuntime);
     const app = express();
     app.disable("x-powered-by");
     app.use(express.json({ limit: "30mb" }));
@@ -86,21 +91,25 @@ export function startHttpServer() {
         res.status(ok ? 200 : 409).json({ ok });
     });
     app.post("/api/tools", route(async (req, res) => res.json({ ok: true, result: await session.callTool(req.body?.name, req.body?.input || {}, req.body?.bindingId) })));
-    const targetSchema = z.object({ clientId: z.string().min(1), projectId: z.string().min(1) });
+    const targetSchema = z.object({ clientId: z.string().min(1), projectId: z.literal("") });
     const target = (req: Request) => ({ ...targetSchema.parse(req.body), origin: req.headers.origin || "" });
     const conversationTarget = (req: Request) => ({ ...target(req), conversationId: z.string().uuid().parse(req.body.conversationId) });
-    app.get("/agent/runtime-info", route(async (_req, res) => {
-        const rpc = await spawnCodex(() => {}, async () => { throw new Error("能力检测不执行交互操作"); }, () => {});
+    const runtimeSchema = z.enum(["codex", "claude"]);
+    app.get("/agent/runtime-info", route(async (req, res) => {
+        const runtimeId = runtimeSchema.parse(req.query.runtimeId || "codex");
+        const rpc = await spawnRuntime(() => {}, async () => { throw new Error("能力检测不执行交互操作"); }, () => {}, { runtimeId, cwd: process.cwd() });
         try { res.json(await inspectRuntime(rpc, process.cwd())); }
         finally { rpc.close(); }
     }));
     app.get("/agent/runtimes", route(async (req, res) => res.json(await discovery.list(req.query.refresh === "true"))));
     app.post("/agent/capabilities", route(async (req, res) => res.json(await conversations.refreshCapabilities(conversationTarget(req)))));
-    app.post("/agent/connect", route(async (req, res) => res.json(await conversations.connect(target(req)))));
+    app.post("/agent/connect", route(async (req, res) => {
+        res.json(await conversations.connect({ ...target(req), runtimeId: runtimeSchema.optional().parse(req.body.runtimeId) }));
+    }));
     app.post("/agent/conversations", route(async (req, res) => res.json(conversations.list(target(req)))));
     app.post("/agent/open", route(async (req, res) => {
-        const options = z.object({ id: z.string().uuid().optional(), cwd: z.string().min(1).optional() }).parse(req.body);
-        res.json(await conversations.open(conversationTarget(req), options));
+        const options = z.object({ id: z.string().uuid().optional(), cwd: z.string().min(1).optional(), runtimeId: runtimeSchema.optional() }).parse(req.body);
+        res.json(await conversations.open({ ...target(req), conversationId: z.string().uuid().optional().parse(req.body.conversationId) }, options));
     }));
     app.post("/agent/directories", route(async (req, res) => {
         const { path: directory } = z.object({ path: z.string().optional() }).parse(req.body);
@@ -111,8 +120,8 @@ export function startHttpServer() {
         res.json(await conversations.setPermissions(conversationTarget(req), mode));
     }));
     app.post("/agent/send", route(async (req, res) => {
-        const { submissionId, text, model, reasoningEffort } = z.object({ submissionId: z.string().uuid(), text: z.string().trim().min(1), model: z.string().min(1).optional(), reasoningEffort: z.string().min(1).optional() }).parse(req.body);
-        res.json(await conversations.send(conversationTarget(req), submissionId, text, { model, reasoningEffort }));
+        const { submissionId, text, canvasProjectId, model, reasoningEffort } = z.object({ submissionId: z.string().uuid(), text: z.string().trim().min(1), canvasProjectId: z.string(), model: z.string().min(1).optional(), reasoningEffort: z.string().min(1).optional() }).parse(req.body);
+        res.json(await conversations.send(conversationTarget(req), submissionId, text, canvasProjectId, { model, reasoningEffort }));
     }));
     app.post("/agent/interrupt", route(async (req, res) => res.json(await conversations.interrupt(conversationTarget(req)))));
     app.post("/agent/answer", route(async (req, res) => {
@@ -129,7 +138,8 @@ export function startHttpServer() {
         res.status(500).json({ ok: false, error: error.message });
     });
 
-    const server = app.listen(port, "127.0.0.1", () => {
+    const server = app.listen(port, "127.0.0.1", (error?: Error) => {
+        if (error) return;
         console.log("oioi-canvas 连接器已启动");
         checkVersions();
         console.log("请保持此窗口运行。网页会自动检测本机 Agent 并连接。");
@@ -142,7 +152,14 @@ export function startHttpServer() {
     const shutdown = () => { conversations.close(); session.close(); server.close(); process.exitCode = 0; };
     process.once("SIGINT", shutdown);
     process.once("SIGTERM", shutdown);
-    server.once("error", () => conversations.close());
+    server.once("error", (error: NodeJS.ErrnoException) => {
+        conversations.close();
+        session.close();
+        console.error(error.code === "EADDRINUSE"
+            ? `连接器启动失败：端口 ${port} 已被占用。请先在原连接器终端按 Ctrl+C 停止旧进程，再重新启动；网页目前仍连接旧进程，新代码尚未生效。`
+            : `连接器启动失败：${error.message}`);
+        process.exitCode = 1;
+    });
 }
 
 /** 将异步 Express 路由异常交给统一错误处理中间件。 */

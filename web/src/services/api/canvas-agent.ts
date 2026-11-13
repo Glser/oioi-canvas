@@ -1,4 +1,5 @@
 import i18n from "@/i18n";
+import { AGENT_PROTOCOL_VERSION } from "../../../../canvas-agent/src/agent/types";
 import type { CanvasAgentSnapshot } from "@/lib/canvas/canvas-agent-ops";
 
 export class AgentApiError<T = unknown> extends Error {
@@ -41,10 +42,10 @@ export async function fetchAgentJson<T>(endpoint: string, token: string, path: s
 
 
 export { AGENT_PROTOCOL_VERSION } from "../../../../canvas-agent/src/agent/types";
-export type { AgentConversation, AgentConversationUpdate, AgentConversationSummary, AgentDirectory, AgentRequest, AgentAnswer, AgentInputValue, AgentCapabilities, AgentModelSelection, AgentPermissionMode, DetectedRuntime, RuntimeCatalog, RuntimeInfo } from "../../../../canvas-agent/src/agent/types";
-import type { AgentConversation, AgentConversationSummary, AgentDirectory, AgentAnswer, AgentModelSelection, AgentPermissionMode, RuntimeCatalog, RuntimeInfo } from "../../../../canvas-agent/src/agent/types";
+export type { AgentConversation, AgentConversationUpdate, AgentConversationSummary, AgentDirectory, AgentRequest, AgentAnswer, AgentInputValue, AgentCapabilities, AgentModelSelection, AgentPermissionMode, AgentRuntimeId, DetectedRuntime, RuntimeCatalog, RuntimeInfo } from "../../../../canvas-agent/src/agent/types";
+import type { AgentConversation, AgentConversationSummary, AgentDirectory, AgentAnswer, AgentModelSelection, AgentPermissionMode, AgentRuntimeId, RuntimeCatalog, RuntimeInfo } from "../../../../canvas-agent/src/agent/types";
 
-export function callAgentSession(endpoint: string, token: string, action: "connect" | "open" | "send" | "interrupt" | "answer" | "capabilities" | "permissions", target: { clientId: string; projectId: string; conversationId?: string }, input: ({ submissionId?: string; text?: string } & AgentModelSelection) | AgentAnswer | { mode: AgentPermissionMode } | { id?: string; cwd?: string } = {}) {
+export function callAgentSession(endpoint: string, token: string, action: "connect" | "open" | "send" | "interrupt" | "answer" | "capabilities" | "permissions", target: { clientId: string; projectId: string; conversationId?: string }, input: ({ submissionId?: string; text?: string; canvasProjectId?: string } & AgentModelSelection) | AgentAnswer | { mode: AgentPermissionMode } | { id?: string; cwd?: string; runtimeId?: AgentRuntimeId } = {}) {
     return fetchAgentJson<AgentConversation>(endpoint, token, `/agent/${action}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...target, ...input }) });
 }
 
@@ -57,7 +58,11 @@ export function fetchAgentDirectories(endpoint: string, token: string, target: {
 }
 
 export function localConnectorCommand(origin = window.location.origin) {
-    return `npx -y @oioi-npm/canvas-agent --origin ${origin}`;
+    return `npx -y @oioi-npm/canvas-agent@latest --origin ${origin}`;
+}
+
+export function localConnectorInstructions(runtime: string) {
+    return i18n.t("agent.connectionGuide.instructions", { runtime, command: localConnectorCommand(), protocol: AGENT_PROTOCOL_VERSION });
 }
 
 export async function bootstrapAgent(endpoint: string) {
@@ -89,6 +94,6 @@ export async function probeAgentService(endpoint: string, expectedProtocolVersio
     } catch { return { status: "stopped" }; }
 }
 
-export function fetchAgentRuntimeInfo(endpoint: string, token: string) {
-    return fetchAgentJson<RuntimeInfo>(endpoint, token, "/agent/runtime-info");
+export function fetchAgentRuntimeInfo(endpoint: string, token: string, runtimeId: AgentRuntimeId) {
+    return fetchAgentJson<RuntimeInfo>(endpoint, token, `/agent/runtime-info?runtimeId=${runtimeId}`);
 }

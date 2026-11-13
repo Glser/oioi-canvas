@@ -7,14 +7,14 @@ import type { CanvasSession } from "../canvas/session.js";
 import { startCodex, type AgentTransport, type AgentTransportFactory, type RpcParams } from "./codex-rpc.js";
 import { ConversationManifest, type ConversationRecord } from "./manifest.js";
 import { readCapabilities, resolveModelSelection } from "./capabilities.js";
-import type { AgentAnswer, AgentConversation, AgentMessage, AgentRequest, AgentModelSelection, AgentCapabilities, AgentPermissionMode } from "./types.js";
+import type { AgentAnswer, AgentConversation, AgentMessage, AgentRequest, AgentModelSelection, AgentCapabilities, AgentPermissionMode, AgentRuntimeId } from "./types.js";
 
-type Target = { clientId: string; projectId: string; origin: string; conversationId?: string };
+type Target = { clientId: string; projectId: string; origin: string; conversationId?: string; runtimeId?: AgentRuntimeId };
 type Pending = { method: string; params: RpcParams; resolve: (value: unknown) => void; reject: (error: Error) => void };
 type Runtime = { target: Target; key: string; bindingId: string; state: AgentConversation; record: ConversationRecord; rpc?: AgentTransport; loading?: Promise<void>; defaultPermissions?: RpcParams; pending: Map<string, Pending>; sending: boolean; completed: Set<string>; items: Map<string, RpcParams>; hydrating: boolean; events: { method: string; params: RpcParams }[]; lastCapabilities?: AgentCapabilities | null };
 const approvalMethods = new Set(["item/commandExecution/requestApproval", "item/fileChange/requestApproval", "item/permissions/requestApproval"]);
 
-/** 一个画布保留多个原生会话；网页恢复只读取快照，不重新发送历史输入。 */
+/** 同一网站共用多个原生会话，画布工具按每轮提交绑定；恢复不重新发送历史输入。 */
 export class AgentConversations {
     private runtimes = new Map<string, Runtime>();
     private closing = false;
@@ -35,31 +35,37 @@ export class AgentConversations {
         this.manifest.set(runtime.key, runtime.state.conversationId, { ...runtime.record, threadId: runtime.state.messages.length || Object.keys(runtime.record.submissions).length ? runtime.record.threadId : "" });
         runtime.state.submissions = structuredClone(runtime.record.submissions);
     }
-    private validate(target: Target) { this.canvas.assertClient(target.clientId, target.projectId, target.origin); }
+    private validate(target: Target) { this.canvas.assertClient(target.clientId, undefined, target.origin); }
     private runtime(target: Target) {
         this.validate(target);
         const runtime = this.runtimes.get(this.key(target));
-        if (!runtime || runtime.target.clientId !== target.clientId) throw new Error("请先连接当前画布的 Agent 会话");
+        if (!runtime) throw new Error("请先连接当前网页的 Agent 会话");
         if (target.conversationId !== runtime.state.conversationId) throw new Error("当前会话已切换，请刷新后再操作");
+        if (runtime.target.clientId !== target.clientId) {
+            if (runtime.sending || runtime.state.turnId || runtime.pending.size || runtime.loading) throw new Error("此会话正在另一个标签页执行，请返回原页面操作");
+            this.canvas.bindClient(runtime.bindingId, target.clientId);
+            runtime.target = target;
+        }
         return runtime;
     }
     private createRuntime(target: Target, conversationId: string, record: ConversationRecord): Runtime {
         for (const receipt of Object.values(record.submissions)) if (receipt.status === "sending") receipt.status = "uncertain";
-        return { target, key: this.key(target), record, bindingId: crypto.randomUUID(), pending: new Map(), sending: false, completed: new Set(), items: new Map(), hydrating: false, events: [], state: { instanceId: crypto.randomUUID(), revision: 0, projectId: target.projectId, conversationId, threadId: record.threadId, cwd: record.cwd, capabilities: null, permissionMode: "runtime", tokenUsage: null, status: "ready", turnId: null, messages: [], requests: [], submissions: structuredClone(record.submissions), error: "" } };
+        return { target, key: this.key(target), record, bindingId: crypto.randomUUID(), pending: new Map(), sending: false, completed: new Set(), items: new Map(), hydrating: false, events: [], state: { instanceId: crypto.randomUUID(), revision: 0, projectId: target.projectId, conversationId, runtimeId: record.runtimeId, threadId: record.threadId, cwd: record.cwd, capabilities: null, permissionMode: "runtime", tokenUsage: null, status: "ready", turnId: null, messages: [], requests: [], submissions: structuredClone(record.submissions), error: "" } };
     }
     async connect(target: Target): Promise<AgentConversation> {
         this.validate(target);
         const key = this.key(target);
         if (this.switching.has(key)) throw new Error("会话正在切换，请稍后重连");
         let runtime = this.runtimes.get(key);
-        if (runtime && runtime.target.clientId !== target.clientId && (runtime.sending || runtime.state.turnId || runtime.pending.size || runtime.loading)) throw new Error("此画布的 Agent 正在另一个标签页执行，请返回原页面操作");
+        if (runtime?.loading && runtime.target.clientId !== target.clientId) await runtime.loading;
+        if (runtime && runtime.target.clientId !== target.clientId && (runtime.sending || runtime.state.turnId || runtime.pending.size || runtime.loading)) throw new Error("此会话正在另一个标签页执行，请返回原页面操作");
         if (!runtime) {
             const project = this.manifest.get(key);
-            runtime = this.createRuntime(target, project?.activeId || crypto.randomUUID(), project?.conversations[project.activeId] || { threadId: "", cwd: this.cwd, submissions: {}, title: "" });
+            runtime = this.createRuntime(target, project?.activeId || crypto.randomUUID(), project?.conversations[project.activeId] || { threadId: "", cwd: this.cwd, submissions: {}, title: "", runtimeId: target.runtimeId || "codex" });
             this.runtimes.set(key, runtime);
         }
         runtime.target = target;
-        this.canvas.bindClient(runtime.bindingId, target.clientId, target.projectId);
+        if (!runtime.sending && !runtime.state.turnId && !runtime.pending.size && !runtime.loading) this.canvas.bindClient(runtime.bindingId, target.clientId);
         if (!runtime.rpc && !runtime.loading) {
             const current = runtime;
             current.loading = this.initialize(current).finally(() => { current.loading = undefined; });
@@ -70,25 +76,25 @@ export class AgentConversations {
     }
     list(target: Target) {
         this.validate(target);
-        return Object.entries(this.manifest.get(this.key(target))?.conversations || {}).map(([id, record]) => ({ id, title: record.title, cwd: record.cwd })).reverse();
+        return Object.entries(this.manifest.get(this.key(target))?.conversations || {}).map(([id, record]) => ({ id, title: record.title, cwd: record.cwd, runtimeId: record.runtimeId })).reverse();
     }
-    async open(target: Target, options: { id?: string; cwd?: string }) {
+    async open(target: Target, options: { id?: string; cwd?: string; runtimeId?: AgentRuntimeId }) {
         this.validate(target);
         const key = this.key(target);
         const previous = this.runtimes.get(key);
         if (this.switching.has(key) || previous && (previous.loading || previous.sending || previous.state.turnId || previous.pending.size)) throw new Error("请先结束当前任务并处理审批，再切换会话");
-        if (previous && target.conversationId !== previous.state.conversationId) throw new Error("当前会话已切换，请刷新后再操作");
+        if (previous && target.conversationId !== previous.state.conversationId && !(target.conversationId == null && previous.state.status === "error")) throw new Error("当前会话已切换，请刷新后再操作");
         this.switching.add(key);
         if (previous) previous.sending = true;
         let next: Runtime | undefined;
         try {
-            const record = options.id ? this.manifest.get(key)?.conversations[options.id] : { threadId: "", cwd: await this.directoryPath(options.cwd || previous?.record.cwd || this.cwd), submissions: {}, title: "" };
+            const record = options.id ? this.manifest.get(key)?.conversations[options.id] : { threadId: "", cwd: await this.directoryPath(options.cwd || previous?.record.cwd || this.cwd), submissions: {}, title: "", runtimeId: options.runtimeId || previous?.record.runtimeId || "codex" };
             if (!record) throw new Error("会话不存在");
             next = this.createRuntime(target, options.id || crypto.randomUUID(), record);
-            this.canvas.bindClient(next.bindingId, target.clientId, target.projectId);
+            this.canvas.bindClient(next.bindingId, target.clientId);
             await this.initialize(next);
             this.runtimes.set(key, next);
-            if (previous) { previous.rpc?.close(); this.canvas.releaseClient(previous.bindingId); }
+            if (previous) { this.clearRequests(previous); previous.rpc?.close(); this.canvas.releaseClient(previous.bindingId); }
             this.publish(next, true);
             return next.state;
         } catch (error) {
@@ -129,11 +135,11 @@ export class AgentConversations {
                 runtime.state.turnId = null;
                 this.clearRequests(runtime);
                 this.publish(runtime);
-            });
+            }, { runtimeId: runtime.record.runtimeId, cwd: runtime.record.cwd });
             runtime.rpc = rpc;
             if (this.closing) throw new Error("本地连接服务正在关闭");
             const account = await rpc.request("account/read", { refreshToken: false });
-            if (!account.account && account.requiresOpenaiAuth !== false) throw new Error("Codex 尚未登录，请在本机终端运行 codex login 后重新连接");
+            if (!account.account && account.requiresOpenaiAuth !== false) throw new Error(runtime.record.runtimeId === "claude" ? "Claude Code 尚未认证，请在本机终端完成 Claude Code 登录或配置后重新连接" : "Codex 尚未登录，请在本机终端运行 codex login 后重新连接");
             const entry = fileURLToPath(new URL(import.meta.url.endsWith(".ts") ? "../index.ts" : "../index.js", import.meta.url));
             const params = {
                 cwd: runtime.record.cwd,
@@ -189,7 +195,7 @@ export class AgentConversations {
             throw error;
         }
     }
-    async send(target: Target, submissionId: string, text: string, selection: AgentModelSelection = {}) {
+    async send(target: Target, submissionId: string, text: string, canvasProjectId: string, selection: AgentModelSelection = {}) {
         const runtime = this.runtime(target);
         if (!runtime.rpc || runtime.loading) throw new Error("Agent 尚未就绪，请重新连接");
         const previous = runtime.record.submissions[submissionId];
@@ -199,6 +205,7 @@ export class AgentConversations {
         }
         if (runtime.sending || runtime.state.turnId || runtime.pending.size) throw new Error("当前任务仍在执行或等待确认，请先停止或等待完成");
         const modelOptions = resolveModelSelection(runtime.state.capabilities, selection);
+        this.canvas.bindClient(runtime.bindingId, target.clientId, canvasProjectId);
         runtime.sending = true;
         try {
             // 在发送前落盘：进程崩溃时宁可明确待核对，也不重放可能已经执行的任务。
@@ -231,7 +238,7 @@ export class AgentConversations {
         if (!runtime.rpc || runtime.loading) throw new Error("Agent 尚未就绪");
         const current = runtime.state.capabilities;
         const capabilities = await readCapabilities(runtime.rpc, runtime.record.cwd, { thread: { id: runtime.state.threadId }, model: current?.model, modelProvider: current?.modelProvider, reasoningEffort: current?.reasoningEffort, approvalPolicy: current?.approvalPolicy, approvalsReviewer: current?.approvalsReviewer, sandbox: { type: current?.sandbox } });
-        runtime.state.capabilities = { ...capabilities, model: runtime.state.capabilities?.model ?? capabilities.model, reasoningEffort: runtime.state.capabilities?.reasoningEffort ?? capabilities.reasoningEffort };
+        runtime.state.capabilities = capabilities;
         this.publish(runtime);
         return runtime.state;
     }
@@ -239,6 +246,7 @@ export class AgentConversations {
         const runtime = this.runtime(target);
         if (!runtime.rpc || runtime.loading) throw new Error("Agent 尚未就绪，请重新连接");
         if (runtime.sending || runtime.state.turnId || runtime.pending.size) throw new Error("请先处理当前审批或等待任务结束，再切换后续任务的权限");
+        if (runtime.state.capabilities?.permissionModes && !runtime.state.capabilities.permissionModes.includes(mode)) throw new Error("当前运行时不支持此权限模式");
         const settings = mode === "runtime" ? runtime.defaultPermissions : {
             approvalPolicy: mode === "fullAccess" ? "never" : "on-request",
             approvalsReviewer: "user",
@@ -246,9 +254,10 @@ export class AgentConversations {
         };
         runtime.sending = true;
         try {
-            await runtime.rpc.request("thread/settings/update", { threadId: runtime.state.threadId, ...settings });
+            await runtime.rpc.request("thread/settings/update", { threadId: runtime.state.threadId, ...settings, ...(runtime.record.runtimeId === "claude" ? { permissionMode: mode } : {}) });
             runtime.state.permissionMode = mode;
-            if (runtime.state.capabilities) runtime.state.capabilities = { ...runtime.state.capabilities, approvalPolicy: typeof settings?.approvalPolicy === "string" ? settings.approvalPolicy : "custom", approvalsReviewer: settings?.approvalsReviewer || null, sandbox: settings?.sandboxPolicy?.type || null };
+            if (runtime.rpc.capabilities) runtime.state.capabilities = await runtime.rpc.capabilities();
+            else if (runtime.state.capabilities) runtime.state.capabilities = { ...runtime.state.capabilities, approvalPolicy: typeof settings?.approvalPolicy === "string" ? settings.approvalPolicy : "custom", approvalsReviewer: settings?.approvalsReviewer || null, sandbox: settings?.sandboxPolicy?.type || null };
             runtime.state.error = "";
             this.publish(runtime, true);
             return runtime.state;
@@ -352,7 +361,7 @@ export class AgentConversations {
             runtime.state.tokenUsage = { usedTokens: usage.last.totalTokens, totalTokens: usage.total.totalTokens, modelContextWindow: Number.isFinite(usage.modelContextWindow) && usage.modelContextWindow > 0 ? usage.modelContextWindow : null };
         } else if (method === "thread/settings/updated") {
             const settings = params.threadSettings;
-            if (runtime.state.capabilities && settings) runtime.state.capabilities = { ...runtime.state.capabilities, approvalPolicy: typeof settings.approvalPolicy === "string" ? settings.approvalPolicy : "custom", approvalsReviewer: settings.approvalsReviewer, sandbox: settings.sandboxPolicy?.type || null };
+            if (runtime.state.capabilities && settings) runtime.state.capabilities = { ...runtime.state.capabilities, ...(typeof settings.model === "string" ? { model: settings.model, reasoningEffort: settings.reasoningEffort ?? null } : {}), approvalPolicy: typeof settings.approvalPolicy === "string" ? settings.approvalPolicy : "custom", approvalsReviewer: settings.approvalsReviewer || null, sandbox: settings.sandboxPolicy?.type || null };
         } else if (method === "turn/started") {
             runtime.state.turnId = params.turn.id;
             runtime.state.status = "running";

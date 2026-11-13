@@ -118,9 +118,11 @@ export default function IndexPage() {
         if (!prompt || submittingRef.current) return;
         submittingRef.current = true;
         try {
+            const chat = useAgentChatStore.getState();
+            if (chat.pending || chat.connecting || chat.submitting || chat.conversation?.turnId || chat.conversation?.requests.length) throw new Error(t("agent.sessions.busy"));
             const title = prompt.length > 20 ? `${prompt.slice(0, 20)}...` : prompt;
             const newId = createProject(title);
-            await useAgentChatStore.getState().queue(newId, prompt);
+            await useAgentChatStore.getState().queue("", prompt, newId);
             openAgentPanel();
             navigate(`/canvas/${newId}?mode=new`);
         } catch (error) {

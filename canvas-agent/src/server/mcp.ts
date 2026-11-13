@@ -13,7 +13,7 @@ export async function startMcpServer() {
     const managed = Boolean(process.env.OIOI_CANVAS_SESSION);
     const bindingId = process.env.OIOI_CANVAS_SESSION || crypto.randomUUID();
     const instructions = managed
-        ? "当前工具已固定绑定网页画布，无需列出或绑定客户端。先读取画布状态，再执行任务。\n" + AGENT_PROMPT.split("\n").filter((line) => !["- 操作前", "- 每个 MCP", "- 仅用户要求查看"].some((prefix) => line.startsWith(prefix))).join("\n")
+        ? "当前会话在网站各页面连续使用，无需列出或绑定客户端。每轮任务固定绑定用户发送时的网页及画布；未打开画布时可以正常对话和使用站点工具。仅需操作画布时读取画布状态；若尚未绑定或页面已切换画布，请用户打开目标画布后再发送消息，不要操作其他画布。\n" + AGENT_PROMPT.split("\n").filter((line) => !["- 操作前", "- 每个 MCP", "- 仅用户要求查看"].some((prefix) => line.startsWith(prefix))).join("\n")
         : AGENT_PROMPT;
     const server = new McpServer({ name: "oioi-canvas", version: VERSION }, { instructions });
     const schemas = { ...bindingToolInputSchemas, ...toolInputSchemas };

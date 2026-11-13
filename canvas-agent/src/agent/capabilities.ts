@@ -6,6 +6,7 @@ const policy = (value: unknown) => string(value) || (value && typeof value === "
 
 /** 只投影网页需要的字段，禁止把原始 config、环境变量或账号信息直接返回浏览器。 */
 export async function readCapabilities(rpc: AgentTransport, cwd: string, session: RpcParams): Promise<AgentCapabilities> {
+    if (rpc.capabilities) return rpc.capabilities();
     const result: AgentCapabilities = {
         runtimeId: "codex", model: string(session.model), modelProvider: string(session.modelProvider), reasoningEffort: string(session.reasoningEffort),
         approvalPolicy: policy(session.approvalPolicy), approvalsReviewer: string(session.approvalsReviewer), sandbox: string(session.sandbox?.type),
@@ -67,5 +68,5 @@ export function resolveModelSelection(capabilities: AgentCapabilities | null, se
 /** 无需创建对话即可读取本机默认能力；认证结果只暴露状态，不返回账号或凭证。 */
 export async function inspectRuntime(rpc: AgentTransport, cwd: string): Promise<RuntimeInfo> {
     const [account, capabilities] = await Promise.all([rpc.request("account/read", { refreshToken: false }), readCapabilities(rpc, cwd, {})]);
-    return { runtimeId: "codex", status: account.account || account.requiresOpenaiAuth === false ? "ready" : "needsAuth", capabilities };
+    return { runtimeId: rpc.runtimeId || "codex", status: account.account || account.requiresOpenaiAuth === false ? "ready" : "needsAuth", capabilities };
 }

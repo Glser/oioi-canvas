@@ -464,7 +464,7 @@ export default function VideoPage() {
                             <div className={styles.empty}>
                                 <div className={styles.emptyIcon}><VideoIcon size={30} strokeWidth={1.25} /></div>
                                 <h3>{t("videoWorkbench.title")}</h3>
-                                <p>{t("videoWorkbench.empty")}</p>
+                                <p className="!max-w-none">{t("videoWorkbench.empty")}</p>
                                 <Button icon={<BookOpen size={14} />} onClick={() => setPromptDialogOpen(true)}>{t("imageWorkbench.explorePrompts")}</Button>
                             </div>
                         )}

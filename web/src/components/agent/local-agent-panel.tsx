@@ -7,6 +7,7 @@ import { useShallow } from "zustand/react/shallow";
 
 import i18n from "@/i18n";
 import { readAgentUrlBootstrap } from "@/lib/agent/agent-url-bootstrap";
+import { AGENT_RUNTIME_BRANDS } from "@/lib/agent/agent-runtime-brand";
 import { isSiteTool, runSiteTool } from "@/lib/agent/agent-site-tools";
 import { randomId } from "@/lib/utils";
 import { AGENT_PROTOCOL_VERSION, activateAgentClient, postState, postToolResult } from "@/services/api/canvas-agent";
@@ -53,16 +54,24 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
     );
     const setAgentState = useAgentStore((state) => state.setAgentState);
     const closePanel = useAgentStore((state) => state.closePanel);
-    const projectId = useAgentStore((state) => state.canvasContext?.snapshot.projectId || "");
+    const projectId = useAgentChatStore((state) => state.projectId);
+    const canvasProjectId = useAgentStore((state) => state.canvasContext?.snapshot.projectId || "");
     const pendingMessage = useAgentChatStore((state) => state.pending);
     const hasSession = useAgentChatStore((state) => Boolean(state.conversation?.threadId));
+    const sessionRuntimeId = useAgentChatStore((state) => state.conversation?.runtimeId);
+    const selectedRuntimeId = useAgentChatStore((state) => state.runtimeId);
+    const runtimeId = useAgentRuntimeStore((state) => state.info?.runtimeId);
     const sessionStatus = useAgentChatStore((state) => state.conversation?.status);
     const runtimeStatus = useAgentRuntimeStore((state) => state.info?.status);
     const runtimeError = useAgentRuntimeStore((state) => state.error);
     const runtimeDetecting = useAgentRuntimeStore((state) => state.detecting);
-    const codexStatus = useAgentRuntimeStore((state) => state.catalog?.runtimes.find((runtime) => runtime.id === "codex")?.status);
+    const selectedRuntimeStatus = useAgentRuntimeStore((state) => state.catalog?.runtimes.find((runtime) => runtime.id === selectedRuntimeId)?.status);
     const [showSettings, setShowSettings] = useState(false);
     useEffect(() => { void useAgentChatStore.getState().activate(projectId); }, [projectId, connected, url, token]);
+    useEffect(() => {
+        const chat = useAgentChatStore.getState();
+        if (connected && hasSession && sessionStatus === "ready" && chat.pending?.phase === "queued" && chat.pending.canvasProjectId === canvasProjectId) void chat.submit();
+    }, [canvasProjectId, connected, hasSession, sessionStatus]);
     const canvasContextRef = useRef<AgentCanvasContext | null>(useAgentStore.getState().canvasContext);
     const autoConnectRef = useRef(false);
     const autoAttemptRef = useRef("");
@@ -76,7 +85,7 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
     const urlAgentAutoConnect = searchParams.has("agentUrl") && searchParams.has("agentToken");
 
     useEffect(() => { setAgentState({ serviceStatus }); }, [serviceStatus, setAgentState]);
-    useEffect(() => { void useAgentRuntimeStore.getState().load(); }, [connected, url, token]);
+    useEffect(() => { void useAgentRuntimeStore.getState().load(); }, [connected, url, token, selectedRuntimeId]);
     useEffect(() => {
         if (serviceStatus !== "running") { autoAttemptRef.current = ""; return; }
         const key = `${url}|${token}`;
@@ -269,18 +278,20 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
         void toggleAgentConnection({ silent: true });
     }, [connected, enabled, urlAgentAutoConnect]);
 
-    const notReady = connected && (sessionStatus === "error" || runtimeStatus === "needsAuth" || Boolean(runtimeError) || (!runtimeDetecting && (codexStatus === "missing" || codexStatus === "error")));
-    const showConversation = Boolean(projectId) && connected && !notReady && (hasSession || runtimeStatus === "ready");
+    const notReady = connected && (sessionStatus === "error" || (!hasSession && (runtimeStatus === "needsAuth" || Boolean(runtimeError))) || (!runtimeDetecting && (selectedRuntimeStatus === "missing" || selectedRuntimeStatus === "error")));
+    const showConversation = connected && !notReady && (hasSession || runtimeStatus === "ready");
     const connectionStatus = t(!connected ? "agent.runtimeDiscovery.offline" : notReady ? "agent.connectionGuide.notReady" : showConversation ? "agent.runtimeDiscovery.online" : "agent.status.connecting");
     const connectionStatusColor = notReady ? colors.colorWarning : showConversation ? colors.colorSuccess : colors.colorTextSecondary;
+    const connectedRuntimeId = connected && (hasSession || runtimeStatus === "ready") ? sessionRuntimeId || runtimeId : undefined;
+    const runtimeBrand = connectedRuntimeId ? AGENT_RUNTIME_BRANDS[connectedRuntimeId] : undefined;
 
     if (!embedded) return null;
     return (
         <>
             <div className="flex h-14 shrink-0 items-center justify-between gap-2 px-3">
                 <div className="flex min-w-0 items-center gap-2">
-                    <Bot className="size-4 shrink-0 opacity-80" />
-                    <div className="text-sm font-semibold leading-5">{t("agent.connect.title")}</div>
+                    {runtimeBrand ? <img src={runtimeBrand.icon} alt="" aria-hidden="true" className="size-4 shrink-0 object-contain" /> : <Bot className="size-4 shrink-0 opacity-80" />}
+                    <div className="truncate text-sm font-semibold leading-5">{runtimeBrand?.name || t("agent.connect.title")}</div>
                     <span className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] leading-4" style={{ color: connectionStatusColor }}>
                         <span className="size-1.5 shrink-0 rounded-full" style={{ background: connectionStatusColor }} />
                         <span className="truncate">{connectionStatus}</span>

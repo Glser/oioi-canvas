@@ -160,7 +160,7 @@ function AiStatus({
             data-active={active || undefined}
             role="status"
             aria-atomic="true"
-            className={cn('flex h-8 w-fit max-w-full items-center gap-2 text-[14px]', className)}
+            className={cn('flex h-8 w-fit max-w-full items-center gap-2', state === 'done' ? 'text-xs' : 'text-[14px]', className)}
             style={{
                 color: token.colorTextSecondary,
                 '--ai-status-ink': token.colorTextSecondary,

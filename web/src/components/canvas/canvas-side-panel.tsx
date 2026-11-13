@@ -73,7 +73,8 @@ export function CanvasSidePanel({ nodes, selectedNodeIds, onFocusNode, onPreview
         <ConfigProvider theme={appearance.theme} tooltip={appearance.tooltip}>
         <motion.div
             ref={shell}
-            className="pointer-events-none absolute inset-y-0 left-0 z-[60] flex pb-3 pl-3 pt-[120px] text-[var(--wb-text)] sm:pt-[72px] md:pb-5 md:pl-4"
+            data-canvas-panel="left"
+            className={`${panelStyles.shell} ${panelStyles.leftShell} pointer-events-none absolute inset-y-0 left-0 z-[60] flex`}
             initial={{ x: reduceMotion ? 0 : "-100%", opacity: 0 }}
             animate={{ x: panelOpen || reduceMotion ? 0 : "-100%", opacity: panelOpen ? 1 : 0 }}
             transition={{ duration: PANEL_MOTION_SECONDS, ease: PANEL_EASE }}

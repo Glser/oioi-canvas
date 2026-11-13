@@ -21,6 +21,7 @@ import { saveAs } from "file-saver";
 
 import { useThemeStore } from "@/stores/use-theme-store";
 import { useAssetStore } from "@/stores/use-asset-store";
+import { modelOptionName } from "@/stores/use-config-store";
 import { formatBytes, getDataUrlByteSize } from "@/lib/image-utils";
 import { imageExtension } from "@/lib/canvas/canvas-generation-helpers";
 import { useCopyText } from "@/hooks/use-copy-text";
@@ -160,6 +161,7 @@ export function ImageDetailModal({
     const width = image?.width || 0;
     const height = image?.height || 0;
     const byteSize = image?.bytes || getDataUrlByteSize(activeImageUrl);
+    const modelName = modelOptionName(image?.model || "");
 
     return (
         <Modal
@@ -431,7 +433,7 @@ export function ImageDetailModal({
                                             <span className="text-zinc-500 flex items-center gap-1.5">
                                                 <Cpu className="size-3.5" /> 模型
                                             </span>
-                                            <Tooltip title={image.model}><span className="font-mono font-medium max-w-[130px] truncate text-right">{image.model}</span></Tooltip>
+                                            <Tooltip title={modelName}><span className="font-mono font-medium max-w-[130px] truncate text-right">{modelName}</span></Tooltip>
                                         </div>
                                     ) : null}
 

@@ -37,7 +37,8 @@ export function GenerationSettings() {
         else setCustomRatio(preset ? "" : ratio);
     };
 
-    const count = getGenerationCount(config.count);
+    const count = getGenerationCount(config.canvasImageCount);
+    const countOptions = imageCountOptions.includes(String(count)) ? imageCountOptions : [...imageCountOptions, String(count)];
     const summary = [ratio, supported.resolution && imageResolutionOptions.find((item) => item.value === resolution)?.label, supported.quality && t(`settingsPanels.common.${normalizeImageQuality(config.quality)}`), t("settingsPanels.image.images", { count })].filter(Boolean).join(" · ");
     const close = () => { setOpen(false); triggerRef.current?.focus(); };
 
@@ -112,7 +113,7 @@ export function GenerationSettings() {
                         </fieldset>}
                         <fieldset className={styles.field}>
                             <legend>{t("imageWorkbench.countLabel")}</legend>
-                            <Segmented block aria-label={t("imageWorkbench.countLabel")} options={imageCountOptions.map((value) => ({ value, label: t("settingsPanels.image.images", { count: Number(value) }) }))} value={String(getGenerationCount(config.count))} onChange={(value) => updateConfig("count", value)} />
+                            <Segmented block aria-label={t("imageWorkbench.countLabel")} options={countOptions.map((value) => ({ value, label: t("settingsPanels.image.images", { count: Number(value) }) }))} value={String(count)} onChange={(value) => updateConfig("canvasImageCount", value)} />
                         </fieldset>
                     </div>
                 }

@@ -2,6 +2,7 @@ import { Alert, App, Button, Empty, Input, Skeleton } from "antd";
 import { LogIn, LogOut, RefreshCw } from "lucide-react";
 import { useState } from "react";
 
+import { ModelIcon } from "@/components/model-icon";
 import { NEW_API_BASE_URL } from "@/constant/env";
 import { startNewApiLogin } from "@/services/api/newapi";
 import { useNewApiStore } from "@/stores/use-newapi-store";
@@ -59,7 +60,7 @@ export function NewApiAccountPanel() {
                     <Input.Search aria-label="搜索模型" placeholder="搜索模型名称" value={query} allowClear onChange={(event) => setQuery(event.target.value)} />
                     {visibleModels.length ? (
                         <ul className="max-h-80 divide-y divide-border overflow-y-auto">
-                            {visibleModels.map((model) => <li key={model.id} className="py-3 text-sm break-all">{model.id}</li>)}
+                            {visibleModels.map((model) => <li key={model.id} className="flex items-center gap-2 py-3 text-sm"><ModelIcon model={model.id} /><span className="min-w-0 break-all">{model.id}</span></li>)}
                         </ul>
                     ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={models.length ? "没有匹配的模型" : "当前令牌没有可用模型，请联系管理员检查分组和模型权限"} />}
                     <p className="text-xs text-muted-foreground">此处列出令牌有权调用的模型；创作界面按网关配置的能力分类与端点筛选，缺少分类或端点时不会显示为可选模型。</p>

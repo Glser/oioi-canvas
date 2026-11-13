@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { App, Button, Checkbox, Input, InputNumber, Tooltip, theme } from "antd";
-import { Bot, Check, Circle, History, LoaderCircle, MessageSquarePlus, RefreshCw } from "lucide-react";
+import { History, MessageSquarePlus, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAgentChatStore } from "@/stores/use-agent-chat-store";
-import { useAgentRuntimeStore } from "@/stores/use-agent-runtime-store";
-import { AgentRuntimeView } from "./agent-runtime-view";
 import { AgentComposer } from "./agent-composer";
+import { AgentMessages } from "./agent-messages";
 import { AgentSessionDialog } from "./agent-session-dialog";
 import { AiStatus, type AiStatusState } from "./ai-status";
 import { Select } from "@/components/themed-controls";
@@ -17,11 +16,11 @@ export function AgentChatView() {
     const { message } = App.useApp();
     const { projectId, conversation, pending, connecting, submitting, error, submit, discard, activate, openConversation } = useAgentChatStore();
     const [historyOpen, setHistoryOpen] = useState(false);
-    const runtimeReady = useAgentRuntimeStore((state) => state.info?.status === "ready");
     const scroll = useRef<HTMLDivElement>(null);
     const follow = useRef(true);
     const running = Boolean(conversation?.turnId) || conversation?.status === "running" || conversation?.status === "waiting";
     const busy = connecting || submitting || running;
+    const pendingInHistory = pending && conversation && pending.conversationId === conversation.conversationId && conversation.messages.some((item) => item.threadId === conversation.threadId && item.role === "user" && (item.itemId === pending.id || item.turnId === conversation.submissions[pending.id]?.turnId));
     const latest = conversation?.messages.at(-1);
     const currentItem = latest?.threadId === conversation?.threadId && latest?.turnId === conversation?.turnId ? latest : undefined;
     const activity: AiStatusState | "waiting" = connecting || submitting ? "thinking"
@@ -33,41 +32,25 @@ export function AgentChatView() {
         if (follow.current && scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight;
     }, [conversation?.revision, pending, submitting]);
     const clearPending = () => void discard().catch((error: unknown) => message.error(String(error)));
-    const status = connecting ? "connecting" : conversation?.status || (runtimeReady ? "ready" : "offline");
     const newConversation = async () => {
         try { await openConversation(); message.success(t("agent.sessions.created")); follow.current = true; }
         catch (error) { message.error(error instanceof Error ? error.message : String(error)); }
     };
     return (
-        <div className="flex min-h-0 flex-1 flex-col" style={{ color: token.colorText }}>
-            <div className="flex items-center justify-between gap-2 px-4 pb-3 text-xs" style={{ color: token.colorTextSecondary }}>
-                <span className="flex min-w-0 items-center gap-2" role="status">{busy ? <LoaderCircle className="size-3 shrink-0 animate-spin motion-reduce:animate-none" /> : <Circle className="size-2 shrink-0" />}<span className="truncate">Codex · {t(`agent.conversation.${status}`)}</span></span>
-                {projectId ? <div className="flex shrink-0 items-center">
+        <div className="flex min-h-0 min-w-0 w-full flex-1 flex-col" style={{ color: token.colorText }}>
+            <div className="flex items-center justify-end px-4 pb-3 text-xs" style={{ color: token.colorTextSecondary }}>
+                <div className="flex shrink-0 items-center">
                     <Tooltip title={t("agent.sessions.new")}><button type="button" aria-label={t("agent.sessions.new")} className="rounded-lg p-2 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-40" disabled={busy || Boolean(pending) || !conversation} onClick={() => void newConversation()}><MessageSquarePlus className="size-3.5" /></button></Tooltip>
                     <Tooltip title={t("agent.sessions.history")}><button type="button" aria-label={t("agent.sessions.history")} className="rounded-lg p-2 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-40" disabled={busy || Boolean(pending) || !conversation} onClick={() => setHistoryOpen(true)}><History className="size-3.5" /></button></Tooltip>
                     <Tooltip title={t("agent.conversation.refresh")}><button type="button" aria-label={t("agent.conversation.refresh")} className="rounded-lg p-2 hover:bg-black/5 dark:hover:bg-white/10 disabled:opacity-40" disabled={busy} onClick={() => void activate(projectId)}><RefreshCw className="size-3.5" /></button></Tooltip>
-                </div> : null}
-            </div>
-            <div ref={scroll} onScroll={() => { const el = scroll.current; if (el) follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48; }} className="thin-scrollbar min-h-0 flex-1 overflow-y-auto px-4 pb-4">
-                <details className="mb-4"><summary className="cursor-pointer py-1 text-xs" style={{ color: token.colorTextSecondary }}>{t("agent.runtimeDiscovery.title")}</summary><div className="mt-3"><AgentRuntimeView /></div></details>
-                {!projectId ? <p className="py-6 text-sm" style={{ color: token.colorTextSecondary }}>{t("agent.connectionGuide.homeReady")}</p> : null}
-                {projectId && !conversation?.messages.length && !pending ? <div className="py-8"><h3 className="text-base font-medium">{t("agent.conversation.emptyTitle")}</h3><p className="mt-2 text-sm leading-6" style={{ color: token.colorTextSecondary }}>{t("agent.conversation.emptyText")}</p></div> : null}
-                <div className="space-y-6" aria-label={t("agent.conversation.messages")}>
-                    {conversation?.messages.map((item) => (
-                        <article key={`${item.threadId}:${item.turnId}:${item.itemId}`} data-message-role={item.role} aria-label={item.role === "user" ? t("agent.conversation.you") : item.role === "assistant" ? "Codex" : undefined} className={`flex min-w-0 items-start gap-3 ${item.role === "user" ? "justify-end" : ""}`}>
-                            {item.role === "tool" ? <details className="ml-9 min-w-0 flex-1 text-xs" style={{ color: token.colorTextSecondary }}>
-                                <summary className="flex cursor-pointer items-center gap-2 py-1">{item.status === "inProgress" ? <LoaderCircle className="size-3 shrink-0 animate-spin motion-reduce:animate-none" /> : <Check className="size-3 shrink-0" />}<span className="min-w-0 flex-1 truncate">{item.text}</span><span className="shrink-0">{item.status ? t(`agent.conversation.toolStatus.${item.status}`, { defaultValue: item.status }) : ""}</span></summary>
-                                <pre className="mt-2 whitespace-pre-wrap break-words font-sans leading-5 [overflow-wrap:anywhere]">{item.text}</pre>
-                            </details> : item.role === "user" ? <div className="max-w-[88%] rounded-2xl rounded-tr-sm px-3 py-2.5 text-left text-sm leading-6 whitespace-pre-wrap [overflow-wrap:anywhere]" style={{ background: token.colorFillSecondary }}>{item.text || "…"}</div> : <>
-                                <span aria-hidden="true" className="mt-0.5 flex size-6 shrink-0 items-center justify-center" style={{ color: token.colorTextSecondary }}><Bot className="size-[18px]" /></span>
-                                <div className="min-w-0 flex-1 whitespace-pre-wrap break-words text-sm leading-7 [overflow-wrap:anywhere]">{item.text || "…"}</div>
-                            </>}
-                        </article>
-                    ))}
                 </div>
+            </div>
+            <div ref={scroll} onScroll={() => { const el = scroll.current; if (el) follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48; }} className="thin-scrollbar min-h-0 min-w-0 w-full flex-1 overflow-y-auto pl-4 pr-6 pb-4">
+                {!conversation?.messages.length && !pending ? <div className="pb-8 pt-2"><h3 className="text-base font-medium">{t("agent.conversation.emptyTitle")}</h3><p className="mt-2 text-sm leading-6" style={{ color: token.colorTextSecondary }}>{t("agent.conversation.emptyText")}</p></div> : null}
+                <AgentMessages />
                 {busy || conversation?.messages.length || error || conversation?.error ? <AiStatus
                     key={`${projectId}:${conversation?.threadId || ""}`}
-                    className="mt-3 ml-9 max-w-[calc(100%-2.25rem)]"
+                    className="mt-3 ml-7 max-w-[calc(100%-1.75rem)]"
                     state={activity}
                     states={{ waiting: { active: true } }}
                     label={connecting ? t("agent.conversation.connecting") : activity === "waiting" ? t("agent.conversation.waiting") : undefined}
@@ -75,13 +58,19 @@ export function AgentChatView() {
                     shimmer={busy && activity !== "waiting"}
                     timer={!connecting}
                 /> : null}
-                {pending ? <section className="mt-6 flex min-w-0 flex-col items-end gap-2"><div className="max-w-[88%] rounded-2xl rounded-tr-sm px-3 py-2.5" style={{ background: token.colorFillSecondary }}><p className="text-xs" style={{ color: token.colorTextSecondary }}>{t(pending.phase === "queued" ? "agent.conversation.pending" : "agent.conversation.checkReceipt")}</p><p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 [overflow-wrap:anywhere]">{pending.text}</p></div><div className="flex max-w-full flex-wrap justify-end gap-1"><Button type="text" size="small" disabled={busy || !conversation} onClick={() => void submit()}>{t("agent.conversation.retry")}</Button><Button type="text" size="small" disabled={submitting} onClick={clearPending}>{t("agent.conversation.discard")}</Button></div></section> : null}
-                {error || conversation?.error ? <p role="alert" className="mt-4 ml-9 whitespace-pre-wrap break-words text-xs leading-6" style={{ color: token.colorError }}>{error || conversation?.error}</p> : null}
+                {pending && (!pendingInHistory || !submitting) ? <section className="mt-6 flex min-w-0 flex-col items-end gap-2">
+                    <div className="max-w-[88%] rounded-2xl rounded-tr-sm px-3 py-2.5" style={{ background: token.colorFillSecondary }}>
+                        <p className="text-xs" style={{ color: token.colorTextSecondary }}>{t(submitting ? "agent.runtime.sending" : pending.phase === "queued" ? "agent.conversation.pending" : "agent.conversation.checkReceipt")}</p>
+                        {!pendingInHistory ? <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-6 [overflow-wrap:anywhere]">{pending.text}</p> : null}
+                    </div>
+                    {!submitting ? <div className="flex max-w-full flex-wrap justify-end gap-1"><Button type="text" size="small" disabled={busy || !conversation} onClick={() => void submit()}>{t("agent.conversation.retry")}</Button><Button type="text" size="small" onClick={clearPending}>{t("agent.conversation.discard")}</Button></div> : null}
+                </section> : null}
+                {error || conversation?.error ? <p role="alert" className="mt-4 ml-7 whitespace-pre-wrap break-words text-xs leading-6" style={{ color: token.colorError }}>{error || conversation?.error}</p> : null}
             </div>
             {conversation?.requests.length ? <div className="thin-scrollbar max-h-[40dvh] shrink-0 overflow-y-auto px-4 pb-3" aria-label={t("agent.conversation.waiting")}>
                 {conversation.requests.map((request) => <AgentRequestCard key={request.id} request={request} />)}
             </div> : null}
-            {projectId ? <div className="shrink-0"><AgentComposer key={conversation?.conversationId || projectId} /></div> : null}
+            <div className="shrink-0"><AgentComposer key={conversation?.conversationId || projectId} /></div>
             {historyOpen ? <AgentSessionDialog key={projectId} mode="history" onClose={() => { setHistoryOpen(false); follow.current = true; }} /> : null}
         </div>
     );

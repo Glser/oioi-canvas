@@ -1,10 +1,11 @@
 import readline from "node:readline";
 import spawn from "cross-spawn";
 import { JSONRPCClient, JSONRPCServer, JSONRPCServerAndClient, createJSONRPCErrorResponse, createJSONRPCSuccessResponse } from "json-rpc-2.0";
+import type { AgentCapabilities, AgentRuntimeId } from "./types.js";
 
 export type RpcParams = Record<string, any>;
-export type AgentTransport = { request: (method: string, params: RpcParams) => Promise<any>; close: () => void };
-export type AgentTransportFactory = (notify: (method: string, params: RpcParams) => void, request: (method: string, params: RpcParams, id: string) => Promise<unknown>, closed: (error: Error) => void) => Promise<AgentTransport>;
+export type AgentTransport = { runtimeId?: AgentRuntimeId; capabilities?: () => Promise<AgentCapabilities>; request: (method: string, params: RpcParams) => Promise<any>; close: () => void };
+export type AgentTransportFactory = (notify: (method: string, params: RpcParams) => void, request: (method: string, params: RpcParams, id: string) => Promise<unknown>, closed: (error: Error) => void, context?: { runtimeId: AgentRuntimeId; cwd: string }) => Promise<AgentTransport>;
 
 /** app-server 使用逐行 JSON-RPC；协议请求/响应由成熟库处理，不解析终端展示文本。 */
 export function createCodexTransport(command: string): AgentTransportFactory {

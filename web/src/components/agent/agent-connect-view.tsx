@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
-import { Button, theme as antdTheme } from "antd";
+import { Button, Tooltip, theme as antdTheme } from "antd";
 import { Copy, LoaderCircle, Monitor, Unplug } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { AgentRuntimeView } from "./agent-runtime-view";
 import { useCopyText } from "@/hooks/use-copy-text";
-import { bootstrapAgent, localConnectorCommand } from "@/services/api/canvas-agent";
+import { AGENT_RUNTIME_BRANDS } from "@/lib/agent/agent-runtime-brand";
+import { bootstrapAgent, localConnectorInstructions } from "@/services/api/canvas-agent";
 import { useAgentChatStore } from "@/stores/use-agent-chat-store";
 import { useAgentRuntimeStore } from "@/stores/use-agent-runtime-store";
 import { useAgentStore } from "@/stores/use-agent-store";
@@ -20,21 +21,22 @@ export function AgentConnectView({ onToggleEnabled }: { onToggleEnabled: (option
     const { t } = useTranslation();
     const { url, token, enabled, connected, connectError, serviceStatus } = useAgentStore();
     const { catalog, info, detecting, error: runtimeError, load } = useAgentRuntimeStore();
-    const { conversation, connecting, error: chatError, projectId, activate } = useAgentChatStore();
+    const { conversation, connecting, error: chatError, projectId, runtimeId, activate } = useAgentChatStore();
     const { token: colors } = antdTheme.useToken();
     const copyText = useCopyText();
     const [retrying, setRetrying] = useState(false);
     const [bootstrapFailed, setBootstrapFailed] = useState(false);
-    const command = localConnectorCommand();
     const machine = catalog?.machine || t("agent.runtimeDiscovery.machine");
     const online = connected;
-    const codex = catalog?.runtimes.find((runtime) => runtime.id === "codex");
-    const ready = projectId ? Boolean(conversation?.threadId) && conversation?.status !== "error" : info?.status === "ready";
+    const runtime = catalog?.runtimes.find((runtime) => runtime.id === runtimeId);
+    const runtimeName = AGENT_RUNTIME_BRANDS[runtimeId].name;
+    const instructions = localConnectorInstructions(runtimeName);
+    const ready = Boolean(conversation?.threadId) && conversation?.status !== "error";
     const waiting = serviceStatus === "running" && !connectError && !bootstrapFailed;
     const banner = !connected
-        ? serviceStatus === "outdated" ? "outdated" : waiting ? "connecting" : serviceStatus === "checking" || serviceStatus === "idle" ? "checking" : "offline"
-        : detecting || connecting ? "detecting" : codex?.status === "missing" ? "missing" : info?.status === "needsAuth" ? "login" : ready ? "" : "error";
-    const actionCommand = banner === "offline" || banner === "outdated" ? command : banner === "missing" ? "npm install -g @openai/codex" : banner === "login" ? "codex login" : "";
+        ? waiting ? "connecting" : serviceStatus === "checking" || serviceStatus === "idle" ? "checking" : "offline"
+        : detecting || connecting ? "detecting" : runtime?.status === "missing" ? "missing" : info?.runtimeId === runtimeId && info.status === "needsAuth" ? "login" : ready ? "" : "error";
+    const busy = banner === "checking" || banner === "connecting" || banner === "detecting";
 
     useEffect(() => {
         if (serviceStatus !== "running") setBootstrapFailed(false);
@@ -53,7 +55,6 @@ export function AgentConnectView({ onToggleEnabled }: { onToggleEnabled: (option
     }, [connected, enabled, serviceStatus, token, url]);
 
     const repair = async () => {
-        if (actionCommand) copyText(actionCommand);
         setRetrying(true);
         setBootstrapFailed(false);
         try {
@@ -65,9 +66,9 @@ export function AgentConnectView({ onToggleEnabled }: { onToggleEnabled: (option
                 store.connectAgent({ silent: true });
             }
             await load(true);
-            if (projectId) await activate(projectId);
+            await activate(projectId);
         } catch {
-            // Keep the current banner; the copied command is the next action.
+            // Connection and runtime stores retain the error for the current banner.
         } finally {
             setRetrying(false);
         }
@@ -75,22 +76,20 @@ export function AgentConnectView({ onToggleEnabled }: { onToggleEnabled: (option
 
     return (
         <div className="thin-scrollbar min-h-0 flex-1 overflow-y-auto px-4 pb-4" style={{ color: colors.colorText }}>
-            <section className="flex items-start gap-3 py-4" aria-label={t("agent.connectionGuide.status")}>
-                <div className="grid size-11 shrink-0 place-items-center rounded-2xl" style={{ background: colors.colorFillSecondary }}>
-                    <Monitor className="size-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                    <h3 className="truncate text-base font-semibold leading-6">{machine}</h3>
-                    <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-5" style={{ color: colors.colorTextSecondary }}>
-                        <span className="inline-flex items-center gap-1.5">
+            <section className="flex items-center gap-2 py-2" aria-label={t("agent.connectionGuide.status")}>
+                <Monitor className="size-4 shrink-0" style={{ color: colors.colorTextSecondary }} />
+                <div className="flex min-w-0 flex-1 items-center gap-2 whitespace-nowrap">
+                    <span className="min-w-0 truncate text-sm font-medium leading-5">{machine}</span>
+                    <span className="flex min-w-0 translate-y-px items-center gap-2 text-xs leading-5" style={{ color: colors.colorTextSecondary }}>
+                        <span className="inline-flex shrink-0 items-center gap-1.5">
                             <span className="size-1.5 rounded-full" style={{ background: online ? colors.colorSuccess : colors.colorTextQuaternary }} />
                             {t(online ? "agent.runtimeDiscovery.online" : "agent.runtimeDiscovery.offline")}
                         </span>
-                        <span>{platformLabel(catalog?.platform, catalog?.arch) || t("agent.runtimeDiscovery.localMachine")}</span>
-                    </p>
+                        <span className="min-w-0 truncate">{platformLabel(catalog?.platform, catalog?.arch)}</span>
+                    </span>
                 </div>
                 {connected ? (
-                    <button type="button" className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs hover:bg-black/5 dark:hover:bg-white/10" onClick={() => onToggleEnabled()}>
+                    <button type="button" className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-1.5 text-xs hover:bg-black/5 dark:hover:bg-white/10" onClick={() => onToggleEnabled()}>
                         <Unplug className="size-3.5" />
                         {t("agent.connect.disconnect")}
                     </button>
@@ -98,30 +97,28 @@ export function AgentConnectView({ onToggleEnabled }: { onToggleEnabled: (option
             </section>
 
             {banner ? (
-                <section className="rounded-2xl px-4 py-3" style={{ background: banner === "connecting" || banner === "checking" || banner === "detecting" ? colors.colorFillTertiary : colors.colorSuccessBg || colors.colorFillSecondary }} aria-live="polite">
-                    <div className="flex items-start gap-3">
-                        <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium leading-6">{t(`agent.connectionGuide.${banner}`)}</p>
-                            <p className="mt-1 text-xs leading-5" style={{ color: colors.colorTextSecondary }}>{t(`agent.connectionGuide.${banner}Hint`)}</p>
-                            {actionCommand ? (
-                                <div className="mt-3 flex min-w-0 items-start gap-2">
-                                    <code className="min-w-0 flex-1 break-all py-1 text-xs leading-5">{actionCommand}</code>
-                                    <Button type="text" size="small" className="shrink-0" icon={<Copy className="size-3.5" />} aria-label={t("agent.connectionGuide.copy")} onClick={() => copyText(actionCommand)} />
-                                </div>
-                            ) : (banner === "checking" || banner === "connecting" || banner === "detecting") ? (
-                                <p className="mt-2 inline-flex items-center gap-2 text-xs" style={{ color: colors.colorTextSecondary }}>
-                                    <LoaderCircle className="size-3.5 animate-spin motion-reduce:animate-none" />
-                                    {t("agent.connectionGuide.wait")}
-                                </p>
-                            ) : null}
-                        </div>
-                        {banner === "offline" || banner === "outdated" || banner === "missing" || banner === "login" || banner === "error" ? (
-                            <Button type="text" className="shrink-0" loading={retrying} onClick={() => void repair()}>{t(banner === "offline" || banner === "outdated" ? "agent.connectionGuide.repair" : "agent.connectionGuide.retry")}</Button>
-                        ) : null}
+                <section className="min-w-0 pt-2" aria-live="polite">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <h4 className="flex items-center gap-2 text-sm font-medium leading-6">
+                            {busy ? <LoaderCircle className="size-3.5 shrink-0 animate-spin motion-reduce:animate-none" /> : null}
+                            {t(`agent.connectionGuide.${banner}`, { runtime: runtimeName })}
+                        </h4>
+                        {!busy ? <Tooltip title={t("agent.connectionGuide.retryHint")}>
+                            <Button type="text" size="small" loading={retrying} onClick={() => void repair()} style={{ color: colors.colorTextSecondary }}>{t("agent.connectionGuide.retry")}</Button>
+                        </Tooltip> : null}
                     </div>
+                    {banner !== "offline" ? <p className="mt-1 text-xs leading-5" style={{ color: colors.colorTextSecondary }}>{t(`agent.connectionGuide.${banner}Hint`)}</p> : null}
+                    {!busy ? (
+                            <div className="relative mt-2 overflow-hidden rounded-lg border focus-within:ring-1" style={{ borderColor: colors.colorBorderSecondary, background: colors.colorBgContainer }}>
+                                <div className="absolute right-1 top-1">
+                                    <Tooltip title={t("agent.connectionGuide.copy")}>
+                                        <Button type="text" size="small" icon={<Copy className="size-3.5" />} aria-label={t("agent.connectionGuide.copy")} onClick={() => copyText(instructions, t("agent.connectionGuide.copied"))}>{t("common.copy")}</Button>
+                                    </Tooltip>
+                                </div>
+                                <textarea readOnly rows={5} value={instructions} aria-label={t("agent.connectionGuide.prompt")} className="thin-scrollbar block w-full resize-none border-0 bg-transparent py-2 pl-3 pr-20 text-xs leading-5 outline-none" style={{ color: colors.colorTextSecondary }} />
+                            </div>
+                    ) : null}
                 </section>
-            ) : !projectId ? (
-                <p className="text-sm leading-6" style={{ color: colors.colorTextSecondary }}>{t("agent.connectionGuide.homeReady")}</p>
             ) : null}
 
             <AgentRuntimeView />
