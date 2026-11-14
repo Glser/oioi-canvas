@@ -58,11 +58,14 @@ export function fetchAgentDirectories(endpoint: string, token: string, target: {
 }
 
 export function localConnectorCommand(origin = window.location.origin) {
-    return `npx -y @oioi-npm/canvas-agent@latest --origin ${origin}`;
+    return `npx -y @oioi-npm/canvas-agent@latest install --origin ${origin}`;
 }
 
-export function localConnectorInstructions(runtime: string) {
-    return i18n.t("agent.connectionGuide.instructions", { runtime, command: localConnectorCommand(), protocol: AGENT_PROTOCOL_VERSION });
+// 连接器是通用的：一次安装会自动发现本机所有已安装的 Agent，提示词不绑定具体运行时；
+// 仅在针对某个运行时（未检测到 / 需登录）时通过 runtimeNote 附加说明。
+export function localConnectorInstructions(runtimeNote?: string) {
+    const base = i18n.t("agent.connectionGuide.instructions", { command: localConnectorCommand(), protocol: AGENT_PROTOCOL_VERSION });
+    return runtimeNote ? `${base}\n${i18n.t("agent.connectionGuide.runtimeNote", { runtime: runtimeNote })}` : base;
 }
 
 export async function bootstrapAgent(endpoint: string) {

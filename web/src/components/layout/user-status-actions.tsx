@@ -42,8 +42,8 @@ export function UserStatusActions({ showConfig = true, variant = "default", onOp
     return (
         <div className={containerClass}>
             {NEW_API_ENABLED ? (
-                <Tooltip trigger={["hover", "focus"]} title={accountName || "登录 / 注册"}>
-                    <button type="button" className={naturalIconClass} style={iconStyle} onClick={() => openConfigDialog(false, "channels")} aria-label={accountName ? `账户：${accountName}` : "登录 / 注册"}>
+                <Tooltip trigger={["hover", "focus"]} title={accountName || t("account.signIn")}>
+                    <button type="button" className={naturalIconClass} style={iconStyle} onClick={() => openConfigDialog(false, "channels")} aria-label={accountName ? t("account.accountName", { name: accountName }) : t("account.signIn")}>
                         <UserRound className="size-4" />
                     </button>
                 </Tooltip>

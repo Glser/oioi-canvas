@@ -7,6 +7,7 @@ import { useConfigStore } from "@/stores/use-config-store";
 import { usePromptSourceScheduler } from "@/hooks/use-prompt-source-scheduler";
 import { NEW_API_ENABLED } from "@/constant/env";
 import { useNewApiStore } from "@/stores/use-newapi-store";
+import { LocalDataNotice } from "@/components/layout/local-data-notice";
 
 export function ClientRootInit({ children }: { children: ReactNode }) {
     const { message } = App.useApp();
@@ -50,5 +51,10 @@ export function ClientRootInit({ children }: { children: ReactNode }) {
         else message.error(t("config.importedChannelBaseUrlInvalid"));
     }, [importChannelCredentials, message, openConfigDialog, t]);
 
-    return <>{children}</>;
+    return (
+        <>
+            {children}
+            <LocalDataNotice />
+        </>
+    );
 }

@@ -57,11 +57,11 @@ export default function IndexPage() {
     const openAgentPanel = useAgentStore((state) => state.openPanel);
 
     const [inputPrompt, setInputPrompt] = useState("");
-    const [quickPrompts, setQuickPrompts] = useState<string[]>([
-        "赛博朋克风格未来雨夜都市，霓虹灯倒影，电影质感光影",
-        "超写实中国古典水墨画，孤舟蓑笠翁，远山云雾缭绕",
-        "极简几何艺术海报，高饱和度撞色，立体质感排版",
-        "3D皮克斯可爱黏土小怪物角色设计，柔和柔光工作室照明",
+    const [quickPrompts, setQuickPrompts] = useState<string[]>(() => [
+        t("home.quickPrompts.cyberpunk"),
+        t("home.quickPrompts.inkWash"),
+        t("home.quickPrompts.geometric"),
+        t("home.quickPrompts.clayCharacter"),
     ]);
 
     useEffect(() => {
@@ -228,7 +228,7 @@ export default function IndexPage() {
                     <img src="/logo-dark.png" alt="Logo" className="hidden size-7 sm:size-8 md:w-[clamp(36px,3.5vw,56px)] md:h-[clamp(36px,3.5vw,56px)] shrink-0 object-contain dark:block" />
                     <h1 className="flex items-center text-xl font-bold leading-none tracking-tight sm:text-2xl md:text-[clamp(24px,2.5vw,40px)] translate-y-2">
                         <span className="home-title-shimmer select-none bg-[linear-gradient(110deg,#1c1917_0%,#1c1917_35%,#a8a29e_47%,#ffffff_50%,#a8a29e_53%,#1c1917_65%,#1c1917_100%)] dark:bg-[linear-gradient(110deg,#d6d3d1_0%,#d6d3d1_35%,#78716c_47%,#ffffff_50%,#78716c_53%,#d6d3d1_65%,#d6d3d1_100%)]">
-                            探索无限灵感，推演极致视界
+                            {t("home.title")}
                         </span>
                     </h1>
                 </div>
@@ -241,11 +241,11 @@ export default function IndexPage() {
                             onChange={(e) => setInputPrompt(e.target.value)}
                             onKeyDown={handleKeyDown}
                             rows={5}
-                            placeholder="描述你想要的画面，或构想一个场景、故事... 按 Enter 交给 Agent 开启画布推演"
+                            placeholder={t("home.promptPlaceholder")}
                             className="flex-1 resize-none bg-transparent px-3 py-2 text-sm text-stone-800 outline-none placeholder:text-stone-400 dark:text-stone-200 dark:placeholder:text-stone-500/80"
                         />
                         <div className="flex flex-col pt-1 pr-1">
-                            <Tooltip title="展开大窗口编辑">
+                            <Tooltip title={t("home.expandEditor")}>
                                 <Button
                                     type="text"
                                     size="small"
@@ -260,11 +260,11 @@ export default function IndexPage() {
                     <div className="flex flex-wrap items-center justify-between gap-2 pt-2 mt-0">
                         {/* 左侧辅助模式与操作入口 */}
                         <div className="flex items-center gap-1.5">
-                            <Tooltip title="上传素材">
+                            <Tooltip title={t("home.uploadAsset")}>
                                 <Upload
                                     showUploadList={false}
                                     beforeUpload={(file) => {
-                                        message.info("素材上传功能即将支持: " + file.name);
+                                        message.info(t("home.uploadComingSoon", { name: file.name }));
                                         return false;
                                     }}
                                 >
@@ -291,7 +291,7 @@ export default function IndexPage() {
 
                         {/* 右侧提交与启动按钮 */}
                         <div className="flex items-center gap-2">
-                            <span className="hidden text-xs text-stone-400 sm:inline">Enter 发送</span>
+                            <span className="hidden text-xs text-stone-400 sm:inline">{t("home.enterToSend")}</span>
                             <Tooltip title={t("home.agentSendHint")}>
                                 <span className="inline-flex">
                                     <Button
@@ -302,7 +302,7 @@ export default function IndexPage() {
                                         onClick={handlePromptSubmit}
                                         className="!h-8 px-4 font-medium"
                                     >
-                                        开启创作
+                                        {t("home.startCreation")}
                                     </Button>
                                 </span>
                             </Tooltip>
@@ -312,7 +312,7 @@ export default function IndexPage() {
 
                 {/* 快捷灵感标签 */}
                 <div className="mx-auto mt-3.5 flex max-w-3xl flex-wrap items-center justify-center gap-2">
-                    <span className="text-xs text-stone-400">试试灵感：</span>
+                    <span className="text-xs text-stone-400">{t("home.tryInspiration")}</span>
                     {quickPrompts.map((p, idx) => (
                         <button
                             key={idx}
@@ -333,7 +333,7 @@ export default function IndexPage() {
                     <div className="flex items-center gap-2">
                         <FolderKanban className="size-4.5 shrink-0 text-stone-500 dark:text-stone-400 -translate-y-[0.5px]" />
                         <span className="text-base font-semibold leading-none text-stone-900 dark:text-stone-100">
-                            最近作品
+                            {t("home.recentProjects")}
                         </span>
                         {projects.length > 0 && (
                             <span className="text-xs leading-none text-stone-400">
@@ -347,7 +347,7 @@ export default function IndexPage() {
                         <div className="w-40 sm:w-48">
                             <Input
                                 prefix={<Search className="size-3.5 text-stone-400" />}
-                                placeholder="搜索作品..."
+                                placeholder={t("home.searchPlaceholder")}
                                 allowClear
                                 size="small"
                                 value={searchKeyword}
@@ -360,7 +360,7 @@ export default function IndexPage() {
                         {selectedIds.length > 0 && (
                             <Dropdown menu={{ items: batchActionMenu }} trigger={["click"]}>
                                 <Button size="small">
-                                    已选 {selectedIds.length} 项
+                                    {t("home.selectedCount", { count: selectedIds.length })}
                                 </Button>
                             </Dropdown>
                         )}
@@ -404,10 +404,10 @@ export default function IndexPage() {
                             <img src="/logo-dark.png" alt="Logo" className="hidden size-6.5 object-contain opacity-80 dark:block" />
                         </div>
                         <h3 className="text-base font-medium text-stone-800 dark:text-stone-200">
-                            {searchKeyword ? "未找到符合条件的画布" : t("canvas.empty")}
+                            {searchKeyword ? t("home.searchEmptyTitle") : t("canvas.empty")}
                         </h3>
                         <p className="mt-1 max-w-sm text-xs text-stone-500">
-                            {searchKeyword ? "尝试更换关键字进行检索" : t("canvas.emptyDescription")}
+                            {searchKeyword ? t("home.searchEmptyHint") : t("canvas.emptyDescription")}
                         </p>
                         {!searchKeyword && (
                             <Button
@@ -433,12 +433,12 @@ export default function IndexPage() {
             <CanvasDeleteProjectsDialog />
 
             <Modal
-                title="扩展提示词编辑"
+                title={t("home.expandedEditorTitle")}
                 open={isExpanded}
                 onCancel={() => setIsExpanded(false)}
                 footer={[
                     <Button key="cancel" onClick={() => setIsExpanded(false)}>
-                        取消
+                        {t("common.cancel")}
                     </Button>,
                     <Button
                         key="submit"
@@ -447,7 +447,7 @@ export default function IndexPage() {
                             setIsExpanded(false);
                         }}
                     >
-                        确认
+                        {t("home.confirm")}
                     </Button>
                 ]}
                 width={800}
@@ -458,7 +458,7 @@ export default function IndexPage() {
                     <Input.TextArea
                         value={inputPrompt}
                         onChange={(e) => setInputPrompt(e.target.value)}
-                        placeholder="在这里输入更长、更详细的提示词..."
+                        placeholder={t("home.expandedEditorPlaceholder")}
                         autoSize={{ minRows: 12, maxRows: 24 }}
                         className="!bg-stone-50 dark:!bg-[#141413] !text-base"
                     />

@@ -78,6 +78,10 @@ export function startHttpServer() {
     app.get("/events", (req, res) => {
         session.openEvents(requestUrl(req, config), res, req.headers.origin || "");
     });
+    app.post("/shutdown", (req, res) => {
+        res.json({ ok: true });
+        shutdown();
+    });
     app.post("/canvas/state", (req, res) => {
         session.updateState(req.body, String(req.query.clientId || ""));
         res.json({ ok: true });
@@ -149,14 +153,14 @@ export function startHttpServer() {
         if (logger.enabled) console.log(`Debug log: ${logger.filePath}`);
         logger.info("Canvas Agent started", { url: config.url, debugLog: logger.filePath });
     });
-    const shutdown = () => { conversations.close(); session.close(); server.close(); process.exitCode = 0; };
+    const shutdown = () => { conversations.close(); session.close(); server.close(); process.exitCode = 0; setTimeout(() => process.exit(0), 2000).unref(); };
     process.once("SIGINT", shutdown);
     process.once("SIGTERM", shutdown);
     server.once("error", (error: NodeJS.ErrnoException) => {
         conversations.close();
         session.close();
         console.error(error.code === "EADDRINUSE"
-            ? `连接器启动失败：端口 ${port} 已被占用。请先在原连接器终端按 Ctrl+C 停止旧进程，再重新启动；网页目前仍连接旧进程，新代码尚未生效。`
+            ? `连接器启动失败：端口 ${port} 已被占用。请先停止旧进程（前台终端按 Ctrl+C，后台实例重新运行 install 命令），再重新启动；网页目前仍连接旧进程，新代码尚未生效。`
             : `连接器启动失败：${error.message}`);
         process.exitCode = 1;
     });

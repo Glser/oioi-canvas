@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Dropdown } from "antd";
 import type { MenuProps } from "antd";
 import { useTranslation } from "react-i18next";
+import i18n from "@/i18n";
 import { GlassFolder, type GlassFolderHandle } from "@/components/glass-folder/GlassFolder";
 import { useThemeStore } from "@/stores/use-theme-store";
 
@@ -192,7 +193,8 @@ export function CanvasProjectCard({ project }: { project: CanvasProject }) {
             onClick={() => !editing && open()}
         >
             <div className="relative w-full" ref={folderHost}>
-                <GlassFolder ref={folderRef} options={{ id: project.id, label: project.title, meta: `${files.length} 个元素`, tone: theme, renamable: true,
+                <GlassFolder ref={folderRef} options={{ id: project.id, label: project.title, meta: t("canvas.project.elementCount", { count: files.length }), tone: theme, renamable: true,
+                    openLabel: t("canvas.project.openCanvas", { name: project.title }), elementsLabel: t("canvas.project.elementCount", { count: files.length }),
                     coverUrl: resolvedUrl, coverType: coverMeta?.type, files, onOpen: () => open(),
                     onRename: (label) => renameProject(project.id, label) }} />
 
@@ -238,7 +240,7 @@ export function CanvasProjectCard({ project }: { project: CanvasProject }) {
                             <button
                                 type="button"
                                 className="flex size-6.5 items-center justify-center rounded-lg border border-white/60 bg-white/85 text-stone-800 shadow-[inset_0_1px_0_#fff,inset_0_-2px_4px_rgba(0,0,0,.06),0_6px_14px_-6px_rgba(0,0,0,.3)] backdrop-blur-md transition hover:bg-white active:scale-95 dark:border-white/15 dark:bg-white/15 dark:text-stone-100 dark:shadow-[inset_0_1px_0_rgba(255,255,255,.2),0_6px_14px_-6px_rgba(0,0,0,.55)] dark:hover:bg-white/25"
-                                aria-label="更多操作"
+                                aria-label={t("canvas.project.moreActions")}
                             >
                                 <MoreVertical className="size-3.5" />
                             </button>
@@ -260,7 +262,7 @@ export function CanvasProjectCard({ project }: { project: CanvasProject }) {
 
 
 function getFileTypeLabel(type: string) {
-    return ({ image: "图片", video: "视频", audio: "音频", text: "文本", config: "生成配置" } as Record<string, string>)[type] || "元素";
+    return ({ image: i18n.t("canvas.nodeTypes.image"), video: i18n.t("canvas.nodeTypes.video"), audio: i18n.t("canvas.nodeTypes.audio"), text: i18n.t("canvas.nodeTypes.text"), config: i18n.t("canvas.nodeTypes.config") } as Record<string, string>)[type] || i18n.t("canvas.project.element");
 }
 
 // blob: URL 只在创建它的页面会话内有效，刷新后是死链；用作图片源会在加载失败时露出黑底。

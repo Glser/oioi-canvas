@@ -20,6 +20,7 @@ import { useThemeStore } from "@/stores/use-theme-store";
 import { cropDataUrl, splitDataUrl, upscaleDataUrl } from "@/lib/canvas/canvas-image-data";
 import { fitNodeSize, nodeSizeFromRatio } from "@/lib/canvas/canvas-node-size";
 import { captureVideoFrame, type VideoFramePosition } from "@/lib/canvas/canvas-video-frame";
+import { generatedDownloadName } from "@/lib/download-name";
 import { App, Button, Modal } from "antd";
 import { NODE_DEFAULT_SIZE, getNodeSpec } from "@/constant/canvas";
 import { ActiveConnectionPath, ConnectionPath } from "@/components/canvas/canvas-connections";
@@ -1474,7 +1475,8 @@ function InfiniteCanvasPage() {
 
     const createImageFileNode = useCallback(async (file: File, position: Position) => {
         const image = await uploadImage(file);
-        const size = fitNodeSize(image.width, image.height);
+        const imageSpec = NODE_DEFAULT_SIZE[CanvasNodeType.Image];
+        const size = fitNodeSize(image.width, image.height, imageSpec.width, imageSpec.height);
         const id = `image-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
         const newNode: CanvasNodeData = {
             id,
@@ -1793,13 +1795,15 @@ function InfiniteCanvasPage() {
 
     const downloadNodeImage = useCallback((node: CanvasNodeData) => {
         if ((node.type !== CanvasNodeType.Image && node.type !== CanvasNodeType.Video && node.type !== CanvasNodeType.Audio) || !node.metadata?.content) return;
-        saveAs(node.metadata.content, `canvas-${node.type}-${node.id}.${node.type === CanvasNodeType.Video ? "mp4" : node.type === CanvasNodeType.Audio ? audioExtension(node.metadata.mimeType) : imageExtension(node.metadata.content)}`);
+        const kind = node.type === CanvasNodeType.Video ? "video" : node.type === CanvasNodeType.Audio ? "voice" : "image";
+        const extension = node.type === CanvasNodeType.Video ? "mp4" : node.type === CanvasNodeType.Audio ? audioExtension(node.metadata.mimeType) : imageExtension(node.metadata.content);
+        saveAs(node.metadata.content, generatedDownloadName(kind, extension));
     }, []);
 
     const downloadBatchImage = useCallback((node: CanvasNodeData, imageId: string) => {
         const image = node.metadata?.images?.find((item) => item.id === imageId);
         if (!image?.content) return;
-        saveAs(image.content, `canvas-image-${node.id}-${image.id}.${imageExtension(image.content)}`);
+        saveAs(image.content, generatedDownloadName("image", imageExtension(image.content)));
     }, []);
 
     const captureVideoNodeFrame = useCallback(
@@ -2058,7 +2062,8 @@ function InfiniteCanvasPage() {
         setUpscaleNodeId(null);
         const upscaled = await upscaleDataUrl(node.metadata.content, params);
         const image = await uploadImage(upscaled);
-        const size = fitNodeSize(image.width, image.height);
+        const imageSpec = NODE_DEFAULT_SIZE[CanvasNodeType.Image];
+        const size = fitNodeSize(image.width, image.height, imageSpec.width, imageSpec.height);
         const childId = nanoid();
         const child: CanvasNodeData = {
             id: childId,
@@ -2209,7 +2214,8 @@ function InfiniteCanvasPage() {
                     setSelectedConnectionId(null);
                 } else {
                     const image = await uploadImage(first);
-                    const s = fitNodeSize(image.width, image.height);
+                    const imageSpec = NODE_DEFAULT_SIZE[CanvasNodeType.Image];
+                    const s = fitNodeSize(image.width, image.height, imageSpec.width, imageSpec.height);
                     setNodes((prev) =>
                         prev.map((node) =>
                             node.id === target.nodeId
@@ -2962,7 +2968,8 @@ function InfiniteCanvasPage() {
             const storedImage = image.storageKey ? { url: image.dataUrl, storageKey: image.storageKey, width: 1, height: 1, bytes: 0, mimeType: "image/png" } : await uploadImage(image.dataUrl);
             await ensureImagePreview(storedImage.storageKey);
             const meta = storedImage.width === 1 && storedImage.height === 1 ? await readImageMeta(storedImage.url) : storedImage;
-            const config = fitNodeSize(meta.width, meta.height);
+            const imageSpec = NODE_DEFAULT_SIZE[CanvasNodeType.Image];
+            const config = fitNodeSize(meta.width, meta.height, imageSpec.width, imageSpec.height);
             const center = screenToCanvas((containerRef.current?.getBoundingClientRect().left || 0) + size.width / 2, (containerRef.current?.getBoundingClientRect().top || 0) + size.height / 2);
             const id = `image-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
             const node: CanvasNodeData = {

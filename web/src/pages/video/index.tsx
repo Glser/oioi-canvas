@@ -30,6 +30,7 @@ import { PromptSelectDialog } from "@/components/prompts/prompt-select-dialog";
 import { normalizeVideoResolutionValue, normalizeVideoSizeValue } from "@/components/video-settings-panel";
 import { clampVideoSeconds } from "@/lib/media-size";
 import { formatBytes, formatDuration } from "@/lib/image-utils";
+import { generatedDownloadName } from "@/lib/download-name";
 import { deleteStoredMedia, resolveMediaUrl } from "@/services/file-storage";
 import { resolveImageUrl, ensureImagePreview, getImagePreviewRevision, previewUrlFor, subscribeImagePreviews, uploadImage } from "@/services/image-storage";
 import { createVideoGenerationTask, pollVideoGenerationTask, storeGeneratedVideo, type VideoGenerationTask } from "@/services/api/video";
@@ -89,6 +90,8 @@ export default function VideoPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const dragDepthRef = useRef(0);
     const activeLogIdsRef = useRef<Set<string>>(new Set());
+    // 提示词在开始生成后清空，失败重试从这里取回当时的请求快照
+    const lastSnapshotRef = useRef<{ text: string; config: AiConfig; references: ReferenceImage[] } | null>(null);
     const theme = useThemeStore((state) => state.theme);
     const appearance = useMemo(() => getWorkbenchAppearance(theme === "dark"), [theme]);
     const effectiveConfig = useEffectiveConfig();
@@ -144,14 +147,16 @@ export default function VideoPage() {
         setReferences((value) => [...value, ...nextReferences].slice(0, 7));
     };
 
-    const generate = async () => {
+    const generate = async (retrySnapshot?: { text: string; config: AiConfig; references: ReferenceImage[] }) => {
         const agentTaskId = agentTaskIdRef.current;
         agentTaskIdRef.current = undefined;
-        const snapshot = buildRequestSnapshot();
+        const snapshot = retrySnapshot || buildRequestSnapshot();
         if (!snapshot) {
             if (agentTaskId) updateAgentTask(agentTaskId, { status: "failed", error: t("videoWorkbench.invalidParams") });
             return;
         }
+        // 提示词随生成一起"提交"：开始后清空输入框，快照留给失败重试
+        if (!retrySnapshot) setPrompt("");
         setElapsedMs(0);
         setRunning(true);
         if (agentTaskId) updateAgentTask(agentTaskId, { status: "running", error: undefined });
@@ -159,6 +164,7 @@ export default function VideoPage() {
         setResults([{ id: nanoid(), status: "pending" }]);
         const batchStartedAt = performance.now();
         setStartedAt(batchStartedAt);
+        lastSnapshotRef.current = snapshot;
         try {
             const task = await createVideoGenerationTask(snapshot.config, snapshot.text, snapshot.references);
             const log = buildLog({ prompt: snapshot.text, model, config: snapshot.config, references: snapshot.references, durationMs: 0, status: "pending", task });
@@ -211,11 +217,12 @@ export default function VideoPage() {
     };
 
     const retryResult = () => {
-        void generate();
+        // 提示词已随生成清空，失败重试沿用保存的请求快照
+        void generate(lastSnapshotRef.current || undefined);
     };
 
     const downloadVideo = (video: GeneratedVideo) => {
-        saveAs(video.url, "video.mp4");
+        saveAs(video.url, generatedDownloadName("video", "mp4"));
     };
 
     const saveResultToAssets = (video: GeneratedVideo) => {
@@ -520,7 +527,7 @@ function PendingVideoCard() {
 
 function FailedVideoCard({ error, onRetry }: { error: string; onRetry: () => void }) {
     const { t } = useTranslation();
-    return <div className={styles.failed} style={{ aspectRatio: "16 / 9" }} role="alert"><Typography.Text type="danger">{t("workbench.failed")}</Typography.Text><Typography.Paragraph ellipsis={{ rows: 4, expandable: true }} type="secondary">{error}</Typography.Paragraph><Button onClick={onRetry}>{t("workbench.retry")}</Button></div>;
+    return <div className={styles.failed} role="alert"><Typography.Text type="danger">{t("workbench.failed")}</Typography.Text><Typography.Paragraph ellipsis={{ rows: 4, expandable: true }} type="secondary">{error}</Typography.Paragraph><Button onClick={onRetry}>{t("workbench.retry")}</Button></div>;
 }
 
 function LogPanel({

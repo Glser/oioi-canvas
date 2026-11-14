@@ -27,6 +27,8 @@ export function AgentChatView() {
         : conversation?.status === "waiting" ? "waiting"
         : running ? currentItem?.status === "completed" ? "thinking" : currentItem?.role === "assistant" ? "writing" : currentItem?.role === "tool" ? "analyzing" : "thinking"
         : error || conversation?.status === "error" ? "error" : "done";
+    // 工具执行中时，消息流里的工具摘要行已带转圈图标和执行状态，底部状态行不再重复占一行
+    const toolRunning = running && conversation?.status !== "waiting" && currentItem?.role === "tool" && currentItem?.status === "inProgress";
     useEffect(() => {
         if (submitting) follow.current = true;
         if (follow.current && scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight;
@@ -48,13 +50,12 @@ export function AgentChatView() {
             <div ref={scroll} onScroll={() => { const el = scroll.current; if (el) follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48; }} className="thin-scrollbar min-h-0 min-w-0 w-full flex-1 overflow-y-auto pl-4 pr-6 pb-4">
                 {!conversation?.messages.length && !pending ? <div className="pb-8 pt-2"><h3 className="text-base font-medium">{t("agent.conversation.emptyTitle")}</h3><p className="mt-2 text-sm leading-6" style={{ color: token.colorTextSecondary }}>{t("agent.conversation.emptyText")}</p></div> : null}
                 <AgentMessages />
-                {busy || conversation?.messages.length || error || conversation?.error ? <AiStatus
+                {!toolRunning && (busy || conversation?.messages.length || error || conversation?.error) ? <AiStatus
                     key={`${projectId}:${conversation?.threadId || ""}`}
                     className="mt-3 ml-7 max-w-[calc(100%-1.75rem)]"
                     state={activity}
                     states={{ waiting: { active: true } }}
                     label={connecting ? t("agent.conversation.connecting") : activity === "waiting" ? t("agent.conversation.waiting") : undefined}
-                    detail={running && currentItem?.role === "tool" ? currentItem.text : undefined}
                     shimmer={busy && activity !== "waiting"}
                     timer={!connecting}
                 /> : null}

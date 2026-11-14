@@ -30,12 +30,13 @@ export function AgentConnectView({ onToggleEnabled }: { onToggleEnabled: (option
     const online = connected;
     const runtime = catalog?.runtimes.find((runtime) => runtime.id === runtimeId);
     const runtimeName = AGENT_RUNTIME_BRANDS[runtimeId].name;
-    const instructions = localConnectorInstructions(runtimeName);
     const ready = Boolean(conversation?.threadId) && conversation?.status !== "error";
     const waiting = serviceStatus === "running" && !connectError && !bootstrapFailed;
     const banner = !connected
         ? waiting ? "connecting" : serviceStatus === "checking" || serviceStatus === "idle" ? "checking" : "offline"
         : detecting || connecting ? "detecting" : runtime?.status === "missing" ? "missing" : info?.runtimeId === runtimeId && info.status === "needsAuth" ? "login" : ready ? "" : "error";
+    // 主提示词通用（连接器自动发现所有 Agent）；仅在针对当前运行时的状态时附加备注
+    const instructions = localConnectorInstructions(banner === "missing" || banner === "login" ? runtimeName : undefined);
     const busy = banner === "checking" || banner === "connecting" || banner === "detecting";
 
     useEffect(() => {

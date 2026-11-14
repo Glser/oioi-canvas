@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { Slider } from "radix-ui";
+import i18n from "@/i18n";
 import { createEffortMotion } from "./effort-slider-motion.js";
 import styles from "./effort-slider.module.css";
 
@@ -109,7 +110,7 @@ export function EffortSlider({ stops, value, onValueChange, disabled }: Props) {
                 <div className={styles.dots} aria-hidden="true">{stops.map((stop) => <span key={stop.value} />)}</div>
                 <span className={styles.thumb} aria-hidden="true" />
             </Slider.Track>
-            <Slider.Thumb className={styles.inputThumb} aria-label="推理强度" aria-valuemin={0} aria-valuemax={max} aria-valuenow={selected} aria-valuetext={stops[selected]?.label} />
+            <Slider.Thumb className={styles.inputThumb} aria-label={i18n.t("settingsPanels.text.reasoning")} aria-valuemin={0} aria-valuemax={max} aria-valuenow={selected} aria-valuetext={stops[selected]?.label} />
         </Slider.Root>
         <div className={styles.stops} style={{ gridTemplateColumns: `repeat(${stops.length}, minmax(0, 1fr))` } as CSSProperties}>
             {stops.map((stop, index) => <button key={stop.value} type="button" disabled={disabled} aria-pressed={selected === index} onClick={() => commit(index)}>{stop.label}</button>)}

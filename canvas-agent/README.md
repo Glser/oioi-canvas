@@ -2,21 +2,23 @@
 
 通过 npm CLI 将同一台电脑上的 Flow 网页接到本地 Codex / Claude Code：网页承接对话，本地服务管理原生会话，画布操作继续使用 stdio MCP。无需桌面安装包，也不在网页重建 Agent 推理循环。
 
-> 0.8.0 使用网页协议 13，支持 Codex 与 Claude Code 网页对话。升级后请停止旧连接器进程，再通过下方 npm 命令重新启动。
+> 0.9.0 使用网页协议 13，新增 `install` / `uninstall` 子命令：一次安装注册登录自启并后台运行，重启电脑后网页自动重连。升级后运行一次 `npx -y @oioi-npm/canvas-agent@latest install --origin <网页地址>` 即可。
 
 ## 使用方式
 
 已有本地 Agent 的用户只需准备 Node.js，并在允许 Agent 操作的工作目录中启动连接器。CLI 会自动检测现有程序，不需要填写 Agent 安装路径、重新录入模型或手动注册受管 MCP：
 
 ```bash
-npx -y @oioi-npm/canvas-agent@latest --origin <网页地址>
-# 例如：npx -y @oioi-npm/canvas-agent@latest --origin http://localhost:3100
+npx -y @oioi-npm/canvas-agent@latest install --origin <网页地址>
+# 例如：npx -y @oioi-npm/canvas-agent@latest install --origin http://localhost:3100
 ```
+
+`install` 会注册系统登录自启（Windows 启动文件夹 / macOS LaunchAgent / Linux autostart）并立即在后台启动连接器，只需执行一次；之后开机自动运行，打开网页即自动连接。移除时运行 `npx -y @oioi-npm/canvas-agent@latest uninstall`。不带子命令直接运行仍为前台模式，适合临时使用或排查。
 
 仅缺少运行时时才需要安装：Codex 使用 `npm install -g @openai/codex`，Claude Code 使用 `npm install -g @anthropic-ai/claude-code`。已有可用本机配置无需重新录入；原生运行时报告需要认证时，再在本机完成登录或凭证配置。Windows PowerShell 可使用 `npm.cmd` / `npx.cmd`。连接器要求 Node.js 18.14 或更新版本；旧 CLI 缺少原生接口时需升级。
 
-1. 在网页点击「复制连接说明」，发给这台电脑上的 Codex 或 Claude Code，由它检查环境、协助启动连接器并保持运行；需要登录或授权时按提示完成。说明内包含带当前网页 `--origin` 的命令与所需协议版本，不需要用户填写地址、Token 或配对码。进程结束会断开连接，当前没有后台常驻；发布版协议不兼容时需明确报告，不能视为连接成功。
-2. 网页检测到连接器后自动接入本机 Agent。后续只要再次启动连接器即可恢复；手动断开会暂停自动重连。
+1. 在网页点击「复制连接说明」，发给这台电脑上的 Codex 或 Claude Code，由它检查环境并执行一次 install 命令；需要登录或授权时按提示完成。说明内包含带当前网页 `--origin` 的命令与所需协议版本，不需要用户填写地址、Token 或配对码。install 会注册开机自启并在后台启动连接器，执行成功后无需保持终端；发布版协议不兼容时需明确报告，不能视为连接成功。
+2. 网页检测到连接器后自动接入本机 Agent。已 install 的机器重启后连接器自动在后台运行，网页打开即自动连接；手动断开会暂停自动重连。
 3. 连接后可在首页、生图、视频、提示词、素材、配置及画布页打开 Agent 侧栏，共用同一组对话、会话历史和工作目录；切页不清空输入或中断当前会话。在首页输入需求仍会先创建画布，待目标画布就绪后再提交。
 4. 在 Agent 侧栏继续对话、查看工具进展、回答问题、允许或拒绝操作、停止当前执行。每轮提交绑定当时的画布，执行期间切换画布不会把工具操作转到新画布；无画布时仍可对话和使用站点工具。连接服务与 Codex 会话状态分开显示。
 
@@ -32,7 +34,7 @@ Claude 通过官方 Agent SDK 调用本机 PATH 中的 CLI，加载 user / proje
 - Codex 和 Claude Code 具有网页执行适配；其他运行时即便已安装，也明确显示「尚未适配」。不会静默安装或升级第三方工具。
 - 在创建对话前即可通过原生接口读取本地配置、模型目录、Skills 和 MCP；网页不显示账号内容、API Key、Token、环境变量或原始配置对象。
 - 默认「跟随 Runtime」不覆盖当前模型/推理参数。模型与推理强度选项来自原生目录，当前自定义模型即便不在目录也保留显示；目录失败不猜测其他模型。网页选择随下一轮提交传给 Codex，只作用于该会话，不写全局配置。
-- 网页协议为 13；前台进程、首次授权和原生认证仍然是必要条件，目前没有后台 daemon 或所有 Agent 的执行接入。
+- 网页协议为 13；首次授权和原生认证仍然是必要条件。后台模式由 `install` 注册的登录自启项维护，原生执行接入仅支持已适配运行时。
 
 ## 会话、目标与历史
 

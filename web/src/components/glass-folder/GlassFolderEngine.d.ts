@@ -4,6 +4,8 @@ export type GlassFolderOptions = MotionOptions & {
     id?: string;
     label?: string;
     meta?: string;
+    openLabel?: string;
+    elementsLabel?: string;
     tone?: "light" | "dark";
     renamable?: boolean;
     coverUrl?: string;

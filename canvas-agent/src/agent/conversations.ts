@@ -1,7 +1,8 @@
 import crypto from "node:crypto";
 import fs from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { AjvJsonSchemaValidator } from "@modelcontextprotocol/sdk/validation/ajv";
 import type { CanvasSession } from "../canvas/session.js";
 import { startCodex, type AgentTransport, type AgentTransportFactory, type RpcParams } from "./codex-rpc.js";
@@ -141,9 +142,10 @@ export class AgentConversations {
             const account = await rpc.request("account/read", { refreshToken: false });
             if (!account.account && account.requiresOpenaiAuth !== false) throw new Error(runtime.record.runtimeId === "claude" ? "Claude Code 尚未认证，请在本机终端完成 Claude Code 登录或配置后重新连接" : "Codex 尚未登录，请在本机终端运行 codex login 后重新连接");
             const entry = fileURLToPath(new URL(import.meta.url.endsWith(".ts") ? "../index.ts" : "../index.js", import.meta.url));
+            const args = [...(import.meta.url.endsWith(".ts") ? ["--import", pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href] : []), entry, "mcp"];
             const params = {
                 cwd: runtime.record.cwd,
-                config: { "mcp_servers.oioi-canvas": { command: process.execPath, args: [...process.execArgv, entry, "mcp"], env: { OIOI_CANVAS_SESSION: runtime.bindingId }, enabled: true } },
+                config: { "mcp_servers.oioi-canvas": { command: process.execPath, args, env: { OIOI_CANVAS_SESSION: runtime.bindingId }, enabled: true } },
             };
             let resuming = Boolean(runtime.record.threadId);
             let session: RpcParams;

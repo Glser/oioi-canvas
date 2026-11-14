@@ -472,7 +472,7 @@ export function normalizeModelOptionValue(value: string | undefined, channels: M
 export function resolveModelChannel(config: AiConfig, value: string) {
     if (NEW_API_ENABLED) {
         const matched = findChannelModel(config, value);
-        if (!matched || matched.channel.id !== NEW_API_CHANNEL_ID) throw new Error("该模型不在当前账户的可用列表中，请重新选择");
+        if (!matched || matched.channel.id !== NEW_API_CHANNEL_ID) throw new Error(i18n.t("account.errors.modelNotInAccount"));
         return matched.channel;
     }
     const decoded = decodeChannelModel(value);
@@ -484,15 +484,15 @@ export function resolveModelChannel(config: AiConfig, value: string) {
 export function resolveModelRequestConfig(config: AiConfig, value: string, capability?: ModelCapability): AiConfig {
     if (NEW_API_ENABLED) {
         const state = useNewApiStore.getState();
-        if (state.status !== "ready" || !state.session || config.newApiUserId !== state.session.user.id || config.newApiSessionId !== state.session.session.sid) throw new Error("登录状态已变化，请重新选择模型后再试");
+        if (state.status !== "ready" || !state.session || config.newApiUserId !== state.session.user.id || config.newApiSessionId !== state.session.session.sid) throw new Error(i18n.t("account.errors.loginStateChanged"));
         const name = modelOptionName(value);
         const effective = buildEffectiveConfig(config, state);
         const model = effective.channels[0].models.find((item) => item.name === name);
-        if (!model) throw new Error("该模型当前不可用，请重新选择");
-        if (capability && model.capability !== capability) throw new Error("所选模型不支持当前生成类型，请重新选择");
+        if (!model) throw new Error(i18n.t("account.errors.modelUnavailable"));
+        if (capability && model.capability !== capability) throw new Error(i18n.t("account.errors.modelCapabilityMismatch"));
         return { ...config, model: name, baseUrl: NEW_API_BASE_URL, apiKey: state.apiKey, apiFormat: model.apiFormat || "openai", textEndpoint: model.textEndpoint };
     }
-    if (capability && !modelMatchesCapability(config, value, capability)) throw new Error("所选模型不支持当前生成类型，请重新选择");
+    if (capability && !modelMatchesCapability(config, value, capability)) throw new Error(i18n.t("account.errors.modelCapabilityMismatch"));
     const channel = resolveModelChannel(config, value);
     return {
         ...config,

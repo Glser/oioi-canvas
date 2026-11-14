@@ -208,14 +208,14 @@ export function CanvasNodePromptPanel({
                         ))}
 
                         {/* + Button */}
-                        <Tooltip title="上传本地参考图">
+                        <Tooltip title={t("canvas.references.uploadLocal")}>
                             <Button
                                 type="text"
                                 className="!h-7 !w-7 !min-w-7 !rounded-lg !bg-transparent !p-0 opacity-60 hover:opacity-100 hover:!bg-black/5 dark:hover:!bg-white/10 transition-colors"
                                 style={{ color: theme.node.text }}
                                 icon={<Plus className="size-4" />}
                                 onClick={() => fileInputRef.current?.click()}
-                                aria-label="上传本地参考图"
+                                aria-label={t("canvas.references.uploadLocal")}
                             />
                         </Tooltip>
                     </div>
@@ -414,12 +414,12 @@ function CompactReferenceThumb({
                             <img src={thumbnail} alt="" className="max-h-64 max-w-72 rounded-xl object-contain block shadow-lg" />
                             {/* Floating title at bottom-left: no black background, clean direct text on hover */}
                             <div className="absolute bottom-1.5 left-2 right-2 text-white text-[11px] font-medium leading-tight truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] opacity-0 group-hover/preview:opacity-100 transition-opacity duration-200 pointer-events-none">
-                                {node.title || "参考内容"}
+                                {node.title || t("canvas.references.fallbackTitle")}
                             </div>
                         </div>
                     ) : (
                         <div className="px-3 py-2 rounded-xl bg-white/90 dark:bg-stone-900/90 text-stone-800 dark:text-stone-100 text-xs font-medium shadow-md">
-                            {node.title || "参考内容"}
+                            {node.title || t("canvas.references.fallbackTitle")}
                         </div>
                     )}
                 </div>
@@ -438,10 +438,10 @@ function CompactReferenceThumb({
                 {/* Subtle border overlay */}
                 <div className="absolute inset-0 rounded-lg ring-1 ring-inset ring-black/10 dark:ring-white/10 pointer-events-none" />
                 {/* Remove button on hover */}
-                <Tooltip title="移除参考">
+                <Tooltip title={t("canvas.references.remove")}>
                     <button
                         type="button"
-                        aria-label="移除参考"
+                        aria-label={t("canvas.references.remove")}
                         onClick={(e) => {
                             e.stopPropagation();
                             onRemove();

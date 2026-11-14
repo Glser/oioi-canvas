@@ -1,5 +1,6 @@
 import { create } from "zustand";
 
+import i18n from "@/i18n";
 import { NEW_API_ENABLED } from "@/constant/env";
 import { createNewApiAutoToken, fetchNewApiModels, fetchNewApiStatus, findNewApiAutoToken, getNewApiAutoGroups, logoutNewApiSession, NewApiError, normalizeNewApiDocsLink, readNewApiTokenKey, refreshNewApiSession, type NewApiModel, type NewApiSession, type NewApiToken } from "@/services/api/newapi";
 
@@ -41,7 +42,7 @@ async function obtainToken(session: NewApiSession, signal: AbortSignal) {
             await createNewApiAutoToken(session, { unlimited_quota: true, expired_time: -1, remain_quota: 0 }, signal);
             token = await findNewApiAutoToken(session, signal);
         }
-        if (!token) throw new Error("未取得可用的 auto 令牌，请在账户中心检查后重新获取");
+        if (!token) throw new Error(i18n.t("account.errors.autoTokenMissing"));
         const apiKey = await readNewApiTokenKey(session, token.id, signal);
         const models = await fetchNewApiModels(apiKey, session, signal);
         return { token, apiKey, models };
@@ -84,7 +85,7 @@ export const useNewApiStore = create<NewApiStore>((set, get) => ({
             try {
                 const session = await refreshNewApiSession(currentSession?.session.sid, identityController.signal);
                 if (currentRevision !== revision) return;
-                if (!session?.access_token || !session.session?.sid || !session.user?.id || !Number.isFinite(session.access_expires_at)) throw new Error("登录会话格式异常，请检查 New API 版本");
+                if (!session?.access_token || !session.session?.sid || !session.user?.id || !Number.isFinite(session.access_expires_at)) throw new Error(i18n.t("account.errors.sessionInvalid"));
                 sessionRestored = true;
                 if (currentSession && (currentSession.user.id !== session.user.id || currentSession.session.sid !== session.session.sid)) {
                     resetIdentity();
@@ -99,10 +100,10 @@ export const useNewApiStore = create<NewApiStore>((set, get) => ({
                 if (currentRevision !== revision) return;
                 if (error instanceof NewApiError && error.status === 401 && !sessionRestored) {
                     resetIdentity();
-                    set({ status: "anonymous", error: "登录已失效，请重新登录" });
+                    set({ status: "anonymous", error: i18n.t("account.errors.loginExpired") });
                 } else {
                     if (error instanceof NewApiError && error.code === "AUTH_SESSION_MISMATCH") resetIdentity();
-                    set({ status: "error", token: null, apiKey: "", models: [], error: error instanceof Error ? error.message : "账户连接失败，请重试" });
+                    set({ status: "error", token: null, apiKey: "", models: [], error: error instanceof Error ? error.message : i18n.t("account.errors.connectFailed") });
                 }
                 throw error;
             }
@@ -115,7 +116,7 @@ export const useNewApiStore = create<NewApiStore>((set, get) => ({
         if (!NEW_API_ENABLED) return;
         const state = get();
         if (state.status !== "ready" || !state.session || state.session.access_expires_at * 1000 <= Date.now()) await get().connect();
-        if (get().status !== "ready") throw new Error(get().error || "请先登录账户");
+        if (get().status !== "ready") throw new Error(get().error || i18n.t("account.errors.loginRequired"));
     },
     logout: () => {
         if (signingOut) return signingOut;
@@ -132,7 +133,7 @@ export const useNewApiStore = create<NewApiStore>((set, get) => ({
                 set({ status: "anonymous", error: "" });
             } catch (error) {
                 if (error instanceof NewApiError && error.code === "AUTH_SESSION_MISMATCH") resetIdentity();
-                set({ status: "error", error: error instanceof Error ? error.message : "退出失败，请重试" });
+                set({ status: "error", error: error instanceof Error ? error.message : i18n.t("account.errors.logoutFailed") });
                 throw error;
             }
         })();

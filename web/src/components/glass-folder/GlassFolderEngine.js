@@ -386,8 +386,8 @@ function makeFolder(host,initial){
     if(!titleEl.isContentEditable)titleEl.textContent=settings.label;
     titleEl.toggleAttribute('data-editable',!!settings.renamable&&!editing());
     q('.gf-meta').textContent=settings.meta??`${settings.files.length} 个元素`;
-    hit.setAttribute('aria-label',`打开画布：${settings.label}`);
-    filesNode.setAttribute('aria-label',`${settings.label}的画布元素`);
+    hit.setAttribute('aria-label',settings.openLabel??`打开画布：${settings.label}`);
+    filesNode.setAttribute('aria-label',settings.elementsLabel??`${settings.label}的画布元素`);
     const key=`${settings.coverType||'image'}:${settings.coverUrl||''}`;
     if(key!==backgroundKey||!background){
       background?.remove();backgroundKey=key;

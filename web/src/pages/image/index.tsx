@@ -11,7 +11,8 @@ import styles from "@/components/layout/workbench.module.css";
 import resultStyles from "./image-results.module.css";
 import { ImageDetailModal } from "@/components/image-detail-modal";
 import { getWorkbenchAppearance } from "@/lib/app-theme";
-import { getGenerationCount } from "@/lib/canvas/canvas-generation-helpers";
+import { getGenerationCount, imageExtension } from "@/lib/canvas/canvas-generation-helpers";
+import { generatedDownloadName } from "@/lib/download-name";
 import { imageModelSettings } from "@/lib/image-model-settings";
 import { PromptSelectDialog } from "@/components/prompts/prompt-select-dialog";
 import { AssetPickerModal, type InsertAssetPayload } from "@/components/canvas/asset-picker-modal";
@@ -80,6 +81,8 @@ export default function ImagePage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const galleryRef = useRef<HTMLElement>(null);
     const revealingImageIdsRef = useRef(new Set<string>());
+    // 提示词在开始生成后清空，重试失败卡片时从这里取回当时的请求快照
+    const slotSnapshotsRef = useRef(new Map<string, { text: string; config: AiConfig; references: ReferenceImage[] }>());
     const dragDepthRef = useRef(0);
     const theme = useThemeStore((state) => state.theme);
     const appearance = useMemo(() => getWorkbenchAppearance(theme === "dark"), [theme]);
@@ -173,12 +176,16 @@ export default function ImagePage() {
             return;
         }
 
+        setPrompt("");
         setElapsedMs(0);
         setRunning(true);
         if (agentTaskId) updateAgentTask(agentTaskId, { status: "running", error: undefined });
         setPreviewLog(null);
         galleryRef.current?.scrollTo({ top: 0 });
+        // 旧失败卡片会随本次生成被丢弃，其重试快照一并清掉（成功槽位的快照在上传完成时已删除）
+        slotSnapshotsRef.current.clear();
         const slots: GenerationResult[] = Array.from({ length: generationCount }, () => ({ id: nanoid(), status: "pending" }));
+        slots.forEach((slot) => slotSnapshotsRef.current.set(slot.id, snapshot));
         setResults((value) => [...slots, ...value.filter((item) => item.status === "success")]);
         const batchStartedAt = performance.now();
         setStartedAt(batchStartedAt);
@@ -235,8 +242,8 @@ export default function ImagePage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [autoRunToken]);
 
-    const downloadImage = (image: GeneratedImage, index: number) => {
-        saveAs(image.dataUrl, `image-${index + 1}.png`);
+    const downloadImage = (image: GeneratedImage, _index: number) => {
+        saveAs(image.dataUrl, generatedDownloadName("image", imageExtension(image.dataUrl)));
     };
 
     const addResultToReferences = async (image: GeneratedImage, index: number) => {
@@ -375,6 +382,7 @@ export default function ImagePage() {
             const stored = await uploadImage(image.dataUrl);
             const nextImage: GeneratedImage = { id: image.id, dataUrl: stored.url, ...(stored.storageKey ? { storageKey: stored.storageKey } : {}), durationMs: performance.now() - itemStartedAt, width: stored.width, height: stored.height, bytes: stored.bytes, mimeType: stored.mimeType, prompt: snapshot.text, model: snapshot.config.model, quality: snapshot.config.quality, generationType: snapshot.references.length ? "图生图" : "文生图" };
             revealingImageIdsRef.current.add(nextImage.id);
+            slotSnapshotsRef.current.delete(id);
             setResults((value) => updateResult(value, id, { status: "success", image: nextImage }));
             return nextImage;
         } catch (error) {
@@ -385,7 +393,8 @@ export default function ImagePage() {
 
     const retryResult = async (id: string) => {
         if (running) return;
-        const snapshot = buildRequestSnapshot();
+        // 提示词已随生成清空，失败卡片重试沿用保存的请求快照
+        const snapshot = slotSnapshotsRef.current.get(id) || buildRequestSnapshot();
         if (!snapshot) return;
         setPreviewLog(null);
         setRunning(true);

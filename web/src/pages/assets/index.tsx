@@ -286,7 +286,7 @@ export default function AssetsPage() {
                                 setPageSize(nextPageSize);
                             }}
                         />
-                        <Select aria-label={<span>t("assets.pageSize")</span>} className="w-28" value={pageSize} options={pageSizeOptions.map((value) => ({ value, label: t("assets.itemsPerPage", { count: value }) }))} onChange={setPageSize} />
+                        <Select aria-label={t("assets.pageSize")} className="w-28" value={pageSize} options={pageSizeOptions.map((value) => ({ value, label: t("assets.itemsPerPage", { count: value }) }))} onChange={setPageSize} />
                     </div>
                 </div>
                 </div>
@@ -295,7 +295,7 @@ export default function AssetsPage() {
             <Modal title={editingAsset ? t("assets.edit") : t("assets.add")} open={isAssetOpen} width={980} onCancel={() => setIsAssetOpen(false)} onOk={() => void saveAsset()} okText={t("common.save")} cancelText={t("common.cancel")} destroyOnHidden>
                 <div className="grid gap-6 pt-1 lg:grid-cols-[minmax(0,1fr)_320px]">
                     <Form form={form} layout="vertical" requiredMark={false} initialValues={{ kind: "text", tags: [] }}>
-                        <Form.Item name="kind" label={<span>t("assets.type")</span>}>
+                        <Form.Item name="kind" label={<span>{t("assets.type")}</span>}>
                             <Select<AssetKind>
                                 options={[
                                     { label: t("assets.kinds.text"), value: "text" },
@@ -304,10 +304,10 @@ export default function AssetsPage() {
                                 onChange={(value) => setFormKind(value)}
                             />
                         </Form.Item>
-                        <Form.Item name="title" label={<span>t("assets.fields.title")</span>} rules={[{ required: true, message: t("assets.fields.titleRequired") }]}>
+                        <Form.Item name="title" label={<span>{t("assets.fields.title")}</span>} rules={[{ required: true, message: t("assets.fields.titleRequired") }]}>
                             <Input size="large" placeholder={t("assets.fields.titlePlaceholder")} />
                         </Form.Item>
-                        <Form.Item name="coverUrl" label={<span>t("assets.fields.coverUrl")</span>}>
+                        <Form.Item name="coverUrl" label={<span>{t("assets.fields.coverUrl")}</span>}>
                             <Space.Compact className="w-full">
                                 <Input placeholder={t("assets.fields.coverPlaceholder")} />
                                 <Button icon={<Upload className="size-3.5" />} onClick={() => coverInputRef.current?.click()}>
@@ -315,23 +315,23 @@ export default function AssetsPage() {
                                 </Button>
                             </Space.Compact>
                         </Form.Item>
-                        <Form.Item name="tags" label={<span>t("assets.fields.tags")</span>}>
+                        <Form.Item name="tags" label={<span>{t("assets.fields.tags")}</span>}>
                             <Select mode="tags" tokenSeparators={[",", "，"]} placeholder={t("assets.fields.tagsPlaceholder")} />
                         </Form.Item>
                         <div className="grid gap-4 sm:grid-cols-2">
-                            <Form.Item name="source" label={<span>t("assets.fields.source")</span>}>
+                            <Form.Item name="source" label={<span>{t("assets.fields.source")}</span>}>
                                 <Input placeholder={t("assets.fields.sourcePlaceholder")} />
                             </Form.Item>
-                            <Form.Item name="note" label={<span>t("assets.fields.note")</span>}>
+                            <Form.Item name="note" label={<span>{t("assets.fields.note")}</span>}>
                                 <Input placeholder={t("assets.fields.optional")} />
                             </Form.Item>
                         </div>
                         {formKind === "text" ? (
-                            <Form.Item name="content" label={<span>t("assets.fields.textContent")</span>} rules={[{ required: true, message: t("assets.fields.textRequired") }]}>
+                            <Form.Item name="content" label={<span>{t("assets.fields.textContent")}</span>} rules={[{ required: true, message: t("assets.fields.textRequired") }]}>
                                 <Input.TextArea rows={8} placeholder={t("assets.fields.textPlaceholder")} />
                             </Form.Item>
                         ) : (
-                            <Form.Item label={<span>t("assets.fields.imageContent")</span>} required>
+                            <Form.Item label={<span>{t("assets.fields.imageContent")}</span>} required>
                                 <div className="rounded-lg border border-dashed border-border p-4">
                                     <Button icon={<Upload className="size-4" />} onClick={() => imageInputRef.current?.click()}>
                                         {t("assets.selectImageFile")}
@@ -453,7 +453,7 @@ function AssetCard({ asset, onOpen, onEdit, onCopy, onDownload, onDelete }: { as
                     </div>
                 </div>
             </button>
-            <div className="flex items-center gap-2 px-4 pb-4">
+            <div className="flex flex-wrap items-center gap-2 px-4 pb-4">
                 <Button size="small" onClick={onOpen}>
                     {t("common.view")}
                 </Button>

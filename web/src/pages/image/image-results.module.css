@@ -24,9 +24,9 @@
     object-position: center;
 }
 
+/* 失败卡片不锁定宽高比，按错误内容自适应高度，避免在固定比例盒内被挤压 */
 .grid .placeholder {
-    aspect-ratio: 4 / 3;
-    min-height: 200px;
+    min-height: 120px;
 }
 
 .preview:disabled { cursor: default; }
