@@ -2,7 +2,7 @@
 
 通过 npm CLI 将同一台电脑上的 Flow 网页接到本地 Codex / Claude Code：网页承接对话，本地服务管理原生会话，画布操作继续使用 stdio MCP。无需桌面安装包，也不在网页重建 Agent 推理循环。
 
-> 0.9.0 使用网页协议 13，新增 `install` / `uninstall` 子命令：一次安装注册登录自启并后台运行，重启电脑后网页自动重连。升级后运行一次 `npx -y @oioi-npm/canvas-agent@latest install --origin <网页地址>` 即可。
+> 0.9.1 使用网页协议 13，新增 `install` / `uninstall` 子命令：一次安装注册登录自启并后台运行，重启电脑后网页自动重连。升级后运行一次 `npx -y @oioi-npm/canvas-agent@latest install --origin <网页地址>` 即可。
 
 ## 使用方式
 

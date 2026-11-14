@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 
 import { AGENT_PROTOCOL_VERSION } from "./agent/types.js";
 import { CONFIG_DIR, DEFAULT_PORT, loadConfig, mergeOrigins, readStartupOrigins, saveConfig, type CanvasAgentConfig } from "./config.js";
@@ -18,8 +18,8 @@ export async function installService(argv: string[]) {
     mergeOrigins(config, readStartupOrigins(argv));
     saveConfig(config);
     const cwd = process.cwd();
-    const isTs = import.meta.url.endsWith(".ts");
-    const entry = fileURLToPath(new URL(isTs ? "../index.ts" : "../index.js", import.meta.url));
+    const entry = path.resolve(process.argv[1]);
+    const isTs = entry.endsWith(".ts");
     const args = [...(isTs ? ["--import", pathToFileURL(createRequire(import.meta.url).resolve("tsx")).href] : []), entry, "--debug"];
     console.log(`已注册开机自启：${writeAutostart(args, cwd)}`);
     if (entry.includes(`${path.sep}_npx${path.sep}`)) console.log("提示：当前实例来自 npx 缓存，npm 清理该缓存后自启会失效；长期使用建议先 npm install -g @oioi-npm/canvas-agent，再运行 canvas-agent install。");
