@@ -17,6 +17,7 @@
 - [调整] 停止生成确认弹窗提示模型已开始生成、即使停止也会计费。
 - [调整] 生成结果下载文件名统一为 `oioi-image` / `oioi-video` / `oioi-voice` 加随机 10 位编码。
 - [新增] 连接器新增 `install` / `uninstall` 子命令：一次执行即注册系统登录自启（Windows 启动文件夹 / macOS LaunchAgent / Linux autostart）并在后台启动，重启电脑后自动运行，打开网页即自动连接；连接提示词相应改为一次性 install 命令。
+- [调整] npm 连接器 0.9.0 已发布至官方 registry 并更新 `latest`，用户可直接执行网页提示的 `npx @latest install` 命令。
 - [修复] 源码连接器以绝对路径加载 MCP 的 TypeScript 运行器，避免切换会话工作目录后出现已连接但无法操作画布。
 
 ## v1.0.4
