@@ -5,6 +5,7 @@ description: Implemented changes that still need manual verification
 - [优化] 顶部导航栏艺术感与融合度升级：淡化头部栏位底色并移除生硬边界，将项目图标搬入中间与各功能标签组合成悬浮胶囊岛（Island Nav）；右侧 Agent 按钮与文档/设置/语言/深浅模式图标融为一体化胶囊控件组。
 
 # Pending Tests
+- 4d6af4f 线上更新已部署：代码提交 4d6af4f2626498f269231ac11a2d70c2f8b7cb3d 已推送，GitHub Actions 43623137408 成功构建并推送阿里云 ACR，镜像标签 4d6af4f26264，固定摘要 sha256:39bafcf25e6bbcc08a3ca3342424879368e9d0fe935867dc5ad76ff07956fac0。澳洲服务器新容器 oioi-flow-4d6af4f26264 运行中，端口仍为 127.0.0.1:3000 -> 3000，重启策略与文件描述符限制保持一致；首页、生图、视频、登录回调、画布预检 SPA 路由和新静态资源公网均返回 200。备份与部署记录位于 /opt/oioi-flow/releases/4d6af4f26264/，可回滚上一摘要 sha256:dd30f8b95fa98b7b978eaaaed0befa8041ef287ec803baa8416b9c45ae06e7f5。真实功能回归仍待用户验收；本地未额外执行构建或测试套件。
 
 - Agent 工具调用状态行合并为单行：原来 Agent 执行工具时同时渲染两行——消息流里的工具摘要行（扳手图标 + N 次工具调用 + 执行中/失败）和底部的 AiStatus 状态行（动画图标 + 正在分析任务… + 工具文本截断 + 计时器）。现在工具执行中（running 且当前消息为 tool 且 inProgress）隐藏底部 AiStatus 行，只留工具摘要行；思考、生成文本、等待审批（waiting）、连接中的状态行不受影响。同时移除了 AiStatus 的工具文本 detail 拼接（该文本在摘要行点开后已有）。已验证页面加载无错误；真实工具执行的两行→一行效果需连接器在线后验收。未执行构建或语法检查，已检查 todo，无对应事项需要迁移。
 - Agent 连接提示词通用化：主提示词原写「请帮我将本机 {{runtime}} 连接到 Flow 网页」，但 install 命令是通用连接器（一次安装自动发现本机所有已安装的 Agent），已改为「请帮我将本机连接到 Flow 网页。这是一个通用连接器，会自动发现本机已安装的 Agent（Codex、Claude Code 等）并复用已有配置」。localConnectorInstructions 不再默认注入运行时名；仅在连接状态为「未检测到该运行时」或「需要登录」时，附加「另外请关注 {{runtime}}：确认它已安装并完成登录…」的针对性备注（agent-connect-view 主面板与 agent-runtime-view 的复制按钮共用此逻辑）。中英同步。修复过程中曾把 instructions 声明移到 banner 之前导致页面报错，已调整顺序并实测：页面正常、提示词为新文案、无控制台错误（连接器未启动的 ERR_CONNECTION_REFUSED 属预期）。待验收：未连接时主提示词无运行时名；某运行时显示「未检测到/需要认证」时复制出的提示词带对应备注；英文界面文案。未执行构建或语法检查，已检查 todo，无对应事项需要迁移。
