@@ -139,7 +139,9 @@ function nodePreviewText(node: CanvasNodeData) {
     return getNodeDefinition(node.type)?.title || node.type;
 }
 
-function CanvasNodesTab({ nodes, selectedNodeIds, onFocusNode, onPreviewNode }: { nodes: CanvasNodeData[]; selectedNodeIds: Set<string>; onFocusNode: (nodeId: string) => void; onPreviewNode: (nodeId: string) => void }) {
+// 拖动节点只改 position，侧栏树按内容比较，忽略纯位置变化带来的重渲染。
+const CanvasNodesTab = memo(
+    function CanvasNodesTab({ nodes, selectedNodeIds, onFocusNode, onPreviewNode }: { nodes: CanvasNodeData[]; selectedNodeIds: Set<string>; onFocusNode: (nodeId: string) => void; onPreviewNode: (nodeId: string) => void }) {
     const { message } = App.useApp();
     const { t } = useTranslation();
     useSyncExternalStore(subscribeImagePreviews, getImagePreviewRevision);
@@ -287,7 +289,18 @@ function CanvasNodesTab({ nodes, selectedNodeIds, onFocusNode, onPreviewNode }: 
             ) : null}
         </div>
     );
-}
+    },
+    (prev, next) =>
+        prev.onFocusNode === next.onFocusNode &&
+        prev.onPreviewNode === next.onPreviewNode &&
+        prev.selectedNodeIds === next.selectedNodeIds &&
+        prev.nodes.length === next.nodes.length &&
+        // 侧栏树不显示坐标，忽略纯 position 变化（节点拖动帧）。
+        prev.nodes.every((node, index) => {
+            const other = next.nodes[index];
+            return other === node || (other.id === node.id && other.type === node.type && other.title === node.title && other.width === node.width && other.height === node.height && other.metadata === node.metadata);
+        }),
+);
 
 function CheckMark({ checked }: { checked: boolean }) {
     return (

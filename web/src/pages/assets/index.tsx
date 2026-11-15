@@ -79,7 +79,7 @@ export default function AssetsPage() {
         setEditingAsset(null);
         setImageDraft(null);
         setFormKind("text");
-        form.setFieldsValue({ kind: "text", title: "", coverUrl: "", tags: [], source: t("assets.manual"), note: "", content: "" });
+        form.setFieldsValue({ kind: "text", title: "", coverUrl: "", tags: [], source: "oioi", note: "", content: "" });
         setIsAssetOpen(true);
     };
 
@@ -205,10 +205,25 @@ export default function AssetsPage() {
                         <p className="mt-3 text-sm text-muted-foreground">{t("assets.description")}</p>
                     </div>
 
-                    <div className="mt-4 w-full sm:max-w-xl">
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                        <div className="text-xs font-medium text-muted-foreground">{t("assets.type")}</div>
+                        <div className="flex flex-wrap gap-2">
+                            {kindOptions.map((option) => (
+                                <Tag.CheckableTag
+                                    key={option}
+                                    checked={kindFilter === option}
+                                    className={styles.filterTag}
+                                    onChange={() => {
+                                        setPage(1);
+                                        setKindFilter(option);
+                                    }}
+                                >
+                                    {option === "all" ? t("common.all") : t(`assets.kinds.${option}`)}
+                                </Tag.CheckableTag>
+                            ))}
+                        </div>
                         <Input.Search
-                            className="w-full"
-                            size="large"
+                            className="min-w-52 flex-1 sm:max-w-xs"
                             allowClear
                             prefix={<Search className="size-4 text-muted-foreground" />}
                             value={keyword}
@@ -222,45 +237,22 @@ export default function AssetsPage() {
                                 setKeyword(value);
                             }}
                         />
-                    </div>
-
-                    <div className="mt-4 grid gap-3 text-left">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="grid gap-2 sm:grid-cols-[56px_minmax(0,1fr)] sm:items-center">
-                                <div className="text-xs font-medium text-muted-foreground">{t("assets.type")}</div>
-                                <div className="flex flex-wrap gap-2">
-                                    {kindOptions.map((option) => (
-                                        <Tag.CheckableTag
-                                            key={option}
-                                            checked={kindFilter === option}
-                                            className={styles.filterTag}
-                                            onChange={() => {
-                                                setPage(1);
-                                                setKindFilter(option);
-                                            }}
-                                        >
-                                            {option === "all" ? t("common.all") : t(`assets.kinds.${option}`)}
-                                        </Tag.CheckableTag>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="flex flex-wrap gap-4">
-                                <Button type="text"
-                                    onClick={() => void exportAllAssets()}
-                                >
-                                    {t("assets.export")}
-                                </Button>
-                                <Button type="text"
-                                    onClick={() => assetInputRef.current?.click()}
-                                >
-                                    {t("assets.import")}
-                                </Button>
-                                <Button type="primary"
-                                    onClick={openCreate}
-                                >
-                                    {t("assets.add")}
-                                </Button>
-                            </div>
+                        <div className="ml-auto flex flex-wrap gap-4">
+                            <Button type="text"
+                                onClick={() => void exportAllAssets()}
+                            >
+                                {t("assets.export")}
+                            </Button>
+                            <Button type="text"
+                                onClick={() => assetInputRef.current?.click()}
+                            >
+                                {t("assets.import")}
+                            </Button>
+                            <Button type="primary"
+                                onClick={openCreate}
+                            >
+                                {t("assets.add")}
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -453,7 +445,7 @@ function AssetCard({ asset, onOpen, onEdit, onCopy, onDownload, onDelete }: { as
                     </div>
                 </div>
             </button>
-            <div className="flex flex-wrap items-center gap-2 px-4 pb-4">
+            <div className="flex flex-nowrap items-center gap-1.5 px-3 pb-3 pt-0 [&_.ant-btn-sm]:!px-2 [&_.ant-btn-sm]:!text-xs">
                 <Button size="small" onClick={onOpen}>
                     {t("common.view")}
                 </Button>
@@ -472,7 +464,7 @@ function AssetCard({ asset, onOpen, onEdit, onCopy, onDownload, onDelete }: { as
                         {t("common.download")}
                     </Button>
                 ) : null}
-                <Button size="small" danger icon={<Trash2 className="size-3.5" />} onClick={onDelete}>
+                <Button size="small" danger icon={<Trash2 className="size-3.5" />} className="!ml-auto" onClick={onDelete}>
                     {t("common.delete")}
                 </Button>
             </div>

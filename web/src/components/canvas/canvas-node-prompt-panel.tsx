@@ -4,7 +4,11 @@ import { Button, Modal, Popover, Tooltip } from "antd";
 import { useTranslation } from "react-i18next";
 
 import { ModelPicker } from "@/components/model-picker";
-import { defaultConfig, resolveModelForCapability, useConfigStore, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
+import { defaultConfig, resolveModelFeatures, resolveModelForCapability, useConfigStore, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
+import { resolutionToken, videoUploadLimits } from "@/lib/model-features";
+import { clampVideoSeconds } from "@/lib/media-size";
+import { estimateGenerationPrice, formatEstimatedPrice, resolveModelPricing } from "@/lib/model-pricing";
+import i18n from "@/i18n";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { useThemeStore } from "@/stores/use-theme-store";
 import { CanvasImageSettingsPopover } from "./canvas-image-settings-popover";
@@ -121,6 +125,29 @@ export function CanvasNodePromptPanel({
         }
     };
 
+    // 视频模式下按模型 features 声明的参考上限显示「当前数 / 上限」，未声明即不限制
+    const videoLimits = videoUploadLimits(mode === "video" ? resolveModelFeatures(config, config.model)?.video : undefined);
+    const referenceLimitHint = mode === "video"
+        ? [
+              { type: CanvasNodeType.Image, max: videoLimits.image },
+              { type: CanvasNodeType.Video, max: videoLimits.video },
+              { type: CanvasNodeType.Audio, max: videoLimits.audio },
+          ]
+              .map(({ type, max }) => ({ count: allDisplayReferences.filter((item) => item.node.type === type).length, max }))
+              .filter(({ count, max }) => count > 0 && Number.isFinite(max))
+              .map(({ count, max }) => `${count}/${max}`)
+              .join(" ")
+        : "";
+
+    // 按当前模型计费声明与所选参数估算本次生成价格（图片按张数、视频按分辨率×秒数），算不出不显示
+    const estimatedPrice = useMemo(() => {
+        if (mode !== "image" && mode !== "video") return null;
+        const pricing = resolveModelPricing(config, config.model);
+        if (mode === "video") return estimateGenerationPrice(pricing, { kind: "video", seconds: Number(clampVideoSeconds(config.videoSeconds || "6")), resolution: resolutionToken(config.vquality) });
+        return estimateGenerationPrice(pricing, { kind: "image", count: Math.max(1, Number(config.count) || 1) });
+    }, [config, mode]);
+    const estimatedPriceLabel = estimatedPrice != null ? i18n.t("canvas.promptPanel.estimatedPrice", { price: formatEstimatedPrice(estimatedPrice) }) : "";
+
     // Restore prompts only when switching nodes; preserve the current input after generation on the same node.
     useEffect(() => {
         setPrompt(node.metadata?.composerContent ?? node.metadata?.prompt ?? "");
@@ -220,17 +247,20 @@ export function CanvasNodePromptPanel({
                         </Tooltip>
                     </div>
 
-                    {/* Top Right Expand Button */}
-                    <Tooltip title={t("canvas.promptPanel.expandEditor")}>
-                        <Button
-                            type="text"
-                            className="!h-7 !w-7 !min-w-7 !rounded-lg !bg-transparent !p-0 opacity-60 hover:opacity-100 hover:!bg-black/5 dark:hover:!bg-white/10 transition-colors shrink-0 self-start"
-                            style={{ color: theme.node.text }}
-                            icon={<Maximize2 className="size-3.5" />}
-                            onClick={openExpandedEditor}
-                            aria-label={t("canvas.promptPanel.expandEditor")}
-                        />
-                    </Tooltip>
+                    {/* Top Right: reference count hint + Expand Button */}
+                    <div className="flex shrink-0 items-center gap-1 self-start">
+                        {referenceLimitHint && <span className="cursor-default font-mono text-[10px] opacity-50">{referenceLimitHint}</span>}
+                        <Tooltip title={t("canvas.promptPanel.expandEditor")}>
+                            <Button
+                                type="text"
+                                className="!h-7 !w-7 !min-w-7 !rounded-lg !bg-transparent !p-0 opacity-60 hover:opacity-100 hover:!bg-black/5 dark:hover:!bg-white/10 transition-colors"
+                                style={{ color: theme.node.text }}
+                                icon={<Maximize2 className="size-3.5" />}
+                                onClick={openExpandedEditor}
+                                aria-label={t("canvas.promptPanel.expandEditor")}
+                            />
+                        </Tooltip>
+                    </div>
                 </div>
 
                 {/* Prompt Text Input Row */}
@@ -292,6 +322,11 @@ export function CanvasNodePromptPanel({
                     )}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
+                    {estimatedPriceLabel ? (
+                        <span className="shrink-0 font-mono text-[11px] opacity-60" aria-label={t("canvas.promptPanel.estimatedPriceHint")}>
+                            {estimatedPriceLabel}
+                        </span>
+                    ) : null}
                     <CanvasPromptLibrary onSelect={updatePrompt} />
                     <Button
                         className="group relative !h-9 !min-w-14 shrink-0 !rounded-full !border-0 !px-3.5 shadow-sm transition hover:opacity-90 active:scale-95 disabled:opacity-40"
@@ -396,6 +431,7 @@ function CompactReferenceThumb({
     theme: (typeof canvasThemes)[keyof typeof canvasThemes];
     onRemove: () => void;
 }) {
+    const { t } = useTranslation();
     const resource = getNodeDefinition(node.type)?.resource?.(node);
     const content = node.metadata?.content || resource?.url;
     const thumbnail = previewUrlFor(node.metadata?.storageKey) || content;

@@ -1,5 +1,6 @@
 import i18n from "@/i18n";
-import { computeVideoSize, inferVideoRatio, parseVideoResolution, VIDEO_SECONDS_MAX, VIDEO_SECONDS_MIN, videoRatioOptions } from "@/lib/media-size";
+import { resolutionLabel } from "@/lib/model-features";
+import { inferVideoRatio, VIDEO_SECONDS_MAX, VIDEO_SECONDS_MIN, videoRatioOptions } from "@/lib/media-size";
 
 const resolutionOptions = [
     { value: "480", label: "480p" },
@@ -17,7 +18,7 @@ export const videoSizeOptions = videoRatioOptions.map((item) => ({
 export const videoSecondsRange = { min: VIDEO_SECONDS_MIN, max: VIDEO_SECONDS_MAX };
 
 export function videoResolutionLabel(value: string) {
-    return `${parseVideoResolution(value)}p`;
+    return resolutionLabel(value);
 }
 
 export function videoSizeLabel(value: string) {
@@ -30,21 +31,11 @@ export function videoSecondsLabel(value: string) {
     return `${value || "6"}s`;
 }
 
-export function videoModeLabel(value: string) {
-    return i18n.t(`settingsPanels.video.modes.${normalizeVideoModeValue(value)}`);
+export function videoModeLabel(value: string, allowText = false) {
+    const mode = allowText && value === "text" ? "text" : normalizeVideoModeValue(value);
+    return i18n.t(`settingsPanels.video.modes.${mode}`);
 }
 
 export function normalizeVideoModeValue(value: string | undefined) {
     return value === "reference" ? "reference" : "frames";
-}
-
-export function normalizeVideoSizeValue(value: string, resolution = "720") {
-    if (value === "auto") return "auto";
-    if (/^\d+x\d+$/.test(value || "")) return value;
-    const ratio = inferVideoRatio(value);
-    return ratio === "auto" ? "auto" : computeVideoSize(resolution, ratio);
-}
-
-export function normalizeVideoResolutionValue(value: string) {
-    return parseVideoResolution(value);
 }

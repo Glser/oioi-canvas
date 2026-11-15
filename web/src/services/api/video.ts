@@ -4,6 +4,7 @@ import { nanoid } from "nanoid";
 import i18n from "@/i18n";
 import { dataUrlToFile, readFileAsDataUrl } from "@/lib/image-utils";
 import { clampVideoSeconds, computeVideoSize, inferVideoRatio } from "@/lib/media-size";
+import { normalizeVideoMode, normalizeVideoOutputSelection, videoFeatureModes, videoMediaConstraint } from "@/lib/model-features";
 import { getMediaBlob, resolveMediaUrl, uploadMediaFile, type UploadedFile } from "@/services/file-storage";
 import { imageToDataUrl } from "@/services/image-storage";
 import { boolConfig, buildApiUrl, modelOptionName, prepareModelRequestConfig, resolveModelScript, type AiConfig } from "@/stores/use-config-store";
@@ -70,10 +71,52 @@ function videoTaskFailed(message: string) {
     return error;
 }
 
+function prepareVideoFeatureConfig(config: AiConfig, imageCount: number, videoCount: number, audioCount: number): AiConfig {
+    const features = config.modelFeatures?.video;
+    if (!features) return { ...config, videoMode: config.videoMode === "reference" || imageCount > 2 || videoCount > 0 || audioCount > 0 ? "reference" : "frames" };
+    let mode = normalizeVideoMode(features, config.videoMode, imageCount);
+    if (mode === "frames" && (videoCount > 0 || audioCount > 0) && videoFeatureModes(features).includes("reference")) mode = "reference";
+    const media: Array<["image" | "video" | "audio", number]> = [
+        ["image", imageCount],
+        ["video", videoCount],
+        ["audio", audioCount],
+    ];
+    for (const [type, count] of media) {
+        const constraint = videoMediaConstraint(features, mode, type);
+        const effectiveMax = config.apiFormat === "gemini" && (type === "video" || type === "audio") ? Math.min(constraint.max, 1) : constraint.max;
+        if (count < constraint.min || count > effectiveMax) throw new Error(apiText("videoCapabilityUnsupported", { capability: `${mode} ${type}` }));
+    }
+    const selection = normalizeVideoOutputSelection(
+        features,
+        {
+            resolution: config.vquality,
+            ratio: inferVideoRatio(config.size || "auto") === "auto" ? features.output?.defaults?.aspect_ratio || "16:9" : inferVideoRatio(config.size || "auto"),
+            durationSeconds: clampVideoSeconds(config.videoSeconds || "6"),
+        },
+        {
+            resolution: "720",
+            ratio: "16:9",
+            durationSeconds: "6",
+            size: (resolution, ratio) => computeVideoSize(resolution.replace(/p.*$/i, "") || "720", ratio),
+        },
+    );
+    return {
+        ...config,
+        vquality: selection.resolution,
+        size: selection.size,
+        videoSeconds: selection.durationSeconds,
+        videoMode: mode,
+        // 明确声明不支持时强制关闭；未声明时保留用户配置
+        videoGenerateAudio: String(features.generate_audio?.supported === false ? false : boolConfig(config.videoGenerateAudio, true)),
+        videoWatermark: String(features.watermark?.supported === false ? false : boolConfig(config.videoWatermark, false)),
+    };
+}
+
 export async function createVideoGenerationTask(config: AiConfig, prompt: string, references: ReferenceImage[] = [], options?: VideoMediaOptions): Promise<VideoGenerationTask> {
     const selectedModel = (config.model || config.videoModel).trim();
-    const requestConfig = await prepareModelRequestConfig(config, selectedModel, "video");
+    const resolvedConfig = await prepareModelRequestConfig(config, selectedModel, "video");
     options = { ...options, signal: newApiRequestSignal(options?.signal) };
+    const requestConfig = prepareVideoFeatureConfig(resolvedConfig, references.length, options?.videos?.length || 0, options?.audios?.length || 0);
     const script = resolveModelScript(config, selectedModel);
     if (script) return createPluginVideoTask(requestConfig, selectedModel, script, prompt, references, options);
     assertVideoConfig(requestConfig, requestConfig.model);
@@ -223,16 +266,25 @@ async function createGeminiVideoTask(config: AiConfig, model: string, prompt: st
     if (videos[0]) instance.video = await fileToGeminiInline(videos[0]);
     if (audios[0]) instance.audio = await fileToGeminiInline(audios[0]);
     try {
-        const created = unwrapEnvelope((await axios.post<ApiEnvelope<GeminiVideoOperation>>(geminiVideoUrl(config, model, "predictLongRunning"), {
-            instances: [instance],
-            parameters: {
-                aspectRatio: videoAspectRatio(config.size),
-                durationSeconds: Number(normalizeVideoSeconds(config.videoSeconds)) || 8,
-                resolution: normalizeVideoResolution(config.vquality),
-                generateAudio: boolConfig(config.videoGenerateAudio, true),
-                addWatermark: boolConfig(config.videoWatermark, false),
-            },
-        }, { headers: geminiVideoHeaders(config), signal: options?.signal })).data, apiText("noVideoTask"));
+        const created = unwrapEnvelope(
+            (
+                await axios.post<ApiEnvelope<GeminiVideoOperation>>(
+                    geminiVideoUrl(config, model, "predictLongRunning"),
+                    {
+                        instances: [instance],
+                        parameters: {
+                            aspectRatio: videoAspectRatio(config.size),
+                            durationSeconds: Number(normalizeVideoSeconds(config.videoSeconds)) || 8,
+                            resolution: normalizeVideoResolution(config.vquality).replace(/_.*$/, ""),
+                            generateAudio: boolConfig(config.videoGenerateAudio, true),
+                            addWatermark: boolConfig(config.videoWatermark, false),
+                        },
+                    },
+                    { headers: geminiVideoHeaders(config), signal: options?.signal },
+                )
+            ).data,
+            apiText("noVideoTask"),
+        );
         if (!created.name) throw new Error(apiText("noVideoTaskId"));
         return { id: created.name, provider: "gemini", model };
     } catch (error) {
@@ -313,6 +365,7 @@ function normalizeVideoSeconds(value: string) {
 }
 
 function resolveVideoMode(mode: string | undefined, imageCount: number) {
+    if (mode === "text") return "text";
     if (mode === "reference" || imageCount > 2) return "reference";
     return "frames";
 }
@@ -322,12 +375,14 @@ function normalizeVideoSize(value: string, resolution?: string) {
     if (/^\d+x\d+$/.test(value || "")) return value;
     const ratio = inferVideoRatio(value || "16:9");
     if (ratio === "auto") return null;
-    return computeVideoSize(resolution || "720", ratio);
+    return computeVideoSize((resolution || "720").replace(/p.*$/i, "") || "720", ratio);
 }
 
 function normalizeVideoResolution(value: string) {
     if (value === "low") return "480p";
     if (value === "auto" || value === "high" || value === "medium") return "720p";
+    // 已是 `720p` / `720p_upscaled` 这类 token 时原样传给接口
+    if (/^\d+p(_\w+)?$/i.test(value || "")) return value;
     const resolution = value.replace(/p$/i, "") || "720";
     return `${resolution}p`;
 }
@@ -366,17 +421,8 @@ function readApiErrorMessage(value: unknown): string {
     if (typeof value !== "object") return "";
     const payload = value as { msg?: unknown; message?: unknown; error?: unknown; detail?: unknown };
     // error may be a string or an object containing a message.
-    const errorMsg =
-        typeof payload.error === "string"
-            ? payload.error
-            : (payload.error as { message?: unknown })?.message;
-    return (
-        readApiErrorMessage(payload.msg) ||
-        readApiErrorMessage(payload.message) ||
-        readApiErrorMessage(errorMsg) ||
-        readApiErrorMessage(payload.detail) ||
-        ""
-    );
+    const errorMsg = typeof payload.error === "string" ? payload.error : (payload.error as { message?: unknown })?.message;
+    return readApiErrorMessage(payload.msg) || readApiErrorMessage(payload.message) || readApiErrorMessage(errorMsg) || readApiErrorMessage(payload.detail) || "";
 }
 
 function readAxiosError(error: unknown, fallback: string) {

@@ -8,7 +8,8 @@ import { useTranslation } from "react-i18next";
 import { requestEdit, requestGeneration, requestImageQuestion } from "@/services/api/image";
 import { requestAudioGeneration, storeGeneratedAudio } from "@/services/api/audio";
 import { createVideoGenerationTask, isVideoTaskFailed, storeGeneratedVideo, waitForVideoGenerationTask } from "@/services/api/video";
-import { defaultConfig, useConfigStore, useEffectiveConfig } from "@/stores/use-config-store";
+import { defaultConfig, resolveModelFeatures, useConfigStore, useEffectiveConfig } from "@/stores/use-config-store";
+import { checkVideoReferenceOverflow } from "@/lib/model-features";
 import { ensureImagePreview, uploadImage } from "@/services/image-storage";
 import { uploadMediaFile, type UploadedFile } from "@/services/file-storage";
 import { nanoid } from "nanoid";
@@ -517,9 +518,10 @@ function InfiniteCanvasPage() {
     }, [activeChatId, backgroundMode, chatSessions, connections, createHistoryEntry, nodes, projectLoaded, showImageInfo]);
 
     useEffect(() => {
+        // 拖动/缩放过程中每帧 setNodes，暂停 store 写入；结束后本 effect 重跑完成保存。
         if (!projectLoaded || historyPausedRef.current) return;
         updateProject(projectId, { nodes, connections, chatSessions, activeChatId, backgroundMode, showImageInfo });
-    }, [activeChatId, backgroundMode, chatSessions, connections, nodes, projectId, projectLoaded, showImageInfo, updateProject]);
+    }, [activeChatId, backgroundMode, chatSessions, connections, isNodeDragging, nodes, projectId, projectLoaded, showImageInfo, updateProject]);
 
     useEffect(() => {
         if (!dialogNodeId) setNodeImageSettingsOpen(false);
@@ -694,8 +696,9 @@ function InfiniteCanvasPage() {
         const left = -viewport.x / viewport.k - padding;
         const top = -viewport.y / viewport.k - padding;
         return { left, top, right: left + width / viewport.k + padding * 2, bottom: top + height / viewport.k + padding * 2 };
-        // `nodes` keeps the container rect re-read on node changes, matching the previous behaviour when the container resizes without a size update.
-    }, [nodes, size.height, size.width, viewport.k, viewport.x, viewport.y]);
+        // 拖动节点不改变视口边界；`nodes` 不进依赖，避免每帧强制 layout 读取并级联全部可见性重算。
+        // 首次渲染时节点在视口外、bounds 后到的场景由 visibleNodes 每次渲染重新过滤兜底。
+    }, [size.height, size.width, viewport.k, viewport.x, viewport.y]);
 
     const visibleNodes = useMemo(
         () => nodes.filter((node) => node.position.x + node.width > viewBounds.left && node.position.x < viewBounds.right && node.position.y + node.height > viewBounds.top && node.position.y < viewBounds.bottom),
@@ -771,19 +774,35 @@ function InfiniteCanvasPage() {
         return { nodeIds, connectionIds };
     }, [activeNodeId, connections, nodeById, nodes]);
 
+    // 拖动节点只改位置，不改变连线/引用结构：用结构签名做缓存键，拖动帧跳过 O(N²) 的引用映射重建。
+    // metadata 引用参与签名：拖动帧不换引用，内容/参考变化会换新引用从而刷新缓存。
+    const referenceStructureKey = useMemo(
+        () => nodes.map((node) => `${node.id}:${node.type}:${node.metadata === undefined ? "" : "m"}:${node.metadata?.groupId || ""}:${(node.metadata?.referenceNodeIds || []).join(",")}`).join("|") + "||" + connections.map((connection) => `${connection.fromNodeId}>${connection.toNodeId}`).join("|"),
+        [connections, nodes],
+    );
+    const configInputsCacheRef = useRef<{ key: string; map: Map<string, NodeGenerationInput[]> }>({ key: "", map: new Map() });
     const configInputsById = useMemo(() => {
+        const cache = configInputsCacheRef.current;
+        if (cache.key === referenceStructureKey) return cache.map;
         const map = new Map<string, NodeGenerationInput[]>();
         nodes.forEach((node) => {
             if (node.type !== CanvasNodeType.Config) return;
             map.set(node.id, buildNodeGenerationInputs(node.id, nodes, connections));
         });
+        configInputsCacheRef.current = { key: referenceStructureKey, map };
         return map;
-    }, [connections, nodes]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [referenceStructureKey]);
+    const mentionReferencesCacheRef = useRef<{ key: string; map: Map<string, ReturnType<typeof buildNodeMentionReferences>> }>({ key: "", map: new Map() });
     const mentionReferencesByNodeId = useMemo(() => {
+        const cache = mentionReferencesCacheRef.current;
+        if (cache.key === referenceStructureKey) return cache.map;
         const map = new Map<string, ReturnType<typeof buildNodeMentionReferences>>();
         nodes.forEach((node) => map.set(node.id, buildNodeMentionReferences(node, nodes, connections)));
+        mentionReferencesCacheRef.current = { key: referenceStructureKey, map };
         return map;
-    }, [connections, nodes]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [referenceStructureKey]);
     const connectedNodesByNodeId = useMemo(() => {
         const map = new Map<string, CanvasNodeData[]>();
         connections.forEach((connection) => {
@@ -1845,7 +1864,7 @@ function InfiniteCanvasPage() {
             if (node.type === CanvasNodeType.Text) {
                 const content = node.metadata?.content?.trim();
                 if (!content) return message.error(t("canvas.projectPage.noTextToSave"));
-                addAsset({ kind: "text", title: node.metadata?.prompt?.slice(0, 24) || t("canvas.projectPage.canvasText"), coverUrl: "", tags: [], source: "Canvas", data: { content }, metadata: { source: "canvas", nodeId: node.id } });
+                addAsset({ kind: "text", title: node.metadata?.prompt?.slice(0, 24) || t("canvas.projectPage.canvasText"), coverUrl: "", tags: [], source: "oioi", data: { content }, metadata: { source: "canvas", nodeId: node.id } });
                 message.success(t("common.addedToAssets"));
                 return;
             }
@@ -1856,7 +1875,7 @@ function InfiniteCanvasPage() {
                     title: node.metadata?.prompt?.slice(0, 24) || t("canvas.projectPage.canvasVideo"),
                     coverUrl: "",
                     tags: [],
-                    source: "Canvas",
+                    source: "oioi",
                     data: { url: node.metadata.content, storageKey: node.metadata.storageKey, width: node.width, height: node.height, bytes: node.metadata.bytes || 0, mimeType: node.metadata.mimeType || "video/mp4" },
                     metadata: { source: "canvas", nodeId: node.id, prompt: node.metadata?.prompt },
                 });
@@ -1870,7 +1889,7 @@ function InfiniteCanvasPage() {
                 title: node.metadata?.prompt?.slice(0, 24) || t("canvas.projectPage.canvasImage"),
                 coverUrl: node.metadata.content,
                 tags: [],
-                source: "Canvas",
+                source: "oioi",
                 data: {
                     dataUrl,
                     storageKey: node.metadata.storageKey,
@@ -2534,6 +2553,14 @@ function InfiniteCanvasPage() {
 
                 if (mode === "video") {
                     const spec = nodeSizeFromRatio(generationConfig.size, NODE_DEFAULT_SIZE[CanvasNodeType.Video].width, NODE_DEFAULT_SIZE[CanvasNodeType.Video].height) || NODE_DEFAULT_SIZE[CanvasNodeType.Video];
+                    const videoFeature = resolveModelFeatures(effectiveConfig, generationConfig.model)?.video;
+                    if (videoFeature) {
+                        const referenceExceeded = checkVideoReferenceOverflow(videoFeature, generationContext.referenceImages.length, generationContext.referenceVideos.length, generationContext.referenceAudios.length);
+                        if (referenceExceeded) {
+                            message.warning(referenceExceeded);
+                            return;
+                        }
+                    }
                     const isEmptyVideoNode = sourceNode?.type === CanvasNodeType.Video && !sourceNode.metadata?.content;
                     const videoId = isEmptyVideoNode ? nodeId : nanoid();
                     const parent = sourceNode?.position || { x: 0, y: 0 };

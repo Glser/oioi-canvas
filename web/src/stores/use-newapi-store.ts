@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 import i18n from "@/i18n";
 import { NEW_API_ENABLED } from "@/constant/env";
-import { createNewApiAutoToken, fetchNewApiModels, fetchNewApiStatus, findNewApiAutoToken, getNewApiAutoGroups, logoutNewApiSession, NewApiError, normalizeNewApiDocsLink, readNewApiTokenKey, refreshNewApiSession, type NewApiModel, type NewApiSession, type NewApiToken } from "@/services/api/newapi";
+import { createNewApiAutoToken, fetchNewApiModels, fetchNewApiStatus, findNewApiAutoToken, getNewApiAutoGroups, logoutNewApiSession, NewApiError, normalizeNewApiDocsLink, readNewApiTokenKey, refreshNewApiSession, type NewApiGroupRatios, type NewApiModel, type NewApiSession, type NewApiToken } from "@/services/api/newapi";
 
 type NewApiStore = {
     status: "idle" | "loading" | "anonymous" | "ready" | "error";
@@ -10,6 +10,7 @@ type NewApiStore = {
     token: NewApiToken | null;
     apiKey: string;
     models: NewApiModel[];
+    groupRatios: NewApiGroupRatios;
     docsLink: string;
     error: string;
     connect: () => Promise<void>;
@@ -30,7 +31,7 @@ function resetIdentity() {
     revision += 1;
     identityController.abort();
     identityController = new AbortController();
-    useNewApiStore.setState({ session: null, token: null, apiKey: "", models: [] });
+    useNewApiStore.setState({ session: null, token: null, apiKey: "", models: [], groupRatios: {} });
 }
 
 async function obtainToken(session: NewApiSession, signal: AbortSignal) {
@@ -44,8 +45,8 @@ async function obtainToken(session: NewApiSession, signal: AbortSignal) {
         }
         if (!token) throw new Error(i18n.t("account.errors.autoTokenMissing"));
         const apiKey = await readNewApiTokenKey(session, token.id, signal);
-        const models = await fetchNewApiModels(apiKey, session, signal);
-        return { token, apiKey, models };
+        const { models, groupRatios } = await fetchNewApiModels(apiKey, session, signal);
+        return { token, apiKey, models, groupRatios };
     };
     return navigator.locks ? navigator.locks.request(`oioi-flow:token:${session.user.id}`, { signal }, obtain) : obtain();
 }
@@ -56,6 +57,7 @@ export const useNewApiStore = create<NewApiStore>((set, get) => ({
     token: null,
     apiKey: "",
     models: [],
+    groupRatios: {},
     docsLink: "",
     error: "",
     loadStatus: () => {
@@ -103,7 +105,7 @@ export const useNewApiStore = create<NewApiStore>((set, get) => ({
                     set({ status: "anonymous", error: i18n.t("account.errors.loginExpired") });
                 } else {
                     if (error instanceof NewApiError && error.code === "AUTH_SESSION_MISMATCH") resetIdentity();
-                    set({ status: "error", token: null, apiKey: "", models: [], error: error instanceof Error ? error.message : i18n.t("account.errors.connectFailed") });
+                    set({ status: "error", token: null, apiKey: "", models: [], groupRatios: {}, error: error instanceof Error ? error.message : i18n.t("account.errors.connectFailed") });
                 }
                 throw error;
             }

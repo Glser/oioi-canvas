@@ -1,5 +1,6 @@
 import i18n from "@/i18n";
 import { NEW_API_BASE_URL } from "@/constant/env";
+import type { ModelFeatures } from "@/lib/model-features";
 
 export type NewApiUser = { id: number; username: string; display_name?: string };
 export type NewApiSession = {
@@ -8,7 +9,23 @@ export type NewApiSession = {
     user: NewApiUser;
     session: { sid: string };
 };
-export type NewApiModel = { id: string; category?: string; supported_endpoint_types?: string[] };
+export type NewApiModelPricing = {
+    /** 0=按量计费（倍率），1=按次计费（固定价） */
+    quotaType?: number;
+    /** 按量倍率（quota_type=0 时有效，相对基准价的倍数） */
+    modelRatio?: number;
+    /** 按次固定价，美元/次（quota_type=1 时有效） */
+    modelPrice?: number;
+    /** 补全倍率（相对 prompt 单价的倍数） */
+    completionRatio?: number;
+    /** 人类可读的分档计费表达式，如 tier("480p", u("seconds") * 0.36) */
+    billingExpr?: string;
+    /** 模型可用的分组列表；各分组系数由顶层 group_ratio 提供，分组价 = 基准价 × 分组系数。 */
+    enableGroups?: string[];
+};
+export type NewApiModel = { id: string; category?: string; supported_endpoint_types?: string[]; features?: ModelFeatures; pricing?: NewApiModelPricing };
+/** 分组 → 计费系数（auto 令牌所在分组的系数决定最终价格）。 */
+export type NewApiGroupRatios = Record<string, number>;
 export type NewApiToken = {
     id: number;
     user_id: number;
@@ -22,7 +39,11 @@ export type NewApiToken = {
 type ApiResult<T> = { success?: boolean; message?: string; code?: string; data: T; error?: { message?: string } };
 
 export class NewApiError extends Error {
-    constructor(message: string, public status: number, public code?: string) {
+    constructor(
+        message: string,
+        public status: number,
+        public code?: string,
+    ) {
         super(message);
     }
 }
@@ -107,19 +128,44 @@ export async function readNewApiTokenKey(session: NewApiSession, tokenId: number
 }
 
 export async function fetchNewApiModels(apiKey: string, session: NewApiSession, signal: AbortSignal) {
+    type PricingEntry = { model_name: string; category?: string; supported_endpoint_types?: string[]; features?: ModelFeatures; quota_type?: number; model_ratio?: number; model_price?: number; completion_ratio?: number; billing_expr?: string; enable_groups?: string[] };
     const [data, metadata] = await Promise.all([
         request<NewApiModel[]>("/v1/models", authOptions(apiKey, signal)),
-        request<Array<{ model_name: string; category?: string; supported_endpoint_types?: string[] }>>("/api/pricing", authOptions(session.access_token, signal)).catch((error) => {
+        request<{ data?: PricingEntry[]; group_ratio?: Record<string, number> } & { [model_name: string]: PricingEntry }>("/api/pricing", authOptions(session.access_token, signal)).catch((error) => {
             if (signal.aborted) throw error;
             throw new Error(i18n.t("account.errors.modelCatalogFailed"));
         }),
     ]);
     if (!Array.isArray(data) || data.some((model) => typeof model.id !== "string" || !model.id)) throw new Error(i18n.t("account.errors.modelListInvalid"));
-    const details = new Map((Array.isArray(metadata) ? metadata : []).map((model) => [model.model_name, model]));
-    return [...new Map(data.map((model) => {
-        const detail = details.get(model.id);
-        return [model.id, { ...model, category: detail?.category?.trim() ?? model.category, supported_endpoint_types: detail?.supported_endpoint_types ?? model.supported_endpoint_types }];
-    })).values()].sort((a, b) => a.id.localeCompare(b.id));
+    const details = new Map((Array.isArray(metadata?.data) ? metadata.data : []).map((model) => [model.model_name, model]));
+    const groupRatios = typeof metadata?.group_ratio === "object" && metadata.group_ratio ? metadata.group_ratio : {};
+    const models = [
+        ...new Map(
+            data.map((model) => {
+                const detail = details.get(model.id);
+                return [
+                    model.id,
+                    {
+                        ...model,
+                        category: detail?.category?.trim() ?? model.category,
+                        supported_endpoint_types: detail?.supported_endpoint_types ?? model.supported_endpoint_types,
+                        features: detail?.features,
+                        pricing: detail
+                            ? {
+                                  quotaType: detail.quota_type,
+                                  modelRatio: detail.model_ratio,
+                                  modelPrice: detail.model_price,
+                                  completionRatio: detail.completion_ratio,
+                                  billingExpr: detail.billing_expr,
+                                  enableGroups: detail.enable_groups,
+                              }
+                            : undefined,
+                    },
+                ];
+            }),
+        ).values(),
+    ].sort((a, b) => a.id.localeCompare(b.id));
+    return { models, groupRatios };
 }
 
 export function fetchNewApiStatus(signal?: AbortSignal) {

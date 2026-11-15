@@ -18,6 +18,7 @@ import { PromptSelectDialog } from "@/components/prompts/prompt-select-dialog";
 import { AssetPickerModal, type InsertAssetPayload } from "@/components/canvas/asset-picker-modal";
 import { imageReferenceLabel } from "@/lib/image-reference-prompt";
 import { useConfigStore, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
+import { estimateGenerationPrice, formatEstimatedPrice, resolveModelPricing } from "@/lib/model-pricing";
 import { useThemeStore } from "@/stores/use-theme-store";
 import { nanoid } from "nanoid";
 import { formatBytes, formatDuration } from "@/lib/image-utils";
@@ -120,6 +121,9 @@ export default function ImagePage() {
     const model = effectiveConfig.imageModel || effectiveConfig.model;
     const canGenerate = Boolean(prompt.trim());
     const generationCount = getGenerationCount(effectiveConfig.canvasImageCount);
+    // 按当前模型计费声明估算本次生成价格（单价 × 张数），算不出不显示
+    const estimatedPrice = useMemo(() => estimateGenerationPrice(resolveModelPricing(effectiveConfig, model), { kind: "image", count: generationCount }), [effectiveConfig, generationCount, model]);
+    const estimatedPriceLabel = estimatedPrice != null ? i18n.t("workbench.generatePrice", { price: formatEstimatedPrice(estimatedPrice) }) : "";
     const visibleResults = useMemo<GenerationResult[]>(() => {
         if (previewLog) return previewLog.images.map((image) => ({ id: `${previewLog.id}:${image.id}`, status: "success", image }));
         const savedImageIds = new Set(logs.flatMap((log) => log.images.map((image) => image.id)));
@@ -509,6 +513,7 @@ export default function ImagePage() {
                             <GenerationSettings />
                             <Button type="primary" loading={running} disabled={!canGenerate || running} icon={!running && <Wand2 size={16} />} onClick={() => void generate()}>
                                 {t(running ? "workbench.generating" : "workbench.generate")}
+                                {!running && estimatedPriceLabel ? <span className="ml-1 font-mono text-xs opacity-80">（{estimatedPriceLabel}）</span> : null}
                             </Button>
                         </div>
                     </section>

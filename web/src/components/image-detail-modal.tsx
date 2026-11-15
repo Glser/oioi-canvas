@@ -134,7 +134,7 @@ export function ImageDetailModal({
             title: image?.prompt?.slice(0, 24) || image?.title || t("canvas.projectPage.canvasImage"),
             coverUrl: activeImageUrl,
             tags: [],
-            source: "Canvas",
+            source: "oioi",
             data: {
                 dataUrl,
                 storageKey: image?.storageKey,

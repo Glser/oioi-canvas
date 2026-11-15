@@ -1,4 +1,4 @@
-import { Alert, App, Button, Empty, Input, Skeleton } from "antd";
+import { Alert, App, Button, Empty, Input, Skeleton, Tooltip } from "antd";
 import { LogIn, LogOut, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -7,6 +7,7 @@ import { ModelIcon } from "@/components/model-icon";
 import { NEW_API_BASE_URL } from "@/constant/env";
 import { startNewApiLogin } from "@/services/api/newapi";
 import { useNewApiStore } from "@/stores/use-newapi-store";
+import { modelPriceSummary } from "@/lib/model-pricing";
 
 export function NewApiAccountPanel() {
     const { message, modal } = App.useApp();
@@ -16,6 +17,7 @@ export function NewApiAccountPanel() {
     const error = useNewApiStore((state) => state.error);
     const token = useNewApiStore((state) => state.token);
     const models = useNewApiStore((state) => state.models);
+    const groupRatios = useNewApiStore((state) => state.groupRatios);
     const connect = useNewApiStore((state) => state.connect);
     const logout = useNewApiStore((state) => state.logout);
     const [query, setQuery] = useState("");
@@ -62,7 +64,23 @@ export function NewApiAccountPanel() {
                     <Input.Search aria-label={t("account.searchModels")} placeholder={t("account.searchModels")} value={query} allowClear onChange={(event) => setQuery(event.target.value)} />
                     {visibleModels.length ? (
                         <ul className="max-h-80 divide-y divide-border overflow-y-auto">
-                            {visibleModels.map((model) => <li key={model.id} className="flex items-center gap-2 py-3 text-sm"><ModelIcon model={model.id} /><span className="min-w-0 break-all">{model.id}</span></li>)}
+                            {visibleModels.map((model) => {
+                                const price = modelPriceSummary(model.pricing, groupRatios);
+                                return (
+                                    <li key={model.id} className="flex items-center gap-2 py-3 text-sm">
+                                        <ModelIcon model={model.id} />
+                                        <span className="min-w-0 break-all">{model.id}</span>
+                                        {price ? (
+                                            <Tooltip title={<span className="whitespace-pre-line">{price.detail}</span>} placement="left">
+                                                <span className="ml-auto flex shrink-0 items-center gap-1 font-mono text-xs text-muted-foreground">
+                                                    {price.label}
+                                                    {price.groups && price.groups.length > 1 ? <span className="rounded-full bg-border px-1.5 py-px text-[10px] leading-4">{price.groups.length}</span> : null}
+                                                </span>
+                                            </Tooltip>
+                                        ) : null}
+                                    </li>
+                                );
+                            })}
                         </ul>
                     ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={models.length ? t("account.noMatchModels") : t("account.noModels")} />}
                     <p className="text-xs text-muted-foreground">{t("account.modelsHint")}</p>
