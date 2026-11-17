@@ -6,17 +6,19 @@ import { saveAs } from "file-saver";
 import { useTranslation } from "react-i18next";
 
 import { GenerationSettings } from "./components/generation-settings";
-import { GenerationLoading } from "./components/generation-loading";
+import { GridReveal } from "./components/generation-loading";
 import styles from "@/components/layout/workbench.module.css";
 import resultStyles from "./image-results.module.css";
 import { ImageDetailModal } from "@/components/image-detail-modal";
 import { getWorkbenchAppearance } from "@/lib/app-theme";
-import { getGenerationCount } from "@/lib/canvas/canvas-generation-helpers";
+import { getGenerationCount, imageExtension } from "@/lib/canvas/canvas-generation-helpers";
+import { generatedDownloadName } from "@/lib/download-name";
 import { imageModelSettings } from "@/lib/image-model-settings";
 import { PromptSelectDialog } from "@/components/prompts/prompt-select-dialog";
 import { AssetPickerModal, type InsertAssetPayload } from "@/components/canvas/asset-picker-modal";
 import { imageReferenceLabel } from "@/lib/image-reference-prompt";
 import { useConfigStore, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
+import { estimateGenerationPrice, formatEstimatedPrice, resolveModelPricing } from "@/lib/model-pricing";
 import { useThemeStore } from "@/stores/use-theme-store";
 import { nanoid } from "nanoid";
 import { formatBytes, formatDuration } from "@/lib/image-utils";
@@ -80,6 +82,8 @@ export default function ImagePage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const galleryRef = useRef<HTMLElement>(null);
     const revealingImageIdsRef = useRef(new Set<string>());
+    // 提示词在开始生成后清空，重试失败卡片时从这里取回当时的请求快照
+    const slotSnapshotsRef = useRef(new Map<string, { text: string; config: AiConfig; references: ReferenceImage[] }>());
     const dragDepthRef = useRef(0);
     const theme = useThemeStore((state) => state.theme);
     const appearance = useMemo(() => getWorkbenchAppearance(theme === "dark"), [theme]);
@@ -116,11 +120,15 @@ export default function ImagePage() {
 
     const model = effectiveConfig.imageModel || effectiveConfig.model;
     const canGenerate = Boolean(prompt.trim());
-    const generationCount = getGenerationCount(effectiveConfig.count);
+    const generationCount = getGenerationCount(effectiveConfig.canvasImageCount);
+    // 按当前模型计费声明估算本次生成价格（单价 × 张数），算不出不显示
+    const estimatedPrice = useMemo(() => estimateGenerationPrice(resolveModelPricing(effectiveConfig, model), { kind: "image", count: generationCount }), [effectiveConfig, generationCount, model]);
+    const estimatedPriceLabel = estimatedPrice != null ? i18n.t("workbench.generatePrice", { price: formatEstimatedPrice(estimatedPrice) }) : "";
     const visibleResults = useMemo<GenerationResult[]>(() => {
         if (previewLog) return previewLog.images.map((image) => ({ id: `${previewLog.id}:${image.id}`, status: "success", image }));
         const savedImageIds = new Set(logs.flatMap((log) => log.images.map((image) => image.id)));
-        const recentResults: GenerationResult[] = logs.flatMap((log) => log.images.map((image) => ({ id: `${log.id}:${image.id}`, status: "success" as const, image })));
+        const currentResults = new Map(results.filter((result) => result.image).map((result) => [result.image!.id, result]));
+        const recentResults: GenerationResult[] = logs.flatMap((log) => log.images.map((image) => currentResults.get(image.id) ?? { id: `${log.id}:${image.id}`, status: "success" as const, image }));
         return [...results.filter((result) => !result.image || !savedImageIds.has(result.image.id)), ...recentResults].slice(0, RECENT_IMAGE_LIMIT);
     }, [logs, results, previewLog]);
 
@@ -172,12 +180,16 @@ export default function ImagePage() {
             return;
         }
 
+        setPrompt("");
         setElapsedMs(0);
         setRunning(true);
         if (agentTaskId) updateAgentTask(agentTaskId, { status: "running", error: undefined });
         setPreviewLog(null);
         galleryRef.current?.scrollTo({ top: 0 });
+        // 旧失败卡片会随本次生成被丢弃，其重试快照一并清掉（成功槽位的快照在上传完成时已删除）
+        slotSnapshotsRef.current.clear();
         const slots: GenerationResult[] = Array.from({ length: generationCount }, () => ({ id: nanoid(), status: "pending" }));
+        slots.forEach((slot) => slotSnapshotsRef.current.set(slot.id, snapshot));
         setResults((value) => [...slots, ...value.filter((item) => item.status === "success")]);
         const batchStartedAt = performance.now();
         setStartedAt(batchStartedAt);
@@ -234,8 +246,8 @@ export default function ImagePage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [autoRunToken]);
 
-    const downloadImage = (image: GeneratedImage, index: number) => {
-        saveAs(image.dataUrl, `image-${index + 1}.png`);
+    const downloadImage = (image: GeneratedImage, _index: number) => {
+        saveAs(image.dataUrl, generatedDownloadName("image", imageExtension(image.dataUrl)));
     };
 
     const addResultToReferences = async (image: GeneratedImage, index: number) => {
@@ -346,7 +358,7 @@ export default function ImagePage() {
         updateConfig("imageModel", log.config.imageModel || log.model);
         updateConfig("quality", log.config.quality);
         updateConfig("size", log.config.size);
-        updateConfig("count", log.config.count);
+        updateConfig("canvasImageCount", log.config.count);
         message.success(t("imageWorkbench.configApplied"));
     };
 
@@ -374,6 +386,7 @@ export default function ImagePage() {
             const stored = await uploadImage(image.dataUrl);
             const nextImage: GeneratedImage = { id: image.id, dataUrl: stored.url, ...(stored.storageKey ? { storageKey: stored.storageKey } : {}), durationMs: performance.now() - itemStartedAt, width: stored.width, height: stored.height, bytes: stored.bytes, mimeType: stored.mimeType, prompt: snapshot.text, model: snapshot.config.model, quality: snapshot.config.quality, generationType: snapshot.references.length ? "图生图" : "文生图" };
             revealingImageIdsRef.current.add(nextImage.id);
+            slotSnapshotsRef.current.delete(id);
             setResults((value) => updateResult(value, id, { status: "success", image: nextImage }));
             return nextImage;
         } catch (error) {
@@ -384,7 +397,8 @@ export default function ImagePage() {
 
     const retryResult = async (id: string) => {
         if (running) return;
-        const snapshot = buildRequestSnapshot();
+        // 提示词已随生成清空，失败卡片重试沿用保存的请求快照
+        const snapshot = slotSnapshotsRef.current.get(id) || buildRequestSnapshot();
         if (!snapshot) return;
         setPreviewLog(null);
         setRunning(true);
@@ -499,6 +513,7 @@ export default function ImagePage() {
                             <GenerationSettings />
                             <Button type="primary" loading={running} disabled={!canGenerate || running} icon={!running && <Wand2 size={16} />} onClick={() => void generate()}>
                                 {t(running ? "workbench.generating" : "workbench.generate")}
+                                {!running && estimatedPriceLabel ? <span className="ml-1 font-mono text-xs opacity-80">（{estimatedPriceLabel}）</span> : null}
                             </Button>
                         </div>
                     </section>
@@ -535,11 +550,11 @@ export default function ImagePage() {
                         ) : visibleResults.length ? (
                             <div className={resultStyles.grid}>
                                 {visibleResults.map((result, index) =>
-                                    result.status === "success" && result.image ? (
-                                        <ResultImageCard key={result.image.id} image={result.image} index={index} reveal={!previewLog && revealingImageIdsRef.current.has(result.image.id)} onRevealEnd={() => revealingImageIdsRef.current.delete(result.image!.id)} onPreview={() => setPreviewResult({ image: result.image!, index })} onEdit={addResultToReferences} onDownload={downloadImage} onSaveAsset={saveResultToAssets} onDelete={setImageToDelete} deleteDisabled={running} />
-                                    ) : result.status === "failed" ? (
+                                    result.status === "failed" ? (
                                         <FailedImageCard key={result.id} error={result.error || t("workbench.generationFailed")} disabled={running} onRetry={() => void retryResult(result.id)} />
-                                    ) : <GenerationLoading key={result.id} />,
+                                    ) : (
+                                        <ResultImageCard key={result.id} image={result.image} index={index} reveal={!previewLog && (!result.image || revealingImageIdsRef.current.has(result.image.id))} onRevealEnd={() => { if (result.image) revealingImageIdsRef.current.delete(result.image.id); }} onPreview={() => { if (result.image) setPreviewResult({ image: result.image, index }); }} onEdit={addResultToReferences} onDownload={downloadImage} onSaveAsset={saveResultToAssets} onDelete={setImageToDelete} deleteDisabled={running} />
+                                    ),
                                 )}
                             </div>
                         ) : (
@@ -594,7 +609,7 @@ function ResultImageCard({
     onDelete,
     deleteDisabled,
 }: {
-    image: GeneratedImage;
+    image?: GeneratedImage;
     index: number;
     reveal: boolean;
     onRevealEnd: () => void;
@@ -606,13 +621,22 @@ function ResultImageCard({
     deleteDisabled: boolean;
 }) {
     const { t } = useTranslation();
-    const [imageLoaded, setImageLoaded] = useState(false);
+    const [revealFinished, setRevealFinished] = useState(false);
     useSyncExternalStore(subscribeImagePreviews, getImagePreviewRevision);
+    const finishReveal = () => {
+        setRevealFinished(true);
+        onRevealEnd();
+    };
     return (
         <article className={styles.result}>
-            <button type="button" className={resultStyles.preview} onClick={onPreview} aria-label={t("imageWorkbench.resultAlt", { count: index + 1 })}>
-                <img src={previewUrlFor(image.storageKey) || image.dataUrl} alt={t("imageWorkbench.resultAlt", { count: index + 1 })} loading="lazy" onLoad={() => setImageLoaded(true)} onAnimationEnd={onRevealEnd} className={reveal ? (imageLoaded ? resultStyles.revealing : resultStyles.revealPending) : undefined} />
+            <button type="button" className={resultStyles.preview} disabled={!image} onClick={onPreview} aria-label={image ? t("imageWorkbench.resultAlt", { count: index + 1 }) : t("workbench.generating")}>
+                {!image || (reveal && !revealFinished) ? (
+                    <GridReveal src={image?.dataUrl} aspect={4 / 3} caption={t("workbench.generating")} role={image ? undefined : "status"} aria-label={image ? undefined : t("workbench.generating")} onRevealComplete={finishReveal} onError={finishReveal} />
+                ) : (
+                    <img src={revealFinished ? image.dataUrl : previewUrlFor(image.storageKey) || image.dataUrl} alt={t("imageWorkbench.resultAlt", { count: index + 1 })} loading="lazy" />
+                )}
             </button>
+            {image && <>
             <div className={styles.metadata}>
                 <span>{image.width} × {image.height} · {formatBytes(image.bytes)}</span>
                 <span>{formatDuration(image.durationMs)}</span>
@@ -633,6 +657,7 @@ function ResultImageCard({
                     </Tooltip>
                 </div>
             </div>
+            </>}
         </article>
     );
 }

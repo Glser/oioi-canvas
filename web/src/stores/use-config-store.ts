@@ -6,6 +6,8 @@ import { nanoid } from "nanoid";
 import i18n from "@/i18n";
 import { NEW_API_BASE_URL, NEW_API_CHANNEL_ID, NEW_API_ENABLED } from "@/constant/env";
 import { useNewApiStore, type NewApiRuntimeState } from "@/stores/use-newapi-store";
+import type { ModelFeatures } from "@/lib/model-features";
+import type { NewApiModelPricing } from "@/services/api/newapi";
 
 export type ApiCallFormat = "openai" | "gemini";
 export type ModelCapability = "image" | "video" | "text" | "audio";
@@ -17,6 +19,8 @@ export type ChannelModel = {
     script?: string;
     apiFormat?: ApiCallFormat;
     textEndpoint?: "chat" | "responses";
+    features?: ModelFeatures;
+    pricing?: NewApiModelPricing;
 };
 
 export type ModelChannel = {
@@ -52,6 +56,7 @@ export type AiConfig = {
     videoGenerateAudio: string;
     videoWatermark: string;
     videoMode: string;
+    modelFeatures?: ModelFeatures;
     systemPrompt: string;
     reasoningEffort: ReasoningEffort;
     models: string[];
@@ -149,7 +154,12 @@ type ConfigStore = {
 };
 
 const VIDEO_KEYWORDS = ["video", "sora", "veo", "kling", "wan", "hailuo"];
-const NEW_API_CATEGORY_CAPABILITIES = new Map<string, ModelCapability>([["chat", "text"], ["image", "image"], ["video", "video"], ["audio", "audio"]]);
+const NEW_API_CATEGORY_CAPABILITIES = new Map<string, ModelCapability>([
+    ["chat", "text"],
+    ["image", "image"],
+    ["video", "video"],
+    ["audio", "audio"],
+]);
 
 export function boolConfig(value: string, fallback: boolean) {
     return value ? value === "true" : fallback;
@@ -201,6 +211,10 @@ export function selectableModelsByCapability(config: AiConfig, capability?: Mode
 }
 
 /** The user script (if any) attached to a model; empty string means use the system default call. */
+export function resolveModelFeatures(config: AiConfig, value: string) {
+    return findChannelModel(config, value)?.model.features;
+}
+
 export function resolveModelScript(config: AiConfig, value: string) {
     if (NEW_API_ENABLED) return "";
     return findChannelModel(config, value)?.model.script?.trim() || "";
@@ -297,7 +311,8 @@ export function useEffectiveConfig() {
     const apiKey = useNewApiStore((state) => state.apiKey);
     const models = useNewApiStore((state) => state.models);
     const status = useNewApiStore((state) => state.status);
-    return useMemo(() => buildEffectiveConfig(config, { session, apiKey, models, status }), [config, session, apiKey, models, status]);
+    const docsLink = useNewApiStore((state) => state.docsLink);
+    return useMemo(() => buildEffectiveConfig(config, { session, apiKey, models, status, docsLink }), [config, session, apiKey, models, status, docsLink]);
 }
 
 export function getEffectiveConfig() {
@@ -316,8 +331,8 @@ function buildEffectiveConfig(config: AiConfig, state: NewApiRuntimeState): AiCo
         const endpoint = supported.find((item) => endpoints.includes(item));
         if (!endpoint) return [];
         const apiFormat: ApiCallFormat = endpoint === "gemini" || endpoint === "gemini-image" ? "gemini" : "openai";
-        const textEndpoint = capability === "text" && apiFormat === "openai" ? endpoint === "openai" ? "chat" : "responses" : undefined;
-        const entry: ChannelModel = { name: model.id, capability, apiFormat, ...(textEndpoint ? { textEndpoint } : {}) };
+        const textEndpoint = capability === "text" && apiFormat === "openai" ? (endpoint === "openai" ? "chat" : "responses") : undefined;
+        const entry: ChannelModel = { name: model.id, capability, apiFormat, features: model.features, ...(model.pricing ? { pricing: model.pricing } : {}), ...(textEndpoint ? { textEndpoint } : {}) };
         return [entry];
     });
     const channel: ModelChannel = { id: NEW_API_CHANNEL_ID, name: "oioi", baseUrl: NEW_API_BASE_URL, apiKey: state.status === "ready" ? state.apiKey : "", apiFormat: "openai", models };
@@ -354,8 +369,10 @@ export function normalizeChannelModels(models: Array<string | ChannelModel> | un
         if (!name || seen.has(name)) continue;
         seen.add(name);
         const capability = typeof item === "string" ? guessCapability(name) : item.capability || guessCapability(name);
+        const features = typeof item === "string" ? undefined : item.features;
+        const pricing = typeof item === "string" ? undefined : item.pricing;
         const script = typeof item === "string" ? undefined : item.script?.trim() || undefined;
-        result.push({ name, capability, script });
+        result.push({ name, capability, script, ...(features ? { features } : {}), ...(pricing ? { pricing } : {}) });
     }
     return result;
 }
@@ -372,10 +389,7 @@ export function createModelChannel(channel?: Partial<ModelChannel>): ModelChanne
     };
 }
 
-export function upsertChannelCredentials(
-    config: AiConfig,
-    input: { baseUrl?: string | null; apiKey?: string | null },
-): ChannelCredentialsImportResult & { config: AiConfig } {
+export function upsertChannelCredentials(config: AiConfig, input: { baseUrl?: string | null; apiKey?: string | null }): ChannelCredentialsImportResult & { config: AiConfig } {
     const rawBaseUrl = input.baseUrl?.trim() || "";
     if (!rawBaseUrl) return { status: "missing-base-url", config };
     if (!isHttpBaseUrl(rawBaseUrl)) return { status: "invalid-base-url", config };
@@ -450,11 +464,8 @@ export function modelOptionName(value: string) {
     return decodeChannelModel(value)?.model || value;
 }
 
-export function modelOptionLabel(config: AiConfig, value: string) {
-    const decoded = decodeChannelModel(value);
-    if (!decoded) return value;
-    const channel = config.channels.find((item) => item.id === decoded.channelId);
-    return channel ? `${decoded.model}（${channel.name}）` : decoded.model;
+export function modelOptionLabel(_config: AiConfig, value: string) {
+    return modelOptionName(value);
 }
 
 export function modelOptionsFromChannels(channels: ModelChannel[]) {
@@ -476,27 +487,38 @@ export function normalizeModelOptionValue(value: string | undefined, channels: M
 export function resolveModelChannel(config: AiConfig, value: string) {
     if (NEW_API_ENABLED) {
         const matched = findChannelModel(config, value);
-        if (!matched || matched.channel.id !== NEW_API_CHANNEL_ID) throw new Error("该模型不在当前账户的可用列表中，请重新选择");
+        if (!matched || matched.channel.id !== NEW_API_CHANNEL_ID) throw new Error(i18n.t("account.errors.modelNotInAccount"));
         return matched.channel;
     }
     const decoded = decodeChannelModel(value);
     const model = decoded?.model || value;
     const matched = decoded ? config.channels.find((channel) => channel.id === decoded.channelId) : config.channels.find((channel) => channel.models.some((item) => item.name === model));
-    return matched || config.channels[0] || createModelChannel({ id: "default", name: i18n.t("config.channels.defaultName"), baseUrl: config.baseUrl, apiKey: config.apiKey, apiFormat: config.apiFormat, models: config.models.map(modelOptionName).map((name) => ({ name, capability: guessCapability(name) })) });
+    return (
+        matched ||
+        config.channels[0] ||
+        createModelChannel({
+            id: "default",
+            name: i18n.t("config.channels.defaultName"),
+            baseUrl: config.baseUrl,
+            apiKey: config.apiKey,
+            apiFormat: config.apiFormat,
+            models: config.models.map(modelOptionName).map((name) => ({ name, capability: guessCapability(name) })),
+        })
+    );
 }
 
 export function resolveModelRequestConfig(config: AiConfig, value: string, capability?: ModelCapability): AiConfig {
     if (NEW_API_ENABLED) {
         const state = useNewApiStore.getState();
-        if (state.status !== "ready" || !state.session || config.newApiUserId !== state.session.user.id || config.newApiSessionId !== state.session.session.sid) throw new Error("登录状态已变化，请重新选择模型后再试");
+        if (state.status !== "ready" || !state.session || config.newApiUserId !== state.session.user.id || config.newApiSessionId !== state.session.session.sid) throw new Error(i18n.t("account.errors.loginStateChanged"));
         const name = modelOptionName(value);
         const effective = buildEffectiveConfig(config, state);
         const model = effective.channels[0].models.find((item) => item.name === name);
-        if (!model) throw new Error("该模型当前不可用，请重新选择");
-        if (capability && model.capability !== capability) throw new Error("所选模型不支持当前生成类型，请重新选择");
-        return { ...config, model: name, baseUrl: NEW_API_BASE_URL, apiKey: state.apiKey, apiFormat: model.apiFormat || "openai", textEndpoint: model.textEndpoint };
+        if (!model) throw new Error(i18n.t("account.errors.modelUnavailable"));
+        if (capability && model.capability !== capability) throw new Error(i18n.t("account.errors.modelCapabilityMismatch"));
+        return { ...config, model: name, baseUrl: NEW_API_BASE_URL, apiKey: state.apiKey, apiFormat: model.apiFormat || "openai", textEndpoint: model.textEndpoint, modelFeatures: model.features };
     }
-    if (capability && !modelMatchesCapability(config, value, capability)) throw new Error("所选模型不支持当前生成类型，请重新选择");
+    if (capability && !modelMatchesCapability(config, value, capability)) throw new Error(i18n.t("account.errors.modelCapabilityMismatch"));
     const channel = resolveModelChannel(config, value);
     return {
         ...config,

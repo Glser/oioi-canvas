@@ -4,7 +4,11 @@ import { Button, Modal, Popover, Tooltip } from "antd";
 import { useTranslation } from "react-i18next";
 
 import { ModelPicker } from "@/components/model-picker";
-import { defaultConfig, resolveModelForCapability, useConfigStore, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
+import { defaultConfig, resolveModelFeatures, resolveModelForCapability, useConfigStore, useEffectiveConfig, type AiConfig } from "@/stores/use-config-store";
+import { resolutionToken, videoUploadLimits } from "@/lib/model-features";
+import { clampVideoSeconds } from "@/lib/media-size";
+import { estimateGenerationPrice, formatEstimatedPrice, resolveModelPricing } from "@/lib/model-pricing";
+import i18n from "@/i18n";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { useThemeStore } from "@/stores/use-theme-store";
 import { CanvasImageSettingsPopover } from "./canvas-image-settings-popover";
@@ -121,6 +125,29 @@ export function CanvasNodePromptPanel({
         }
     };
 
+    // 视频模式下按模型 features 声明的参考上限显示「当前数 / 上限」，未声明即不限制
+    const videoLimits = videoUploadLimits(mode === "video" ? resolveModelFeatures(config, config.model)?.video : undefined);
+    const referenceLimitHint = mode === "video"
+        ? [
+              { type: CanvasNodeType.Image, max: videoLimits.image },
+              { type: CanvasNodeType.Video, max: videoLimits.video },
+              { type: CanvasNodeType.Audio, max: videoLimits.audio },
+          ]
+              .map(({ type, max }) => ({ count: allDisplayReferences.filter((item) => item.node.type === type).length, max }))
+              .filter(({ count, max }) => count > 0 && Number.isFinite(max))
+              .map(({ count, max }) => `${count}/${max}`)
+              .join(" ")
+        : "";
+
+    // 按当前模型计费声明与所选参数估算本次生成价格（图片按张数、视频按分辨率×秒数），算不出不显示
+    const estimatedPrice = useMemo(() => {
+        if (mode !== "image" && mode !== "video") return null;
+        const pricing = resolveModelPricing(config, config.model);
+        if (mode === "video") return estimateGenerationPrice(pricing, { kind: "video", seconds: Number(clampVideoSeconds(config.videoSeconds || "6")), resolution: resolutionToken(config.vquality) });
+        return estimateGenerationPrice(pricing, { kind: "image", count: Math.max(1, Number(config.count) || 1) });
+    }, [config, mode]);
+    const estimatedPriceLabel = estimatedPrice != null ? i18n.t("canvas.promptPanel.estimatedPrice", { price: formatEstimatedPrice(estimatedPrice) }) : "";
+
     // Restore prompts only when switching nodes; preserve the current input after generation on the same node.
     useEffect(() => {
         setPrompt(node.metadata?.composerContent ?? node.metadata?.prompt ?? "");
@@ -208,29 +235,32 @@ export function CanvasNodePromptPanel({
                         ))}
 
                         {/* + Button */}
-                        <Tooltip title="上传本地参考图">
+                        <Tooltip title={t("canvas.references.uploadLocal")}>
                             <Button
                                 type="text"
                                 className="!h-7 !w-7 !min-w-7 !rounded-lg !bg-transparent !p-0 opacity-60 hover:opacity-100 hover:!bg-black/5 dark:hover:!bg-white/10 transition-colors"
                                 style={{ color: theme.node.text }}
                                 icon={<Plus className="size-4" />}
                                 onClick={() => fileInputRef.current?.click()}
-                                aria-label="上传本地参考图"
+                                aria-label={t("canvas.references.uploadLocal")}
                             />
                         </Tooltip>
                     </div>
 
-                    {/* Top Right Expand Button */}
-                    <Tooltip title={t("canvas.promptPanel.expandEditor")}>
-                        <Button
-                            type="text"
-                            className="!h-7 !w-7 !min-w-7 !rounded-lg !bg-transparent !p-0 opacity-60 hover:opacity-100 hover:!bg-black/5 dark:hover:!bg-white/10 transition-colors shrink-0 self-start"
-                            style={{ color: theme.node.text }}
-                            icon={<Maximize2 className="size-3.5" />}
-                            onClick={openExpandedEditor}
-                            aria-label={t("canvas.promptPanel.expandEditor")}
-                        />
-                    </Tooltip>
+                    {/* Top Right: reference count hint + Expand Button */}
+                    <div className="flex shrink-0 items-center gap-1 self-start">
+                        {referenceLimitHint && <span className="cursor-default font-mono text-[10px] opacity-50">{referenceLimitHint}</span>}
+                        <Tooltip title={t("canvas.promptPanel.expandEditor")}>
+                            <Button
+                                type="text"
+                                className="!h-7 !w-7 !min-w-7 !rounded-lg !bg-transparent !p-0 opacity-60 hover:opacity-100 hover:!bg-black/5 dark:hover:!bg-white/10 transition-colors"
+                                style={{ color: theme.node.text }}
+                                icon={<Maximize2 className="size-3.5" />}
+                                onClick={openExpandedEditor}
+                                aria-label={t("canvas.promptPanel.expandEditor")}
+                            />
+                        </Tooltip>
+                    </div>
                 </div>
 
                 {/* Prompt Text Input Row */}
@@ -292,6 +322,11 @@ export function CanvasNodePromptPanel({
                     )}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
+                    {estimatedPriceLabel ? (
+                        <span className="shrink-0 font-mono text-[11px] opacity-60" aria-label={t("canvas.promptPanel.estimatedPriceHint")}>
+                            {estimatedPriceLabel}
+                        </span>
+                    ) : null}
                     <CanvasPromptLibrary onSelect={updatePrompt} />
                     <Button
                         className="group relative !h-9 !min-w-14 shrink-0 !rounded-full !border-0 !px-3.5 shadow-sm transition hover:opacity-90 active:scale-95 disabled:opacity-40"
@@ -396,6 +431,7 @@ function CompactReferenceThumb({
     theme: (typeof canvasThemes)[keyof typeof canvasThemes];
     onRemove: () => void;
 }) {
+    const { t } = useTranslation();
     const resource = getNodeDefinition(node.type)?.resource?.(node);
     const content = node.metadata?.content || resource?.url;
     const thumbnail = previewUrlFor(node.metadata?.storageKey) || content;
@@ -414,12 +450,12 @@ function CompactReferenceThumb({
                             <img src={thumbnail} alt="" className="max-h-64 max-w-72 rounded-xl object-contain block shadow-lg" />
                             {/* Floating title at bottom-left: no black background, clean direct text on hover */}
                             <div className="absolute bottom-1.5 left-2 right-2 text-white text-[11px] font-medium leading-tight truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)] opacity-0 group-hover/preview:opacity-100 transition-opacity duration-200 pointer-events-none">
-                                {node.title || "参考内容"}
+                                {node.title || t("canvas.references.fallbackTitle")}
                             </div>
                         </div>
                     ) : (
                         <div className="px-3 py-2 rounded-xl bg-white/90 dark:bg-stone-900/90 text-stone-800 dark:text-stone-100 text-xs font-medium shadow-md">
-                            {node.title || "参考内容"}
+                            {node.title || t("canvas.references.fallbackTitle")}
                         </div>
                     )}
                 </div>
@@ -438,10 +474,10 @@ function CompactReferenceThumb({
                 {/* Subtle border overlay */}
                 <div className="absolute inset-0 rounded-lg ring-1 ring-inset ring-black/10 dark:ring-white/10 pointer-events-none" />
                 {/* Remove button on hover */}
-                <Tooltip title="移除参考">
+                <Tooltip title={t("canvas.references.remove")}>
                     <button
                         type="button"
-                        aria-label="移除参考"
+                        aria-label={t("canvas.references.remove")}
                         onClick={(e) => {
                             e.stopPropagation();
                             onRemove();

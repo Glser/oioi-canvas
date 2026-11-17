@@ -1,4 +1,5 @@
-export const AGENT_PROTOCOL_VERSION = 11;
+export const AGENT_PROTOCOL_VERSION = 13;
+export type AgentRuntimeId = "codex" | "claude";
 
 /** 网页与本地服务共享的对话视图；历史正文由原生 Agent 保存。 */
 export type AgentMessage = { threadId: string; turnId: string; itemId: string; role: "user" | "assistant" | "tool"; text: string; status?: string };
@@ -12,8 +13,10 @@ export type AgentTokenUsage = { usedTokens: number; totalTokens: number; modelCo
 export type AgentConversation = {
     instanceId: string;
     revision: number;
+    /** 空字符串表示当前网站共用的会话组，与画布工具目标独立。 */
     projectId: string;
     conversationId: string;
+    runtimeId: AgentRuntimeId;
     threadId: string;
     cwd: string;
     capabilities: AgentCapabilities | null;
@@ -26,7 +29,7 @@ export type AgentConversation = {
     submissions: Record<string, AgentSubmission>;
     error: string;
 };
-export type AgentConversationSummary = { id: string; title: string; cwd: string };
+export type AgentConversationSummary = { id: string; title: string; cwd: string; runtimeId: AgentRuntimeId };
 export type AgentDirectory = { path: string; parent: string | null; directories: { name: string; path: string }[] };
 export type AgentAnswer = { requestId: string; decision?: "accept" | "decline"; answers?: Record<string, string>; content?: Record<string, AgentInputValue> };
 
@@ -35,7 +38,8 @@ export type RuntimeCatalog = { machine: string; platform: string; arch: string; 
 export type AgentModel = { id: string; name: string; reasoningEfforts: { value: string; label: string }[]; defaultReasoningEffort: string | null };
 export type AgentModelSelection = { model?: string; reasoningEffort?: string };
 export type AgentCapabilities = {
-    runtimeId: "codex";
+    runtimeId: AgentRuntimeId;
+    permissionModes?: AgentPermissionMode[];
     model: string | null;
     modelProvider: string | null;
     reasoningEffort: string | null;
@@ -49,7 +53,7 @@ export type AgentCapabilities = {
     errors: string[];
 };
 
-export type RuntimeInfo = { runtimeId: "codex"; status: "ready" | "needsAuth"; capabilities: AgentCapabilities };
+export type RuntimeInfo = { runtimeId: AgentRuntimeId; status: "ready" | "needsAuth"; capabilities: AgentCapabilities };
 
 /** 实时快照仅在能力发生变化时附带目录，避免逐 token 重发 Skills/MCP 清单。 */
 export type AgentConversationUpdate = Omit<AgentConversation, "capabilities"> & { capabilities?: AgentCapabilities | null };

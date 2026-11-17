@@ -42,6 +42,7 @@ export function CanvasPromptChipInput({ value, references, onChange, onSubmit, c
     const [mention, setMention] = useState<MentionState | null>(null);
     const [activeIndex, setActiveIndex] = useState(0);
     const [previewReference, setPreviewReference] = useState<CanvasResourceReference | null>(null);
+    const [focused, setFocused] = useState(false);
 
     const activeReferences = useMemo(() => references.filter((item) => item.active), [references]);
     const referenceByLabel = useMemo(() => new Map(activeReferences.map((item) => [item.label, item])), [activeReferences]);
@@ -125,7 +126,7 @@ export function CanvasPromptChipInput({ value, references, onChange, onSubmit, c
         emit(serializeEditor(editor));
     };
 
-    const showPlaceholder = !value.trim();
+    const showPlaceholder = !value.trim() && !focused;
 
     return (
         <div className="relative w-full">
@@ -189,7 +190,11 @@ export function CanvasPromptChipInput({ value, references, onChange, onSubmit, c
                     }
                     requestAnimationFrame(syncMention);
                 }}
-                onBlur={() => window.setTimeout(closeMention, 120)}
+                onBlur={() => {
+                    setFocused(false);
+                    window.setTimeout(closeMention, 120);
+                }}
+                onFocus={() => setFocused(true)}
             />
             {referenceTooltip}
             {mention && candidates.length ? (

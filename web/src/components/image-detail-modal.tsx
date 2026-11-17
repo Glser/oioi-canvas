@@ -21,8 +21,10 @@ import { saveAs } from "file-saver";
 
 import { useThemeStore } from "@/stores/use-theme-store";
 import { useAssetStore } from "@/stores/use-asset-store";
+import { modelOptionName } from "@/stores/use-config-store";
 import { formatBytes, getDataUrlByteSize } from "@/lib/image-utils";
 import { imageExtension } from "@/lib/canvas/canvas-generation-helpers";
+import { generatedDownloadName } from "@/lib/download-name";
 import { useCopyText } from "@/hooks/use-copy-text";
 export type ImageDetailImage = {
     url: string;
@@ -119,9 +121,7 @@ export function ImageDetailModal({
     const handleDownload = () => {
         if (!activeImageUrl) return;
         const ext = image?.mimeType?.split("/")[1] || imageExtension(activeImageUrl);
-        const rawTitle = image?.title || "image";
-        const fileName = rawTitle.trim().replace(/[^a-zA-Z0-9_\u4e00-\u9fa5-]+/g, "_");
-        saveAs(activeImageUrl, `${fileName}.${ext}`);
+        saveAs(activeImageUrl, generatedDownloadName("image", ext));
         message.success(t("canvas.nodeToolbar.downloadImage"));
     };
 
@@ -134,7 +134,7 @@ export function ImageDetailModal({
             title: image?.prompt?.slice(0, 24) || image?.title || t("canvas.projectPage.canvasImage"),
             coverUrl: activeImageUrl,
             tags: [],
-            source: "Canvas",
+            source: "oioi",
             data: {
                 dataUrl,
                 storageKey: image?.storageKey,
@@ -160,6 +160,7 @@ export function ImageDetailModal({
     const width = image?.width || 0;
     const height = image?.height || 0;
     const byteSize = image?.bytes || getDataUrlByteSize(activeImageUrl);
+    const modelName = modelOptionName(image?.model || "");
 
     return (
         <Modal
@@ -366,7 +367,7 @@ export function ImageDetailModal({
                                 border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(0,0,0,0.08)",
                             }}
                         >
-                            {Math.round(scale * 100)}% · 滚轮缩放 · 拖拽平移 · 双击重置
+                            {t("canvas.imageDetail.zoomHint", { percent: Math.round(scale * 100) })}
                         </div>
                     </div>
 
@@ -396,12 +397,12 @@ export function ImageDetailModal({
                                             {copied ? (
                                                 <>
                                                     <Check className="size-3 text-emerald-500" />
-                                                    <span className="text-emerald-500">已复制</span>
+                                                    <span className="text-emerald-500">{t("canvas.imageDetail.copied")}</span>
                                                 </>
                                             ) : (
                                                 <>
                                                     <Copy className="size-3" />
-                                                    <span>复制</span>
+                                                    <span>{t("canvas.imageDetail.copy")}</span>
                                                 </>
                                             )}
                                         </button>
@@ -429,16 +430,16 @@ export function ImageDetailModal({
                                     {image?.model ? (
                                         <div className="flex items-center justify-between py-1">
                                             <span className="text-zinc-500 flex items-center gap-1.5">
-                                                <Cpu className="size-3.5" /> 模型
+                                                <Cpu className="size-3.5" /> {t("canvas.imageDetail.model")}
                                             </span>
-                                            <Tooltip title={image.model}><span className="font-mono font-medium max-w-[130px] truncate text-right">{image.model}</span></Tooltip>
+                                            <Tooltip title={modelName}><span className="font-mono font-medium max-w-[130px] truncate text-right">{modelName}</span></Tooltip>
                                         </div>
                                     ) : null}
 
                                     {width && height ? (
                                         <div className="flex items-center justify-between py-1">
                                             <span className="text-zinc-500 flex items-center gap-1.5">
-                                                <Maximize2 className="size-3.5" /> 分辨率
+                                                <Maximize2 className="size-3.5" /> {t("canvas.imageDetail.resolution")}
                                             </span>
                                             <span className="font-mono font-medium">
                                                 {width} × {height}
@@ -449,7 +450,7 @@ export function ImageDetailModal({
                                     {image?.quality ? (
                                         <div className="flex items-center justify-between py-1">
                                             <span className="text-zinc-500 flex items-center gap-1.5">
-                                                <Layers className="size-3.5" /> 画质
+                                                <Layers className="size-3.5" /> {t("canvas.imageDetail.quality")}
                                             </span>
                                             <span className="font-mono font-medium capitalize">
                                                 {image.quality}
@@ -460,7 +461,7 @@ export function ImageDetailModal({
                                     {byteSize ? (
                                         <div className="flex items-center justify-between py-1">
                                             <span className="text-zinc-500 flex items-center gap-1.5">
-                                                <FileText className="size-3.5" /> 大小
+                                                <FileText className="size-3.5" /> {t("canvas.imageDetail.fileSize")}
                                             </span>
                                             <span className="font-mono font-medium">
                                                 {formatBytes(byteSize)}
@@ -471,7 +472,7 @@ export function ImageDetailModal({
                                     {image?.mimeType ? (
                                         <div className="flex items-center justify-between py-1">
                                             <span className="text-zinc-500 flex items-center gap-1.5">
-                                                <FileText className="size-3.5" /> 格式
+                                                <FileText className="size-3.5" /> {t("canvas.imageDetail.format")}
                                             </span>
                                             <span className="font-mono uppercase">
                                                 {image.mimeType.split("/")[1] || "png"}
@@ -481,9 +482,9 @@ export function ImageDetailModal({
 
                                     {image?.generationType ? (
                                         <div className="flex items-center justify-between py-1">
-                                            <span className="text-zinc-500">生成模式</span>
+                                            <span className="text-zinc-500">{t("canvas.imageDetail.generationMode")}</span>
                                             <span className="font-medium capitalize">
-                                                {image.generationType}
+                                                {image.generationType === "图生图" ? t("canvas.imageDetail.modeEdit") : t("canvas.imageDetail.modeGenerate")}
                                             </span>
                                         </div>
                                     ) : null}

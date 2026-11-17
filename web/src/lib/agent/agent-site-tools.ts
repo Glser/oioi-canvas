@@ -138,7 +138,7 @@ function getImageConfig() {
     const config = getEffectiveConfig();
     const model = config.imageModel || config.model;
     return {
-        current: { model, modelName: modelOptionName(model), quality: config.quality || "auto", size: config.size || "1:1", count: config.count || "1" },
+        current: { model, modelName: modelOptionName(model), quality: config.quality || "auto", size: config.size || "1:1", count: config.canvasImageCount || "1" },
         models: selectableModelsByCapability(config, "image").map((value) => ({ value, label: modelOptionLabel(config, value) })),
         qualityOptions: imageQualityOptions,
         scaleOptions: imageScaleOptions,
@@ -165,7 +165,7 @@ function runImageWorkbench(input: SiteToolInput, navigate: NavigateFunction) {
     }
     if (input.count != null) {
         const count = String(Math.max(1, Math.min(15, Math.floor(Number(input.count)) || 1)));
-        configStore.updateConfig("count", count);
+        configStore.updateConfig("canvasImageCount", count);
         applied.count = count;
     }
     const prompt = typeof input.prompt === "string" ? input.prompt : undefined;

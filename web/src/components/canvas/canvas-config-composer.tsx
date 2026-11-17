@@ -44,6 +44,7 @@ export function CanvasConfigComposer({ nodeId, nodes, value, inputs, connectedNo
     const [mention, setMention] = useState<MentionState | null>(null);
     const [activeIndex, setActiveIndex] = useState(0);
     const [previewInput, setPreviewInput] = useState<NodeGenerationInput | null>(null);
+    const [focused, setFocused] = useState(false);
     const tokens = useMemo(() => parseComposerTokens(value), [value]);
     const referenceById = useMemo(() => new Map(inputs.map((input) => [input.nodeId, input])), [inputs]);
     const candidates = useMemo(() => {
@@ -136,7 +137,7 @@ export function CanvasConfigComposer({ nodeId, nodes, value, inputs, connectedNo
             {referenceTooltip}
             <CanvasNodeReferenceBar nodeId={nodeId} nodes={nodes} connectedNodes={connectedNodes} onDisconnect={onDisconnectReference} onStartSelection={onStartReferenceSelection} />
             <div className="relative rounded-xl">
-                {!value.trim() ? <div className="pointer-events-none absolute left-3 top-2 text-sm leading-7" style={{ color: theme.node.placeholder }}>{t("canvas.composer.placeholder")}</div> : null}
+                {!value.trim() && !focused ? <div className="pointer-events-none absolute left-3 top-2 text-sm leading-7" style={{ color: theme.node.placeholder }}>{t("canvas.composer.placeholder")}</div> : null}
                 <div
                     ref={editorRef}
                     contentEditable
@@ -184,7 +185,11 @@ export function CanvasConfigComposer({ nodeId, nodes, value, inputs, connectedNo
                         }
                         requestAnimationFrame(syncMention);
                     }}
-                    onBlur={() => window.setTimeout(closeMention, 120)}
+                    onBlur={() => {
+                        setFocused(false);
+                        window.setTimeout(closeMention, 120);
+                    }}
+                    onFocus={() => setFocused(true)}
                 />
                 {mention && candidates.length ? <MentionMenu inputs={candidates} allInputs={inputs} activeIndex={Math.min(activeIndex, candidates.length - 1)} theme={theme} onSelect={insertReference} /> : null}
             </div>

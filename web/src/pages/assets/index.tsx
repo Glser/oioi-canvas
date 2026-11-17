@@ -79,7 +79,7 @@ export default function AssetsPage() {
         setEditingAsset(null);
         setImageDraft(null);
         setFormKind("text");
-        form.setFieldsValue({ kind: "text", title: "", coverUrl: "", tags: [], source: t("assets.manual"), note: "", content: "" });
+        form.setFieldsValue({ kind: "text", title: "", coverUrl: "", tags: [], source: "oioi", note: "", content: "" });
         setIsAssetOpen(true);
     };
 
@@ -205,10 +205,25 @@ export default function AssetsPage() {
                         <p className="mt-3 text-sm text-muted-foreground">{t("assets.description")}</p>
                     </div>
 
-                    <div className="mt-4 w-full sm:max-w-xl">
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
+                        <div className="text-xs font-medium text-muted-foreground">{t("assets.type")}</div>
+                        <div className="flex flex-wrap gap-2">
+                            {kindOptions.map((option) => (
+                                <Tag.CheckableTag
+                                    key={option}
+                                    checked={kindFilter === option}
+                                    className={styles.filterTag}
+                                    onChange={() => {
+                                        setPage(1);
+                                        setKindFilter(option);
+                                    }}
+                                >
+                                    {option === "all" ? t("common.all") : t(`assets.kinds.${option}`)}
+                                </Tag.CheckableTag>
+                            ))}
+                        </div>
                         <Input.Search
-                            className="w-full"
-                            size="large"
+                            className="min-w-52 flex-1 sm:max-w-xs"
                             allowClear
                             prefix={<Search className="size-4 text-muted-foreground" />}
                             value={keyword}
@@ -222,45 +237,22 @@ export default function AssetsPage() {
                                 setKeyword(value);
                             }}
                         />
-                    </div>
-
-                    <div className="mt-4 grid gap-3 text-left">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                            <div className="grid gap-2 sm:grid-cols-[56px_minmax(0,1fr)] sm:items-center">
-                                <div className="text-xs font-medium text-muted-foreground">{t("assets.type")}</div>
-                                <div className="flex flex-wrap gap-2">
-                                    {kindOptions.map((option) => (
-                                        <Tag.CheckableTag
-                                            key={option}
-                                            checked={kindFilter === option}
-                                            className={styles.filterTag}
-                                            onChange={() => {
-                                                setPage(1);
-                                                setKindFilter(option);
-                                            }}
-                                        >
-                                            {option === "all" ? t("common.all") : t(`assets.kinds.${option}`)}
-                                        </Tag.CheckableTag>
-                                    ))}
-                                </div>
-                            </div>
-                            <div className="flex flex-wrap gap-4">
-                                <Button type="text"
-                                    onClick={() => void exportAllAssets()}
-                                >
-                                    {t("assets.export")}
-                                </Button>
-                                <Button type="text"
-                                    onClick={() => assetInputRef.current?.click()}
-                                >
-                                    {t("assets.import")}
-                                </Button>
-                                <Button type="primary"
-                                    onClick={openCreate}
-                                >
-                                    {t("assets.add")}
-                                </Button>
-                            </div>
+                        <div className="ml-auto flex flex-wrap gap-4">
+                            <Button type="text"
+                                onClick={() => void exportAllAssets()}
+                            >
+                                {t("assets.export")}
+                            </Button>
+                            <Button type="text"
+                                onClick={() => assetInputRef.current?.click()}
+                            >
+                                {t("assets.import")}
+                            </Button>
+                            <Button type="primary"
+                                onClick={openCreate}
+                            >
+                                {t("assets.add")}
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -286,7 +278,7 @@ export default function AssetsPage() {
                                 setPageSize(nextPageSize);
                             }}
                         />
-                        <Select aria-label={<span>t("assets.pageSize")</span>} className="w-28" value={pageSize} options={pageSizeOptions.map((value) => ({ value, label: t("assets.itemsPerPage", { count: value }) }))} onChange={setPageSize} />
+                        <Select aria-label={t("assets.pageSize")} className="w-28" value={pageSize} options={pageSizeOptions.map((value) => ({ value, label: t("assets.itemsPerPage", { count: value }) }))} onChange={setPageSize} />
                     </div>
                 </div>
                 </div>
@@ -295,7 +287,7 @@ export default function AssetsPage() {
             <Modal title={editingAsset ? t("assets.edit") : t("assets.add")} open={isAssetOpen} width={980} onCancel={() => setIsAssetOpen(false)} onOk={() => void saveAsset()} okText={t("common.save")} cancelText={t("common.cancel")} destroyOnHidden>
                 <div className="grid gap-6 pt-1 lg:grid-cols-[minmax(0,1fr)_320px]">
                     <Form form={form} layout="vertical" requiredMark={false} initialValues={{ kind: "text", tags: [] }}>
-                        <Form.Item name="kind" label={<span>t("assets.type")</span>}>
+                        <Form.Item name="kind" label={<span>{t("assets.type")}</span>}>
                             <Select<AssetKind>
                                 options={[
                                     { label: t("assets.kinds.text"), value: "text" },
@@ -304,10 +296,10 @@ export default function AssetsPage() {
                                 onChange={(value) => setFormKind(value)}
                             />
                         </Form.Item>
-                        <Form.Item name="title" label={<span>t("assets.fields.title")</span>} rules={[{ required: true, message: t("assets.fields.titleRequired") }]}>
+                        <Form.Item name="title" label={<span>{t("assets.fields.title")}</span>} rules={[{ required: true, message: t("assets.fields.titleRequired") }]}>
                             <Input size="large" placeholder={t("assets.fields.titlePlaceholder")} />
                         </Form.Item>
-                        <Form.Item name="coverUrl" label={<span>t("assets.fields.coverUrl")</span>}>
+                        <Form.Item name="coverUrl" label={<span>{t("assets.fields.coverUrl")}</span>}>
                             <Space.Compact className="w-full">
                                 <Input placeholder={t("assets.fields.coverPlaceholder")} />
                                 <Button icon={<Upload className="size-3.5" />} onClick={() => coverInputRef.current?.click()}>
@@ -315,23 +307,23 @@ export default function AssetsPage() {
                                 </Button>
                             </Space.Compact>
                         </Form.Item>
-                        <Form.Item name="tags" label={<span>t("assets.fields.tags")</span>}>
+                        <Form.Item name="tags" label={<span>{t("assets.fields.tags")}</span>}>
                             <Select mode="tags" tokenSeparators={[",", "，"]} placeholder={t("assets.fields.tagsPlaceholder")} />
                         </Form.Item>
                         <div className="grid gap-4 sm:grid-cols-2">
-                            <Form.Item name="source" label={<span>t("assets.fields.source")</span>}>
+                            <Form.Item name="source" label={<span>{t("assets.fields.source")}</span>}>
                                 <Input placeholder={t("assets.fields.sourcePlaceholder")} />
                             </Form.Item>
-                            <Form.Item name="note" label={<span>t("assets.fields.note")</span>}>
+                            <Form.Item name="note" label={<span>{t("assets.fields.note")}</span>}>
                                 <Input placeholder={t("assets.fields.optional")} />
                             </Form.Item>
                         </div>
                         {formKind === "text" ? (
-                            <Form.Item name="content" label={<span>t("assets.fields.textContent")</span>} rules={[{ required: true, message: t("assets.fields.textRequired") }]}>
+                            <Form.Item name="content" label={<span>{t("assets.fields.textContent")}</span>} rules={[{ required: true, message: t("assets.fields.textRequired") }]}>
                                 <Input.TextArea rows={8} placeholder={t("assets.fields.textPlaceholder")} />
                             </Form.Item>
                         ) : (
-                            <Form.Item label={<span>t("assets.fields.imageContent")</span>} required>
+                            <Form.Item label={<span>{t("assets.fields.imageContent")}</span>} required>
                                 <div className="rounded-lg border border-dashed border-border p-4">
                                     <Button icon={<Upload className="size-4" />} onClick={() => imageInputRef.current?.click()}>
                                         {t("assets.selectImageFile")}
@@ -453,7 +445,7 @@ function AssetCard({ asset, onOpen, onEdit, onCopy, onDownload, onDelete }: { as
                     </div>
                 </div>
             </button>
-            <div className="flex items-center gap-2 px-4 pb-4">
+            <div className="flex flex-nowrap items-center gap-1.5 px-3 pb-3 pt-0 [&_.ant-btn-sm]:!px-2 [&_.ant-btn-sm]:!text-xs">
                 <Button size="small" onClick={onOpen}>
                     {t("common.view")}
                 </Button>
@@ -472,7 +464,7 @@ function AssetCard({ asset, onOpen, onEdit, onCopy, onDownload, onDelete }: { as
                         {t("common.download")}
                     </Button>
                 ) : null}
-                <Button size="small" danger icon={<Trash2 className="size-3.5" />} onClick={onDelete}>
+                <Button size="small" danger icon={<Trash2 className="size-3.5" />} className="!ml-auto" onClick={onDelete}>
                     {t("common.delete")}
                 </Button>
             </div>

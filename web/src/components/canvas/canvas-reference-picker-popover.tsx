@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import React, { useEffect, useMemo, useState } from "react";
 import { Check, Eye, FileText, Image as ImageIcon, LayoutGrid, Link2, Music2, Search, Video, X } from "lucide-react";
 import { useSyncExternalStore } from "react";
+import { useTranslation } from "react-i18next";
 
 import { canvasThemes } from "@/lib/canvas-theme";
 import { getNodeDefinition } from "@/lib/canvas/node-registry";
@@ -33,6 +34,7 @@ export function CanvasReferencePickerPopover({
     const colorTheme = useThemeStore((state) => state.theme);
     const theme = canvasThemes[colorTheme];
     const isDark = colorTheme === "dark";
+    const { t } = useTranslation();
 
     const [category, setCategory] = useState<CategoryKey>("all");
     const [searchQuery, setSearchQuery] = useState("");
@@ -62,12 +64,12 @@ export function CanvasReferencePickerPopover({
 
     // Categories
     const categories: { key: CategoryKey; label: string; icon: React.ComponentType<{ className?: string }> }[] = useMemo(() => [
-        { key: "all", label: "全部", icon: LayoutGrid },
-        { key: "image", label: "图片", icon: ImageIcon },
-        { key: "video", label: "视频", icon: Video },
-        { key: "audio", label: "音频", icon: Music2 },
-        { key: "text", label: "文本", icon: FileText },
-    ], []);
+        { key: "all", label: t("canvas.references.picker.all"), icon: LayoutGrid },
+        { key: "image", label: t("canvas.nodeTypes.image"), icon: ImageIcon },
+        { key: "video", label: t("canvas.nodeTypes.video"), icon: Video },
+        { key: "audio", label: t("canvas.nodeTypes.audio"), icon: Music2 },
+        { key: "text", label: t("canvas.nodeTypes.text"), icon: FileText },
+    ], [t]);
 
     // Filter by category and search
     const filteredNodes = useMemo(() => {
@@ -113,7 +115,7 @@ export function CanvasReferencePickerPopover({
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="搜索画布节点"
+                        placeholder={t("canvas.references.picker.search")}
                         className="w-full bg-transparent text-[11px] outline-none placeholder:text-stone-400 dark:placeholder:text-stone-500"
                         style={{ color: theme.node.text }}
                         autoFocus
@@ -150,7 +152,7 @@ export function CanvasReferencePickerPopover({
                 <div className="flex-1 px-2.5 pb-2.5 overflow-y-auto thin-scrollbar">
                     {filteredNodes.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-[11px] text-stone-400 dark:text-stone-500 gap-1.5 py-8">
-                            <span>暂无可引用的画布节点</span>
+                            <span>{t("canvas.references.picker.empty")}</span>
                         </div>
                     ) : (
                         <div className="grid grid-cols-3 gap-2">
@@ -203,10 +205,10 @@ export function CanvasReferencePickerPopover({
                                   className="max-w-[90vw] max-h-[90vh] object-contain block select-none"
                               />
                               {/* Close button located tightly on the top-right corner of the image card */}
-                              <Tooltip title="关闭预览">
+                              <Tooltip title={t("canvas.references.picker.closePreview")}>
                                   <button
                                       type="button"
-                                      aria-label="关闭预览"
+                                      aria-label={t("canvas.references.picker.closePreview")}
                                       onClick={(e) => {
                                           e.preventDefault();
                                           e.stopPropagation();
@@ -245,6 +247,7 @@ function NodePickerCard({
     onPreviewImage: (url: string) => void;
     onClick: () => void;
 }) {
+    const { t } = useTranslation();
     const resource = getNodeDefinition(node.type)?.resource?.(node);
     const content = node.metadata?.content || resource?.url;
     const thumbnail = previewUrlFor(node.metadata?.storageKey) || content;
@@ -254,7 +257,7 @@ function NodePickerCard({
     const Icon = kind === "image" ? ImageIcon : kind === "video" ? Video : kind === "audio" ? Music2 : FileText;
 
     const isPending = !node.metadata?.content && !node.metadata?.storageKey;
-    const title = node.title || (kind === "image" ? "图片" : kind === "video" ? "视频" : kind === "audio" ? "音频" : "文本");
+    const title = node.title || t(`canvas.nodeTypes.${kind === "other" ? "text" : kind}`);
 
     return (
         <div
@@ -298,17 +301,17 @@ function NodePickerCard({
                 <div>
                     {isPending ? (
                         <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-black/60 text-white/90 font-normal backdrop-blur-sm">
-                            待生成
+                            {t("canvas.references.picker.pending")}
                         </span>
                     ) : <span />}
                 </div>
 
                 {/* Eye Zoom Button floating directly on the top-right of the image */}
                 {kind === "image" && originalImage ? (
-                    <Tooltip title="放大查看">
+                    <Tooltip title={t("canvas.references.picker.zoom")}>
                         <button
                             type="button"
-                            aria-label="放大查看"
+                            aria-label={t("canvas.references.picker.zoom")}
                             onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -339,10 +342,10 @@ function NodePickerCard({
                 </div>
 
                 {/* Connect Link Button floating directly on the card at bottom-right */}
-                <Tooltip title={isConnected ? "断开连线" : "连线到当前卡片"}>
+                <Tooltip title={t(isConnected ? "canvas.references.picker.disconnect" : "canvas.references.picker.connect")}>
                     <button
                         type="button"
-                        aria-label={isConnected ? "断开连线" : "连线到当前卡片"}
+                        aria-label={t(isConnected ? "canvas.references.picker.disconnect" : "canvas.references.picker.connect")}
                         onClick={(e) => {
                             e.stopPropagation();
                             onConnectToggle();

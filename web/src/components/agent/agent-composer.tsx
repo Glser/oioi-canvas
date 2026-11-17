@@ -4,6 +4,7 @@ import { ArrowUp, Brain, Check, ChevronDown, FileText, FolderOpen, LoaderCircle,
 import { useTranslation } from "react-i18next";
 
 import { useAgentChatStore } from "@/stores/use-agent-chat-store";
+import { AGENT_RUNTIME_BRANDS } from "@/lib/agent/agent-runtime-brand";
 import type { AgentPermissionMode } from "@/services/api/canvas-agent";
 import styles from "./agent-composer.module.css";
 import { EffortSlider } from "./effort-slider";
@@ -32,7 +33,7 @@ export function AgentComposer() {
     if (selectedModel && !models.some((model) => model.id === selectedModel)) models.unshift({ id: selectedModel, name: selectedModel, reasoningEfforts: [], defaultReasoningEffort: null });
     const model = models.find((item) => item.id === selectedModel);
     const effortLabel = (value: string) => t(`agent.connectedComposer.efforts.${value}`, { defaultValue: value });
-    const efforts = [{ value: "", label: t("agent.runtimeDiscovery.follow") }, ...(model?.reasoningEfforts || []).map((effort) => ({ ...effort, label: effortLabel(effort.value) }))];
+    const efforts = [{ value: "", label: t("agent.connectedComposer.followEffort") }, ...(model?.reasoningEfforts || []).map((effort) => ({ ...effort, label: effortLabel(effort.value) }))];
     const effortIndex = Math.max(0, efforts.findIndex((effort) => effort.value === (selection.reasoningEffort || "")));
     const effectiveEffort = selection.reasoningEffort || (selection.model ? model?.defaultReasoningEffort : capability?.reasoningEffort);
     const running = Boolean(conversation?.turnId) || conversation?.status === "running" || conversation?.status === "waiting";
@@ -117,9 +118,8 @@ export function AgentComposer() {
                     <Tooltip title={t("agent.connectedComposer.addAttachment")}><button type="button" className={styles.iconButton} aria-label={t("agent.connectedComposer.addAttachment")} disabled={locked} onClick={() => fileInput.current?.click()}>{reading ? <LoaderCircle className="size-4 animate-spin motion-reduce:animate-none" /> : <Plus className="size-4" />}</button></Tooltip>
                     <Popover trigger="click" placement="topLeft" arrow={false} open={popover === "permission"} onOpenChange={(open) => setPopover(open ? "permission" : null)} content={
                         <div className={styles.infoMenu} style={variables}>
-                            <p className="mb-2 font-medium">{t("agent.connectedComposer.permissions")}</p>
                             <div role="group" aria-label={t("agent.connectedComposer.permissions")}>
-                                {(["runtime", "request", "readOnly", "fullAccess"] as const).map((mode) => <button key={mode} type="button" className={styles.modelOption} aria-pressed={permission === mode} disabled={locked || !capability} onClick={() => void changePermission(mode)}>
+                                {(capability?.permissionModes || ["runtime", "request", "readOnly", "fullAccess"] as const).map((mode) => <button key={mode} type="button" className={styles.modelOption} aria-pressed={permission === mode} disabled={locked || !capability} onClick={() => void changePermission(mode)}>
                                     <span className="min-w-0"><span className="block">{t(`agent.connectedComposer.permissionModes.${mode}`)}</span><span className={styles.optionDescription}>{t(`agent.connectedComposer.permissionDescriptions.${mode}`)}</span></span>
                                     {permission === mode ? <Check className="size-3.5 shrink-0" /> : null}
                                 </button>)}
@@ -152,7 +152,6 @@ export function AgentComposer() {
 
                     <Popover trigger="click" placement="topRight" arrow={false} open={popover === "model"} onOpenChange={(open) => setPopover(open ? "model" : null)} content={
                         <div className={styles.modelMenu} style={variables}>
-                            <p className={styles.sectionLabel}>{t("agent.runtimeDiscovery.model")}</p>
                             <div className={styles.modelList} role="group" aria-label={t("agent.runtimeDiscovery.model")}>
                                 {[{ id: "", name: t("agent.runtimeDiscovery.follow") }, ...models].map((item) => <button key={item.id} type="button" className={styles.modelOption} aria-pressed={(selection.model || "") === item.id} disabled={locked} onClick={() => setSelection(item.id ? { model: item.id } : {})}><span className="min-w-0 truncate">{item.name}</span>{(selection.model || "") === item.id ? <Check className="size-3.5 shrink-0" /> : null}</button>)}
                             </div>
@@ -172,7 +171,7 @@ export function AgentComposer() {
                 </div>
             </div>
             <div className={styles.footer}>
-                <Tooltip title={conversation?.cwd || t("agent.conversation.cwd")}><button type="button" aria-label={t("agent.sessions.directory")} className={styles.directory} disabled={locked} onClick={() => setDirectoryOpen(true)}><FolderOpen className="size-3 shrink-0" /><span className="truncate">{conversation?.cwd?.split(/[\\/]/).filter(Boolean).pop() || "Codex"}</span><ChevronDown className="size-3 shrink-0" /></button></Tooltip>
+                <Tooltip title={conversation?.cwd || t("agent.conversation.cwd")}><button type="button" aria-label={t("agent.sessions.directory")} className={styles.directory} disabled={locked} onClick={() => setDirectoryOpen(true)}><FolderOpen className="size-3 shrink-0" /><span className="truncate">{conversation?.cwd?.split(/[\\/]/).filter(Boolean).pop() || (conversation ? AGENT_RUNTIME_BRANDS[conversation.runtimeId].name : "Agent")}</span><ChevronDown className="size-3 shrink-0" /></button></Tooltip>
                 <Tooltip title={t("agent.conversation.inputHint")}><span tabIndex={0} className="shrink-0">{t("agent.connectedComposer.sendHint")}</span></Tooltip>
             </div>
             {directoryOpen ? <AgentSessionDialog mode="directory" onClose={() => setDirectoryOpen(false)} /> : null}

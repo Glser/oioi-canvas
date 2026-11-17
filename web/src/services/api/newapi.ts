@@ -1,4 +1,6 @@
+import i18n from "@/i18n";
 import { NEW_API_BASE_URL } from "@/constant/env";
+import type { ModelFeatures } from "@/lib/model-features";
 
 export type NewApiUser = { id: number; username: string; display_name?: string };
 export type NewApiSession = {
@@ -7,7 +9,23 @@ export type NewApiSession = {
     user: NewApiUser;
     session: { sid: string };
 };
-export type NewApiModel = { id: string; category?: string; supported_endpoint_types?: string[] };
+export type NewApiModelPricing = {
+    /** 0=按量计费（倍率），1=按次计费（固定价） */
+    quotaType?: number;
+    /** 按量倍率（quota_type=0 时有效，相对基准价的倍数） */
+    modelRatio?: number;
+    /** 按次固定价，美元/次（quota_type=1 时有效） */
+    modelPrice?: number;
+    /** 补全倍率（相对 prompt 单价的倍数） */
+    completionRatio?: number;
+    /** 人类可读的分档计费表达式，如 tier("480p", u("seconds") * 0.36) */
+    billingExpr?: string;
+    /** 模型可用的分组列表；各分组系数由顶层 group_ratio 提供，分组价 = 基准价 × 分组系数。 */
+    enableGroups?: string[];
+};
+export type NewApiModel = { id: string; category?: string; supported_endpoint_types?: string[]; features?: ModelFeatures; pricing?: NewApiModelPricing };
+/** 分组 → 计费系数（auto 令牌所在分组的系数决定最终价格）。 */
+export type NewApiGroupRatios = Record<string, number>;
 export type NewApiToken = {
     id: number;
     user_id: number;
@@ -21,7 +39,11 @@ export type NewApiToken = {
 type ApiResult<T> = { success?: boolean; message?: string; code?: string; data: T; error?: { message?: string } };
 
 export class NewApiError extends Error {
-    constructor(message: string, public status: number, public code?: string) {
+    constructor(
+        message: string,
+        public status: number,
+        public code?: string,
+    ) {
         super(message);
     }
 }
@@ -32,17 +54,17 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
         response = await fetch(`${NEW_API_BASE_URL}${path}`, { credentials: "omit", cache: "no-store", ...options });
     } catch (error) {
         if (options.signal?.aborted) throw error;
-        throw new NewApiError("无法连接账户服务，请检查网络及 API 跨域配置后重试", 0);
+        throw new NewApiError(i18n.t("account.errors.serviceUnreachable"), 0);
     }
     let result: ApiResult<T>;
     try {
         result = await response.json();
     } catch {
-        throw new NewApiError("账户服务返回了非 JSON 响应，请检查 API 地址与反向代理", response.status);
+        throw new NewApiError(i18n.t("account.errors.nonJsonResponse"), response.status);
     }
-    if (!result || typeof result !== "object") throw new NewApiError("账户服务响应格式异常，请检查 New API 版本", response.status);
+    if (!result || typeof result !== "object") throw new NewApiError(i18n.t("account.errors.badResponseShape"), response.status);
     if (!response.ok || result.success === false || result.error) {
-        throw new NewApiError(result.message || result.error?.message || "账户服务请求失败", response.status, result.code);
+        throw new NewApiError(result.message || result.error?.message || i18n.t("account.errors.requestFailed"), response.status, result.code);
     }
     return result.data;
 }
@@ -74,12 +96,12 @@ export async function findNewApiAutoToken(session: NewApiSession, signal: AbortS
     for (;;) {
         const data = await request<{ items: NewApiToken[]; total: number; page_size: number }>(`/api/token/?p=${page}`, authOptions(session.access_token, signal));
         if (!Array.isArray(data.items) || !Number.isInteger(data.page_size) || data.page_size <= 0 || !Number.isInteger(data.total) || data.total < 0) {
-            throw new Error("令牌列表格式异常，请检查 New API 版本");
+            throw new Error(i18n.t("account.errors.tokenListInvalid"));
         }
         const token = data.items.find((item) => item.user_id === session.user.id && item.group === "auto" && item.status === 1 && (item.expired_time === -1 || item.expired_time > Date.now() / 1000) && (item.unlimited_quota || item.remain_quota > 0));
         if (token) return token;
         if (page * data.page_size >= data.total) return null;
-        if (!data.items.length) throw new Error("令牌列表分页异常，请重新获取");
+        if (!data.items.length) throw new Error(i18n.t("account.errors.tokenListEmpty"));
         page += 1;
     }
 }
@@ -95,30 +117,55 @@ export function createNewApiAutoToken(session: NewApiSession, settings: { unlimi
 
 export async function getNewApiAutoGroups(session: NewApiSession, signal: AbortSignal) {
     const data = await request<{ groups: string[] }>("/api/token/auto-groups", authOptions(session.access_token, signal));
-    if (!Array.isArray(data.groups) || !data.groups.length) throw new Error("当前账户尚未开放 auto 候选分组，请联系管理员配置后重试");
+    if (!Array.isArray(data.groups) || !data.groups.length) throw new Error(i18n.t("account.errors.noAutoGroups"));
     return data.groups;
 }
 
 export async function readNewApiTokenKey(session: NewApiSession, tokenId: number, signal: AbortSignal) {
     const data = await request<{ key: string }>(`/api/token/${tokenId}/key`, { ...authOptions(session.access_token, signal), method: "POST" });
-    if (!data.key || data.key.includes("*")) throw new Error("未取得完整调用令牌，请重新获取");
+    if (!data.key || data.key.includes("*")) throw new Error(i18n.t("account.errors.tokenKeyMasked"));
     return data.key.startsWith("sk-") ? data.key : `sk-${data.key}`;
 }
 
 export async function fetchNewApiModels(apiKey: string, session: NewApiSession, signal: AbortSignal) {
+    type PricingEntry = { model_name: string; category?: string; supported_endpoint_types?: string[]; features?: ModelFeatures; quota_type?: number; model_ratio?: number; model_price?: number; completion_ratio?: number; billing_expr?: string; enable_groups?: string[] };
     const [data, metadata] = await Promise.all([
         request<NewApiModel[]>("/v1/models", authOptions(apiKey, signal)),
-        request<Array<{ model_name: string; category?: string; supported_endpoint_types?: string[] }>>("/api/pricing", authOptions(session.access_token, signal)).catch((error) => {
+        request<{ data?: PricingEntry[]; group_ratio?: Record<string, number> } & { [model_name: string]: PricingEntry }>("/api/pricing", authOptions(session.access_token, signal)).catch((error) => {
             if (signal.aborted) throw error;
-            throw new Error("模型分类读取失败，请检查网关 /api/pricing 的访问权限与跨域配置，然后重新获取模型");
+            throw new Error(i18n.t("account.errors.modelCatalogFailed"));
         }),
     ]);
-    if (!Array.isArray(data) || data.some((model) => typeof model.id !== "string" || !model.id)) throw new Error("模型列表格式异常，请检查 New API 版本");
-    const details = new Map((Array.isArray(metadata) ? metadata : []).map((model) => [model.model_name, model]));
-    return [...new Map(data.map((model) => {
-        const detail = details.get(model.id);
-        return [model.id, { ...model, category: detail?.category?.trim() ?? model.category, supported_endpoint_types: detail?.supported_endpoint_types ?? model.supported_endpoint_types }];
-    })).values()].sort((a, b) => a.id.localeCompare(b.id));
+    if (!Array.isArray(data) || data.some((model) => typeof model.id !== "string" || !model.id)) throw new Error(i18n.t("account.errors.modelListInvalid"));
+    const details = new Map((Array.isArray(metadata?.data) ? metadata.data : []).map((model) => [model.model_name, model]));
+    const groupRatios = typeof metadata?.group_ratio === "object" && metadata.group_ratio ? metadata.group_ratio : {};
+    const models = [
+        ...new Map(
+            data.map((model) => {
+                const detail = details.get(model.id);
+                return [
+                    model.id,
+                    {
+                        ...model,
+                        category: detail?.category?.trim() ?? model.category,
+                        supported_endpoint_types: detail?.supported_endpoint_types ?? model.supported_endpoint_types,
+                        features: detail?.features,
+                        pricing: detail
+                            ? {
+                                  quotaType: detail.quota_type,
+                                  modelRatio: detail.model_ratio,
+                                  modelPrice: detail.model_price,
+                                  completionRatio: detail.completion_ratio,
+                                  billingExpr: detail.billing_expr,
+                                  enableGroups: detail.enable_groups,
+                              }
+                            : undefined,
+                    },
+                ];
+            }),
+        ).values(),
+    ].sort((a, b) => a.id.localeCompare(b.id));
+    return { models, groupRatios };
 }
 
 export function fetchNewApiStatus(signal?: AbortSignal) {
@@ -152,7 +199,7 @@ export function consumeNewApiCallback() {
     const state = new URLSearchParams(location.search).get("state");
     const expected = sessionStorage.getItem("oioi-flow:auth-state");
     sessionStorage.removeItem("oioi-flow:auth-state");
-    if (!state || state !== expected) throw new Error("登录回调已失效，请返回首页重新登录");
+    if (!state || state !== expected) throw new Error(i18n.t("account.errors.callbackExpired"));
     const target = sessionStorage.getItem("oioi-flow:return") || "/";
     sessionStorage.removeItem("oioi-flow:return");
     const url = new URL(target, location.origin);

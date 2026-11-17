@@ -14,6 +14,7 @@ export const canvasThemes = {
         node: {
             label: "#57534e",
             fill: "#e7e5df",
+            card: "#ffffff",
             panel: "#fbfaf7",
             stroke: "#d6d3ca",
             activeStroke: "#1c1917",
@@ -21,6 +22,7 @@ export const canvasThemes = {
             text: "#292524",
             muted: "#78716c",
             faint: "#a8a29e",
+            shadow: "0 3px 14px rgba(28,25,23,.12)",
         },
         toolbar: {
             panel: "rgba(251,250,247,.96)",
@@ -43,13 +45,15 @@ export const canvasThemes = {
         node: {
             label: "#d6d3d1",
             fill: "#292524",
+            card: "#292524",
             panel: "#1f1d1a",
-            stroke: "#44403c",
+            stroke: "#4a453f",
             activeStroke: "#fafaf9",
             placeholder: "#a8a29e",
             text: "#f5f5f4",
             muted: "#d6d3d1",
             faint: "#78716c",
+            shadow: "0 6px 20px rgba(0,0,0,.45)",
         },
         toolbar: {
             panel: "rgba(31,29,26,.96)",

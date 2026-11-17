@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { readLocalStorageUsage, type LocalStorageUsage } from "@/services/local-storage-usage";
+import { useDataNoticeStore } from "@/components/layout/local-data-notice";
 
 const storeLabelKeys: Record<string, string> = {
     app_state: "appState",
@@ -52,9 +53,14 @@ export function ConfigLocalStorage({ active }: { active: boolean }) {
                         </div>
                         <div className="mt-1 text-xs text-muted-foreground">{t("config.localStorage.description")}</div>
                     </div>
-                    <Button className="!h-8 !rounded-full !px-3.5 !text-xs font-medium" icon={<RefreshCw className="size-3.5" />} loading={loading} onClick={() => void refresh()}>
-                        {t("config.localStorage.refresh")}
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Button className="!h-8 !rounded-full !px-3.5 !text-xs font-medium" onClick={() => useDataNoticeStore.getState().show()}>
+                            {t("config.localStorage.dataNoticeAction")}
+                        </Button>
+                        <Button className="!h-8 !rounded-full !px-3.5 !text-xs font-medium" icon={<RefreshCw className="size-3.5" />} loading={loading} onClick={() => void refresh()}>
+                            {t("config.localStorage.refresh")}
+                        </Button>
+                    </div>
                 </div>
                 {error ? <Alert className="mt-4" type="error" showIcon message={t("config.localStorage.readFailed")} description={error} /> : null}
                 {!usage && loading ? (

@@ -29,6 +29,7 @@ export function AgentPanel() {
         <ConfigProvider theme={appearance.theme} tooltip={appearance.tooltip}>
         <motion.div
             ref={shell}
+            data-canvas-panel="right"
             className={`${styles.shell} pointer-events-none absolute inset-y-0 right-0 z-[70] flex`}
             initial={{ x: reduceMotion ? 0 : "100%", opacity: 0 }}
             animate={{ x: panelOpen || reduceMotion ? 0 : "100%", opacity: panelOpen ? 1 : 0 }}

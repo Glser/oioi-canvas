@@ -171,7 +171,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
     return (
         <div className={styles.panel}>
             <div className={`${styles.tools} mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3`}>
-                <div className="min-w-0 text-xs leading-relaxed text-muted-foreground">{NEW_API_ENABLED ? "账户登录凭证与自动获取的调用令牌不包含在配置文件中。" : t("config.fileSecurity")}</div>
+                <div className="min-w-0 text-xs leading-relaxed text-muted-foreground">{NEW_API_ENABLED ? t("account.configFileHint") : t("config.fileSecurity")}</div>
                 <div className="flex shrink-0 gap-1">
                     <Button type="text" size="small" icon={<Upload className="size-3.5" />} onClick={() => configInputRef.current?.click()}>
                         {t("config.import")}
@@ -189,7 +189,7 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
                 items={[
                     {
                         key: "channels",
-                        label: NEW_API_ENABLED ? "账户与模型" : t("config.tabs.channels"),
+                        label: NEW_API_ENABLED ? t("account.tab") : t("config.tabs.channels"),
                         children: NEW_API_ENABLED ? <NewApiAccountPanel /> : (
                             <div>
                                 <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

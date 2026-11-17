@@ -1,6 +1,7 @@
 .composer { min-width: 0; padding: 0 12px 12px; color: var(--composer-ink); }
-.surface { overflow: hidden; border-radius: 24px; background: var(--composer-bg); box-shadow: 0 4px 16px color-mix(in srgb, var(--composer-ink) 7%, transparent); transition: box-shadow 200ms cubic-bezier(.22, 1, .36, 1); }
-.surface:focus-within { box-shadow: 0 6px 20px color-mix(in srgb, var(--composer-ink) 10%, transparent); }
+.surface { overflow: hidden; border: 1px solid color-mix(in srgb, var(--composer-border) 75%, var(--composer-muted)); border-radius: 24px; background: color-mix(in srgb, var(--composer-bg) 96%, var(--composer-ink)); box-shadow: 0 4px 16px color-mix(in srgb, var(--composer-ink) 7%, transparent); transition: border-color 200ms cubic-bezier(.22, 1, .36, 1), box-shadow 200ms cubic-bezier(.22, 1, .36, 1); }
+.surface:hover { border-color: color-mix(in srgb, var(--composer-border) 50%, var(--composer-muted)); }
+.surface:focus-within { border-color: var(--composer-muted); box-shadow: 0 0 0 2px color-mix(in srgb, var(--composer-muted) 16%, transparent), 0 4px 16px color-mix(in srgb, var(--composer-ink) 7%, transparent); }
 .editor:global(.ant-input) { padding: 16px 16px 4px; color: var(--composer-ink); font-size: 14px; line-height: 24px; border-radius: 0; background: transparent; }
 .editor:global(.ant-input)::placeholder { color: var(--composer-muted); }
 .toolbar { display: flex; min-width: 0; min-height: 48px; align-items: center; gap: 4px; padding: 4px 12px 10px; container-type: inline-size; }
@@ -28,7 +29,6 @@
 .remove { width: 20px; height: 20px; flex-shrink: 0; border-radius: 50%; background: transparent; color: var(--composer-muted); }
 .infoMenu, .modelMenu { width: min(264px, calc(100vw - 48px)); max-height: calc(100dvh - 80px); overflow-y: auto; color: var(--composer-ink); font-size: 12px; }
 .modelList { max-height: min(200px, 30dvh); overflow-y: auto; overscroll-behavior: contain; }
-.sectionLabel { padding: 4px 8px 8px; color: var(--composer-muted); }
 .modelOption { justify-content: space-between; width: 100%; padding: 8px; border-radius: 8px; text-align: left; color: var(--composer-muted); background: transparent; }
 .modelOption:hover, .modelOption[aria-pressed="true"] { color: var(--composer-ink); background: var(--composer-tint); }
 .modelOption:disabled { opacity: .5; }

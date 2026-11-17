@@ -1,3 +1,4 @@
+import i18n from "../../i18n";
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const SVG_NS = "http://www.w3.org/2000/svg";
 const noise = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><filter id="n"><feTurbulence type="fractalNoise" baseFrequency=".75" numOctaves="3" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/></filter><rect width="100%" height="100%" filter="url(#n)"/></svg>`;
@@ -127,14 +128,14 @@ function createController(host, initialOptions, attachment) {
     }
     function aria() {
         const [min, max] = bounds();
-        grip.setAttribute("aria-label", options.label || "调整面板宽度");
+        grip.setAttribute("aria-label", options.label || i18n.t("panelResize.defaultLabel"));
         grip.setAttribute("aria-valuemin", attachment ? ((rightPanel ? width - max : min) / width * 100).toFixed(1) : "50");
         grip.setAttribute("aria-valuemax", attachment ? ((rightPanel ? width - min : max) / width * 100).toFixed(1) : "72.4");
         grip.setAttribute("aria-valuenow", percent().toFixed(1));
-        grip.setAttribute("aria-valuetext", `面板宽度 ${percent().toFixed(1)}%`);
+        grip.setAttribute("aria-valuetext", i18n.t("panelResize.widthValue", { percent: percent().toFixed(1) }));
     }
     function announce(cancelled = false) {
-        const text = `${cancelled ? "已取消调整，" : ""}面板宽度 ${percent().toFixed(1)}%`;
+        const text = `${cancelled ? `${i18n.t("panelResize.cancelled")}，` : ""}${i18n.t("panelResize.widthValue", { percent: percent().toFixed(1) })}`;
         // Clear then append so repeated resets are announced without per-frame live updates.
         live.replaceChildren(doc.createTextNode(text));
         options.onCommit?.(nominalWidth(), { percentage: percent(), cancelled });
@@ -258,7 +259,7 @@ function createController(host, initialOptions, attachment) {
         if (options.disabled || gesture || !event.isPrimary || event.button !== 0) return;
         event.preventDefault();
         try { grip.setPointerCapture(event.pointerId); }
-        catch { live.textContent = "无法捕获拖动，请重新按下把手，或使用方向键调整。"; return; }
+        catch { live.textContent = i18n.t("panelResize.captureFailed"); return; }
         // Re-grabbing a spring uses its visible position, never its old target.
         const edge = rawAtPosition();
         gesture = { id: event.pointerId, type: event.pointerType, before: target, offset: localX(event.clientX) - edge, raw: edge, time: event.timeStamp, x: event.clientX, y: event.clientY };

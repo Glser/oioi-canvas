@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { PromptDetailDialog } from "@/pages/prompts/components/prompt-detail-dialog";
 import { fetchSourcePrompts, type Prompt } from "@/services/api/prompts";
 import { uploadMediaFile } from "@/services/file-storage";
-import { previewUrlFor, subscribeImagePreviews, getImagePreviewRevision, uploadImage } from "@/services/image-storage";
+import { previewUrlFor, subscribeImagePreviews, getImagePreviewRevision, resolveImageUrl, uploadImage } from "@/services/image-storage";
 import { useAssetStore, type Asset, type AssetKind } from "@/stores/use-asset-store";
 import { usePromptSourceStore } from "@/stores/use-prompt-source-store";
 import { CANVAS_SIDE_PANEL_DEFAULT_WIDTH, CANVAS_SIDE_PANEL_MAX_WIDTH, CANVAS_SIDE_PANEL_MIN_WIDTH, CANVAS_SIDE_PANEL_MOTION_MS, useCanvasSidePanelStore } from "@/stores/use-canvas-side-panel-store";
@@ -73,7 +73,8 @@ export function CanvasSidePanel({ nodes, selectedNodeIds, onFocusNode, onPreview
         <ConfigProvider theme={appearance.theme} tooltip={appearance.tooltip}>
         <motion.div
             ref={shell}
-            className="pointer-events-none absolute inset-y-0 left-0 z-[60] flex pb-3 pl-3 pt-[120px] text-[var(--wb-text)] sm:pt-[72px] md:pb-5 md:pl-4"
+            data-canvas-panel="left"
+            className={`${panelStyles.shell} ${panelStyles.leftShell} pointer-events-none absolute inset-y-0 left-0 z-[60] flex`}
             initial={{ x: reduceMotion ? 0 : "-100%", opacity: 0 }}
             animate={{ x: panelOpen || reduceMotion ? 0 : "-100%", opacity: panelOpen ? 1 : 0 }}
             transition={{ duration: PANEL_MOTION_SECONDS, ease: PANEL_EASE }}
@@ -138,7 +139,9 @@ function nodePreviewText(node: CanvasNodeData) {
     return getNodeDefinition(node.type)?.title || node.type;
 }
 
-function CanvasNodesTab({ nodes, selectedNodeIds, onFocusNode, onPreviewNode }: { nodes: CanvasNodeData[]; selectedNodeIds: Set<string>; onFocusNode: (nodeId: string) => void; onPreviewNode: (nodeId: string) => void }) {
+// 拖动节点只改 position，侧栏树按内容比较，忽略纯位置变化带来的重渲染。
+const CanvasNodesTab = memo(
+    function CanvasNodesTab({ nodes, selectedNodeIds, onFocusNode, onPreviewNode }: { nodes: CanvasNodeData[]; selectedNodeIds: Set<string>; onFocusNode: (nodeId: string) => void; onPreviewNode: (nodeId: string) => void }) {
     const { message } = App.useApp();
     const { t } = useTranslation();
     useSyncExternalStore(subscribeImagePreviews, getImagePreviewRevision);
@@ -286,7 +289,18 @@ function CanvasNodesTab({ nodes, selectedNodeIds, onFocusNode, onPreviewNode }: 
             ) : null}
         </div>
     );
-}
+    },
+    (prev, next) =>
+        prev.onFocusNode === next.onFocusNode &&
+        prev.onPreviewNode === next.onPreviewNode &&
+        prev.selectedNodeIds === next.selectedNodeIds &&
+        prev.nodes.length === next.nodes.length &&
+        // 侧栏树不显示坐标，忽略纯 position 变化（节点拖动帧）。
+        prev.nodes.every((node, index) => {
+            const other = next.nodes[index];
+            return other === node || (other.id === node.id && other.type === node.type && other.title === node.title && other.width === node.width && other.height === node.height && other.metadata === node.metadata);
+        }),
+);
 
 function CheckMark({ checked }: { checked: boolean }) {
     return (
@@ -306,10 +320,11 @@ const ASSET_GROUPS: { kind: AssetKind; icon: typeof Square }[] = [
     { kind: "text", icon: FileText },
 ];
 
-function buildInsertPayload(asset: Asset): InsertAssetPayload {
+async function buildInsertPayload(asset: Asset): Promise<InsertAssetPayload> {
     if (asset.kind === "text") return { kind: "text", content: asset.data.content, title: asset.title };
     if (asset.kind === "video") return { kind: "video", url: asset.data.url, storageKey: asset.data.storageKey, title: asset.title, width: asset.data.width, height: asset.data.height };
-    return { kind: "image", dataUrl: asset.data.dataUrl, storageKey: asset.data.storageKey, title: asset.title };
+    // 画布存资产时 dataUrl 为空（数据在 IndexedDB），先按 storageKey 解析出可渲染地址
+    return { kind: "image", dataUrl: await resolveImageUrl(asset.data.storageKey, asset.data.dataUrl), storageKey: asset.data.storageKey, title: asset.title };
 }
 
 const CanvasAssetsTab = memo(function CanvasAssetsTab({ onInsert }: { onInsert: (payload: InsertAssetPayload) => void }) {
@@ -411,7 +426,7 @@ const CanvasAssetsTab = memo(function CanvasAssetsTab({ onInsert }: { onInsert: 
                                     {isCollapsed ? null : (
                                         <div className="grid grid-cols-2 gap-2 px-1 pb-2 pt-1">
                                             {group.items.map((asset) => (
-                                                <AssetCard key={asset.id} asset={asset} onInsert={() => onInsert(buildInsertPayload(asset))} onRemove={() => (removeAsset(asset.id), message.success(t("canvas.sidePanel.assetRemoved")))} />
+                                                <AssetCard key={asset.id} asset={asset} onInsert={() => void buildInsertPayload(asset).then(onInsert)} onRemove={() => (removeAsset(asset.id), message.success(t("canvas.sidePanel.assetRemoved")))} />
                                             ))}
                                         </div>
                                     )}
