@@ -6,6 +6,8 @@ description: Implemented changes that still need manual verification
 
 # Pending Tests
 
+- 视频模型分类不再匹配端点：New API `category=video` 的模型直接进入视频模型目录，默认按 OpenAI `/v1/videos` 协议调用，不再要求 `supported_endpoint_types` 包含 `videos`/`gemini`（端点名可能是 `video-xxx` 等自定义名，白名单匹配会误过滤）。图片、文本、音频分类仍按原端点白名单筛选。待真实目录中打了 `video` 标签的模型验收可选与生成。
+
 - 最近作品文件夹卡片就地重命名：文件夹标题本身可点击进入编辑（悬停浅底色提示、plaintext-only contentEditable、进入即全选），Enter 提交、Esc 取消、失焦保存；中文输入法组合期间 Enter 不截断（keydown 检查 isComposing）。菜单“重命名”通过引擎暴露的 startEdit() 触发同一编辑态，卡片移除原底部输入框与 UI store 编辑状态依赖。已在独立端口（3101）验证：点击/菜单进入编辑、聚焦全选、Enter 持久化到 store（IndexedDB 落盘）、Esc 回滚、深浅主题编辑底色。验证数据已清理。
 
 - 开发页面白屏修复：定位到预打包中同时存在根目录与 pnpm 路径的两份 React，配置 Vite 对 react/react-dom 去重并强制刷新预打包；重启后首页已实际恢复渲染，未更改浏览器数据或本地 Agent 服务。后续依赖更新后的页面加载待确认。

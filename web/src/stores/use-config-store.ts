@@ -307,11 +307,12 @@ export function getEffectiveConfig() {
 function buildEffectiveConfig(config: AiConfig, state: NewApiRuntimeState): AiConfig {
     if (!NEW_API_ENABLED) return { ...config, channelMode: "local" };
     const models: ChannelModel[] = state.models.flatMap((model) => {
-        const endpoints = (model.supported_endpoint_types || []).map((endpoint) => endpoint === "videos" ? "openai-video" : endpoint);
+        const endpoints = model.supported_endpoint_types || [];
         const category = model.category?.trim().toLowerCase() || "";
         const capability = NEW_API_CATEGORY_CAPABILITIES.get(category);
         if (!capability) return [];
-        const supported = capability === "image" ? ["gemini-image", "image-generation", "gemini"] : capability === "video" ? ["openai-video", "gemini"] : capability === "audio" ? ["openai"] : ["openai", "openai-response", "gemini"];
+        if (capability === "video") return [{ name: model.id, capability, apiFormat: "openai" }];
+        const supported = capability === "image" ? ["gemini-image", "image-generation", "gemini"] : capability === "audio" ? ["openai"] : ["openai", "openai-response", "gemini"];
         const endpoint = supported.find((item) => endpoints.includes(item));
         if (!endpoint) return [];
         const apiFormat: ApiCallFormat = endpoint === "gemini" || endpoint === "gemini-image" ? "gemini" : "openai";

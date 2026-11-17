@@ -107,7 +107,7 @@ Flow 回调不要求 New API 生成任何新的授权 Token；其作用是导航
 
 账户面板显示 `/v1/models` 返回的完整模型目录，并通过账户凭证请求 `/api/pricing`，按模型名补充 `category` 和 `supported_endpoint_types`，不会把仅在计价目录出现的模型加入可用列表。创作选择器要求已知分类：`chat` 对应文本，`image`、`video`、`audio` 对应图片、视频、音频；缺少或未知分类不会按模型名称猜测。分类接口不可用时显示明确连接错误并保留登录身份，不再静默忽略；用户修复网关配置后可点击「重新获取」。
 
-分类还必须匹配已实现的端点：文本依次选择 `openai`（`/v1/chat/completions`）、`openai-response`（`/v1/responses`）、`gemini`（`streamGenerateContent`）；图片优先选择专用 `gemini-image`（`generateContent`），其次选择 `image-generation` 或 `gemini`（`generateContent`）；`gemini-image` 仅用于 `image` 分类，文生图和图生图均映射到现有 Gemini 协议；视频选择 `openai-video`（含 `videos`）或 `gemini`（`predictLongRunning`）；音频仅使用 `audio` 分类下的 OpenAI 语音合成接口。缺少端点、仅支持 `openai-response-compact` 或其他未实现协议时不出现在创作选择器。各生成服务发送前再次校验模型能力；视频无可用模型时不回退到图片模型。
+分类还必须匹配已实现的端点：文本依次选择 `openai`（`/v1/chat/completions`）、`openai-response`（`/v1/responses`）、`gemini`（`streamGenerateContent`）；图片优先选择专用 `gemini-image`（`generateContent`），其次选择 `image-generation` 或 `gemini`（`generateContent`）；`gemini-image` 仅用于 `image` 分类，文生图和图生图均映射到现有 Gemini 协议；音频仅使用 `audio` 分类下的 OpenAI 语音合成接口。`video` 分类不匹配端点，直接按 OpenAI `/v1/videos` 协议调用（New API 中视频端点名可能是 `video-xxx` 等自定义名，不作为筛选依据）。缺少端点、仅支持 `openai-response-compact` 或其他未实现协议时不出现在创作选择器（`video` 分类除外）。各生成服务发送前再次校验模型能力；视频无可用模型时不回退到图片模型。
 
 用户确认的网关别名 `nano-banana-2` 按上游 `gemini-3.1-flash-image` 支持可选分辨率，请求仍保留别名，网关负责上游映射。Gemini 图片的比例通过 `generationConfig.imageConfig.aspectRatio` 发送，所选 1K/2K/4K 通过 `imageSize` 发送，自动分辨率省略该字段；质量不参与分辨率换算，参数面板隐藏独立质量选项。工作台四张对应四个单图请求，失败单张重试只请求一次。模型目录不等于完整参数能力清单，其他未知 Gemini 别名不默认开启可选分辨率；真实网关转发、尺寸、参考图和视频规格仍需按实际上架模型验收，不展示或承诺统一预估价格。
 
