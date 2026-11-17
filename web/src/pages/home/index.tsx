@@ -34,6 +34,8 @@ import { setImageBlob } from "@/services/image-storage";
 import type { CanvasExportFile } from "@/types/canvas-export";
 import { useAgentChatStore } from "@/stores/use-agent-chat-store";
 import { useAgentStore } from "@/stores/use-agent-store";
+import { useAgentRuntimeStore } from "@/stores/use-agent-runtime-store";
+import { AGENT_RUNTIME_BRANDS } from "@/lib/agent/agent-runtime-brand";
 import { fetchPrompts } from "@/services/api/prompts";
 
 let homeModeBootstrapped = false;
@@ -55,6 +57,12 @@ export default function IndexPage() {
     const agentConnected = useAgentStore((state) => state.connected);
     const togglePanel = useAgentStore((state) => state.togglePanel);
     const openAgentPanel = useAgentStore((state) => state.openPanel);
+    const sessionRuntimeId = useAgentChatStore((state) => state.conversation?.runtimeId);
+    const hasAgentSession = useAgentChatStore((state) => Boolean(state.conversation?.threadId));
+    const connectorRuntimeId = useAgentRuntimeStore((state) => state.info?.runtimeId);
+    const connectorRuntimeStatus = useAgentRuntimeStore((state) => state.info?.status);
+    const connectedRuntimeId = agentConnected && (hasAgentSession || connectorRuntimeStatus === "ready") ? sessionRuntimeId || connectorRuntimeId : undefined;
+    const runtimeBrand = connectedRuntimeId ? AGENT_RUNTIME_BRANDS[connectedRuntimeId] : undefined;
 
     const [inputPrompt, setInputPrompt] = useState("");
     const [quickPrompts, setQuickPrompts] = useState<string[]>(() => [
@@ -112,10 +120,14 @@ export default function IndexPage() {
         navigate(`/canvas/${id}`);
     };
 
-    // 首页是会话的第一条消息入口；未连接时也保留需求，配对后在目标画布自动提交。
+    // 首页是会话的第一条消息入口；未连接时先引导连接，连接后创建画布并交给 Agent 执行。
     const handlePromptSubmit = async () => {
         const prompt = inputPrompt.trim();
         if (!prompt || submittingRef.current) return;
+        if (!agentConnected) {
+            openAgentPanel();
+            return;
+        }
         submittingRef.current = true;
         try {
             const chat = useAgentChatStore.getState();
@@ -281,10 +293,10 @@ export default function IndexPage() {
                                     type="text"
                                     size="small"
                                     className={`!flex !items-center !gap-1 text-xs rounded-full ${agentConnected ? "!text-indigo-600 dark:!text-indigo-400 hover:!bg-indigo-50 dark:hover:!bg-indigo-900/30" : "text-stone-500 hover:!text-stone-800 hover:!bg-stone-100 dark:text-stone-400 dark:hover:!text-stone-200 dark:hover:!bg-stone-800/50"}`}
-                                    icon={<Bot className="size-4" />}
+                                    icon={runtimeBrand ? <img src={runtimeBrand.icon} alt="" aria-hidden="true" className="size-5 object-contain" /> : <Bot className="size-5" />}
+                                    aria-label="Agent"
                                     onClick={togglePanel}
                                 >
-                                    Agent
                                 </Button>
                             </Tooltip>
                         </div>
@@ -292,7 +304,7 @@ export default function IndexPage() {
                         {/* 右侧提交与启动按钮 */}
                         <div className="flex items-center gap-2">
                             <span className="hidden text-xs text-stone-400 sm:inline">{t("home.enterToSend")}</span>
-                            <Tooltip title={t("home.agentSendHint")}>
+                            <Tooltip title={t(agentConnected ? "home.agentSendHint" : "home.agentConnectHint")}>
                                 <span className="inline-flex">
                                     <Button
                                         type="primary"

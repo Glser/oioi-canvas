@@ -52,7 +52,7 @@ export function NewApiAccountPanel() {
                 </div>
                 <div className="flex flex-wrap gap-2">
                     {session ? <Button icon={<LogOut className="size-4" />} loading={loggingOut} disabled={loading} onClick={signOut}>{t("account.signOut")}</Button> : <Button type="primary" icon={<LogIn className="size-4" />} disabled={loading} onClick={startNewApiLogin}>{t("account.signIn")}</Button>}
-                    <Button icon={<RefreshCw className="size-4" />} disabled={loading || loggingOut} onClick={() => void connect().catch(() => {})}>{t("account.refresh")}</Button>
+                    <Button icon={<RefreshCw className="size-4" />} disabled={loading || loggingOut} onClick={() => void connect({ refreshModels: true }).catch(() => {})}>{t("account.refresh")}</Button>
                     <Button type="text" href={`${NEW_API_BASE_URL}/dashboard`} target="_blank" rel="noopener noreferrer">{t("account.dashboard")}</Button>
                 </div>
             </div>

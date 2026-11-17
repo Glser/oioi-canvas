@@ -1,8 +1,13 @@
+import localforage from "localforage";
 import { create } from "zustand";
 
 import i18n from "@/i18n";
-import { NEW_API_ENABLED } from "@/constant/env";
+import { NEW_API_BASE_URL, NEW_API_ENABLED } from "@/constant/env";
 import { createNewApiAutoToken, fetchNewApiModels, fetchNewApiStatus, findNewApiAutoToken, getNewApiAutoGroups, logoutNewApiSession, NewApiError, normalizeNewApiDocsLink, readNewApiTokenKey, refreshNewApiSession, type NewApiGroupRatios, type NewApiModel, type NewApiSession, type NewApiToken } from "@/services/api/newapi";
+
+type ConnectOptions = { refreshModels?: boolean };
+type ModelCache = { userId: number; baseUrl: string; models: NewApiModel[]; groupRatios: NewApiGroupRatios };
+const modelCache = localforage.createInstance({ name: "oioi-canvas", storeName: "newapi_model_cache" });
 
 type NewApiStore = {
     status: "idle" | "loading" | "anonymous" | "ready" | "error";
@@ -13,7 +18,7 @@ type NewApiStore = {
     groupRatios: NewApiGroupRatios;
     docsLink: string;
     error: string;
-    connect: () => Promise<void>;
+    connect: (options?: ConnectOptions) => Promise<void>;
     loadStatus: () => Promise<void>;
     ensureReady: () => Promise<void>;
     logout: () => Promise<void>;
@@ -34,7 +39,7 @@ function resetIdentity() {
     useNewApiStore.setState({ session: null, token: null, apiKey: "", models: [], groupRatios: {} });
 }
 
-async function obtainToken(session: NewApiSession, signal: AbortSignal) {
+async function obtainToken(session: NewApiSession, signal: AbortSignal, refreshModels = false) {
     const obtain = async () => {
         signal.throwIfAborted();
         let token = await findNewApiAutoToken(session, signal);
@@ -45,7 +50,10 @@ async function obtainToken(session: NewApiSession, signal: AbortSignal) {
         }
         if (!token) throw new Error(i18n.t("account.errors.autoTokenMissing"));
         const apiKey = await readNewApiTokenKey(session, token.id, signal);
+        const cached = refreshModels ? null : await modelCache.getItem<ModelCache>("catalog").catch(() => null);
+        if (cached?.userId === session.user.id && cached.baseUrl === NEW_API_BASE_URL && Array.isArray(cached.models)) return { token, apiKey, models: cached.models, groupRatios: cached.groupRatios || {} };
         const { models, groupRatios } = await fetchNewApiModels(apiKey, session, signal);
+        await modelCache.setItem("catalog", { userId: session.user.id, baseUrl: NEW_API_BASE_URL, models, groupRatios }).catch(() => {});
         return { token, apiKey, models, groupRatios };
     };
     return navigator.locks ? navigator.locks.request(`oioi-flow:token:${session.user.id}`, { signal }, obtain) : obtain();
@@ -75,7 +83,7 @@ export const useNewApiStore = create<NewApiStore>((set, get) => ({
         void operation.finally(() => { if (pendingStatus === operation) pendingStatus = null; });
         return operation;
     },
-    connect: () => {
+    connect: (options?: ConnectOptions) => {
         if (!NEW_API_ENABLED) return Promise.resolve();
         if (signingOut) return signingOut;
         if (pending) return pending;
@@ -95,7 +103,7 @@ export const useNewApiStore = create<NewApiStore>((set, get) => ({
                 }
                 set({ session });
                 const sessionRevision = revision;
-                const credentials = await obtainToken(session, identityController.signal);
+                const credentials = await obtainToken(session, identityController.signal, Boolean(options?.refreshModels));
                 if (sessionRevision !== revision) return;
                 set({ ...credentials, status: "ready", error: "" });
             } catch (error) {

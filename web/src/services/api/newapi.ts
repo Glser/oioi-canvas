@@ -38,6 +38,8 @@ export type NewApiToken = {
 };
 type ApiResult<T> = { success?: boolean; message?: string; code?: string; data: T; error?: { message?: string } };
 
+export const NEW_API_AUTO_TOKEN_NAME = "oioi-创作台专用";
+
 export class NewApiError extends Error {
     constructor(
         message: string,
@@ -98,7 +100,7 @@ export async function findNewApiAutoToken(session: NewApiSession, signal: AbortS
         if (!Array.isArray(data.items) || !Number.isInteger(data.page_size) || data.page_size <= 0 || !Number.isInteger(data.total) || data.total < 0) {
             throw new Error(i18n.t("account.errors.tokenListInvalid"));
         }
-        const token = data.items.find((item) => item.user_id === session.user.id && item.group === "auto" && item.status === 1 && (item.expired_time === -1 || item.expired_time > Date.now() / 1000) && (item.unlimited_quota || item.remain_quota > 0));
+        const token = data.items.find((item) => item.user_id === session.user.id && item.name === NEW_API_AUTO_TOKEN_NAME && item.group === "auto" && item.status === 1 && (item.expired_time === -1 || item.expired_time > Date.now() / 1000) && (item.unlimited_quota || item.remain_quota > 0));
         if (token) return token;
         if (page * data.page_size >= data.total) return null;
         if (!data.items.length) throw new Error(i18n.t("account.errors.tokenListEmpty"));
@@ -111,7 +113,7 @@ export function createNewApiAutoToken(session: NewApiSession, settings: { unlimi
         ...authOptions(session.access_token, signal),
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ name: "Flow", group: "auto", ...settings }),
+        body: JSON.stringify({ name: NEW_API_AUTO_TOKEN_NAME, group: "auto", ...settings }),
     });
 }
 
