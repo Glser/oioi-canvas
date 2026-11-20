@@ -129,17 +129,27 @@ export async function readNewApiTokenKey(session: NewApiSession, tokenId: number
     return data.key.startsWith("sk-") ? data.key : `sk-${data.key}`;
 }
 
+/** /api/pricing 需要完整响应信封（data 之外还有 group_ratio 等顶层字段），不能走会解包 data 的 request()。 */
+async function fetchPricingEnvelope(session: NewApiSession, signal: AbortSignal) {
+    try {
+        const response = await fetch(`${NEW_API_BASE_URL}/api/pricing`, { ...authOptions(session.access_token, signal), credentials: "omit", cache: "no-store" });
+        const payload = (await response.json().catch(() => null)) as { success?: boolean; data?: unknown; group_ratio?: Record<string, number> } | null;
+        if (!response.ok || !payload || payload.success === false || !Array.isArray(payload.data)) throw new Error(i18n.t("account.errors.modelCatalogFailed"));
+        return payload as { data: NonNullable<typeof payload.data>; group_ratio?: Record<string, number> };
+    } catch (error) {
+        if (signal.aborted) throw error;
+        throw new Error(i18n.t("account.errors.modelCatalogFailed"));
+    }
+}
+
 export async function fetchNewApiModels(apiKey: string, session: NewApiSession, signal: AbortSignal) {
     type PricingEntry = { model_name: string; category?: string; supported_endpoint_types?: string[]; features?: ModelFeatures; quota_type?: number; model_ratio?: number; model_price?: number; completion_ratio?: number; billing_expr?: string; enable_groups?: string[] };
     const [data, metadata] = await Promise.all([
         request<NewApiModel[]>("/v1/models", authOptions(apiKey, signal)),
-        request<{ data?: PricingEntry[]; group_ratio?: Record<string, number> } & { [model_name: string]: PricingEntry }>("/api/pricing", authOptions(session.access_token, signal)).catch((error) => {
-            if (signal.aborted) throw error;
-            throw new Error(i18n.t("account.errors.modelCatalogFailed"));
-        }),
+        fetchPricingEnvelope(session, signal),
     ]);
     if (!Array.isArray(data) || data.some((model) => typeof model.id !== "string" || !model.id)) throw new Error(i18n.t("account.errors.modelListInvalid"));
-    const details = new Map((Array.isArray(metadata?.data) ? metadata.data : []).map((model) => [model.model_name, model]));
+    const details = new Map((metadata.data as PricingEntry[]).map((model) => [model.model_name, model]));
     const groupRatios = typeof metadata?.group_ratio === "object" && metadata.group_ratio ? metadata.group_ratio : {};
     const models = [
         ...new Map(

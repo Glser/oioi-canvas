@@ -51,9 +51,10 @@ async function obtainToken(session: NewApiSession, signal: AbortSignal, refreshM
         if (!token) throw new Error(i18n.t("account.errors.autoTokenMissing"));
         const apiKey = await readNewApiTokenKey(session, token.id, signal);
         const cached = refreshModels ? null : await modelCache.getItem<ModelCache>("catalog").catch(() => null);
-        if (cached?.userId === session.user.id && cached.baseUrl === NEW_API_BASE_URL && Array.isArray(cached.models)) return { token, apiKey, models: cached.models, groupRatios: cached.groupRatios || {} };
+        // 空目录不命中缓存：目录为空多来自网关瞬断或配置缺失，属异常态，下次连接应重新拉取
+        if (cached?.userId === session.user.id && cached.baseUrl === NEW_API_BASE_URL && Array.isArray(cached.models) && cached.models.length > 0) return { token, apiKey, models: cached.models, groupRatios: cached.groupRatios || {} };
         const { models, groupRatios } = await fetchNewApiModels(apiKey, session, signal);
-        await modelCache.setItem("catalog", { userId: session.user.id, baseUrl: NEW_API_BASE_URL, models, groupRatios }).catch(() => {});
+        if (models.length) await modelCache.setItem("catalog", { userId: session.user.id, baseUrl: NEW_API_BASE_URL, models, groupRatios }).catch(() => {});
         return { token, apiKey, models, groupRatios };
     };
     return navigator.locks ? navigator.locks.request(`oioi-flow:token:${session.user.id}`, { signal }, obtain) : obtain();
