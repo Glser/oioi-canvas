@@ -113,17 +113,17 @@ export function modelPriceSummary(pricing: NewApiModelPricing | undefined, group
             const groupLines = groupPriceLines(pricing, tiers, groupRatios);
             return {
                 label: i18n.t("account.pricePerMillionShort", { input: formatNumber(first.inputPerMillion), output: formatNumber(first.outputPerMillion ?? first.inputPerMillion) }),
-                detail: groupLines.length ? groupLines.join("\n") : pricing.billingExpr || "",
+                detail: groupLines.join("\n"),
                 groups: (pricing.enableGroups || []).filter((group) => group !== "auto"),
             };
         }
     }
 
     if (pricing.quotaType === 1 && typeof pricing.modelPrice === "number" && pricing.modelPrice > 0) {
-        return { label: i18n.t("account.pricePerCall", { price: formatNumber(pricing.modelPrice) }), detail: pricing.billingExpr || "" };
+        return { label: i18n.t("account.pricePerCall", { price: formatNumber(pricing.modelPrice) }) };
     }
     if (typeof pricing.modelRatio === "number" && pricing.modelRatio > 0) {
-        return { label: i18n.t("account.priceRatio", { ratio: formatNumber(pricing.modelRatio) }), detail: pricing.billingExpr || "" };
+        return { label: i18n.t("account.priceRatio", { ratio: formatNumber(pricing.modelRatio) }) };
     }
     return null;
 }

@@ -71,7 +71,7 @@ export function NewApiAccountPanel() {
                                         <ModelIcon model={model.id} />
                                         <span className="min-w-0 break-all">{model.id}</span>
                                         {price ? (
-                                            <Tooltip title={<span className="whitespace-pre-line">{price.detail}</span>} placement="left">
+                                            <Tooltip title={price.detail ? <span className="whitespace-pre-line">{price.detail}</span> : ""} placement="left">
                                                 <span className="ml-auto flex shrink-0 items-center gap-1 font-mono text-xs text-muted-foreground">
                                                     {price.label}
                                                     {price.groups && price.groups.length > 1 ? <span className="rounded-full bg-border px-1.5 py-px text-[10px] leading-4">{price.groups.length}</span> : null}
