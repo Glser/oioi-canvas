@@ -4,6 +4,7 @@ import { Segmented, Select } from "@/components/themed-controls";
 import { ChevronDown, SlidersHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { ModelIcon } from "@/components/model-icon";
+import { ModelFamilyPanel, groupModelsByFamily } from "@/components/model-family-panel";
 import { AspectIcon } from "@/components/image-settings-panel";
 import { videoSecondsLabel, videoSizeLabel } from "@/components/video-settings-panel";
 import { clampVideoSeconds, computeVideoSize, inferVideoRatio, parseAspectRatio, videoRatioOptions, VIDEO_SECONDS_MIN, VIDEO_SECONDS_MAX } from "@/lib/media-size";
@@ -26,6 +27,7 @@ export function VideoGenerationSettings() {
     const theme = useThemeStore((state) => state.theme);
     const appearance = useMemo(() => getWorkbenchAppearance(theme === "dark"), [theme]);
     const [open, setOpen] = useState(false);
+    const [modelOpen, setModelOpen] = useState(false);
     const trigger = useRef<HTMLButtonElement>(null);
     const features = resolveModelFeatures(config, config.videoModel)?.video;
     // 未登录/未获取到 features 数据时默认展示开关，拿到数据后按 supported 声明显隐
@@ -94,6 +96,17 @@ export function VideoGenerationSettings() {
                 placeholder={t("settingsPanels.model.select")}
                 options={selectableModelsByCapability(config, "video").map((value) => ({ value, label: <span className="flex min-w-0 items-center gap-2"><ModelIcon model={value} /><span className="truncate">{modelOptionLabel(config, value)}</span></span> }))}
                 onChange={(value) => updateConfig("videoModel", value)}
+                popupRender={(menu) => {
+                    const groups = groupModelsByFamily(selectableModelsByCapability(config, "video"));
+                    if (!groups.some((group) => group.members.length > 1)) return menu;
+                    return (
+                        <div className="p-1">
+                            <ModelFamilyPanel config={config} groups={groups} value={config.videoModel || ""} onSelect={(model) => { updateConfig("videoModel", model); setModelOpen(false); }} />
+                        </div>
+                    );
+                }}
+                open={modelOpen}
+                onOpenChange={setModelOpen}
                 notFoundContent={
                     <Button block type="text" className="!justify-start" onClick={() => openConfigDialog(false)}>
                         {t("imageWorkbench.configureModels")}
