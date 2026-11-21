@@ -92,6 +92,7 @@ export function VideoGenerationSettings() {
                 aria-label={t("settingsPanels.model.select")}
                 className="w-full"
                 showSearch={false}
+                popupMatchSelectWidth={false}
                 value={config.videoModel || undefined}
                 placeholder={t("settingsPanels.model.select")}
                 options={selectableModelsByCapability(config, "video").map((value) => ({ value, label: <span className="flex min-w-0 items-center gap-2"><ModelIcon model={value} /><span className="truncate">{modelOptionLabel(config, value)}</span></span> }))}

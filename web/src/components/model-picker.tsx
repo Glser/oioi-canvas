@@ -74,7 +74,7 @@ export function ModelPicker({ config, value, onChange, capability, className, fu
             <SelectContent
                 data-canvas-no-zoom
                 style={{ "--popover": token.colorBgElevated, "--popover-foreground": token.colorText, "--foreground": token.colorText, "--border": token.colorBorder, "--accent": token.controlItemBgActive, "--accent-foreground": token.colorText, "--muted-foreground": token.colorTextSecondary } as CSSProperties}
-                className={cn("z-[1200] rounded-xl border border-border/70 bg-popover p-1 shadow-xl", grouped ? "w-[22rem] max-w-[calc(100vw-24px)]" : "w-64 max-w-[calc(100vw-24px)]", contentClassName)}
+                className={cn("z-[1200] rounded-xl border border-border/70 bg-popover p-1 shadow-xl", grouped ? "w-auto max-w-[calc(100vw-24px)]" : "w-64 max-w-[calc(100vw-24px)]", contentClassName)}
                 position="popper"
                 align="start"
                 side={side}

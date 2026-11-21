@@ -11,6 +11,8 @@ import { UserStatusActions } from "@/components/layout/user-status-actions";
 import { cn } from "@/lib/utils";
 import { getWorkbenchAppearance, isWorkbenchPath } from "@/lib/app-theme";
 import { useThemeStore } from "@/stores/use-theme-store";
+import { AGENT_RUNTIME_BRANDS } from "@/lib/agent/agent-runtime-brand";
+import { useAgentChatStore } from "@/stores/use-agent-chat-store";
 import styles from "./app-top-nav.module.css";
 import { useAgentStore } from "@/stores/use-agent-store";
 
@@ -24,6 +26,10 @@ export function AppTopNav() {
     const [isScrolled, setIsScrolled] = useState(false);
     const togglePanel = useAgentStore((state) => state.togglePanel);
     const panelOpen = useAgentStore((state) => state.panelOpen);
+    const agentConnected = useAgentStore((state) => state.connected);
+    const sessionRuntimeId = useAgentChatStore((state) => state.conversation?.runtimeId);
+    const selectedRuntimeId = useAgentChatStore((state) => state.runtimeId);
+    const agentBrand = agentConnected ? AGENT_RUNTIME_BRANDS[sessionRuntimeId || selectedRuntimeId] : undefined;
     const hideHeader = /^\/canvas\/[^/]+/.test(pathname);
     const slug = pathname.split("/").filter(Boolean)[0];
     const activeToolSlug = navigationTools.some((tool) => tool.slug === slug) ? (slug as NavigationToolSlug) : undefined;
@@ -72,11 +78,11 @@ export function AppTopNav() {
                                 <Menu className="size-4.5" />
                             </button>
                         </Tooltip>
-                        <Tooltip trigger={["hover", "focus"]} title="OiOi Canvas">
+                        <Tooltip trigger={["hover", "focus"]} title={t("topNav.brandName")}>
                             <Link
                                 to="/"
                                 className="flex items-center rounded-xl p-1 transition-transform duration-200 hover:scale-105"
-                                aria-label="OiOi Canvas"
+                                aria-label={t("topNav.brandName")}
                             >
                                 <img src="/logo.png" alt="Logo" className="size-6.5 shrink-0 object-contain dark:hidden" />
                                 <img src="/logo-dark.png" alt="Logo" className="hidden size-6.5 shrink-0 object-contain dark:block" />
@@ -94,11 +100,11 @@ export function AppTopNav() {
                         )}
                     >
                         {/* 1. 项目 Logo */}
-                        <Tooltip trigger={["hover", "focus"]} title="OiOi Canvas">
+                        <Tooltip trigger={["hover", "focus"]} title={t("topNav.brandName")}>
                             <Link
                                 to="/"
                                 className="flex size-8 shrink-0 items-center justify-center rounded-full transition-transform duration-300 hover:scale-105 active:scale-95"
-                                aria-label="OiOi Canvas"
+                                aria-label={t("topNav.brandName")}
                             >
                                 <img src="/logo.png" alt="Logo" className="size-6 shrink-0 object-contain translate-x-0.5 -translate-y-0.5 dark:hidden" />
                                 <img src="/logo-dark.png" alt="Logo" className="hidden size-6 shrink-0 object-contain translate-x-0.5 -translate-y-0.5 dark:block" />
@@ -118,7 +124,7 @@ export function AppTopNav() {
                                         <Link
                                             to={`/${tool.slug}`}
                                             className={cn(
-                                                "relative flex h-8.5 min-w-8.5 items-center justify-center rounded-full px-2.5 text-[13px] font-medium select-none transition-colors duration-300",
+                                                "relative flex h-8.5 min-w-8.5 items-center justify-center gap-2 rounded-full px-2.5 text-[13px] font-medium select-none transition-colors duration-300",
                                                 active
                                                     ? "bg-white text-stone-950 shadow-[0_2px_8px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)] dark:bg-stone-800 dark:text-stone-50 dark:shadow-[0_2px_12px_rgba(0,0,0,0.35)]"
                                                     : "text-stone-600 hover:text-stone-950 hover:bg-black/[0.03] dark:text-stone-400 dark:hover:text-stone-100 dark:hover:bg-white/[0.04]",
@@ -128,22 +134,11 @@ export function AppTopNav() {
                                             aria-label={titleText}
                                         >
                                             <Icon className={cn("size-4 shrink-0", active ? "scale-105" : "opacity-75")} />
-                                            <div
-                                                data-nav-label
-                                                className={cn(
-                                                    "grid transition-[grid-template-columns] duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]",
-                                                    isCompact ? "grid-cols-[0fr]" : "grid-cols-[1fr]",
-                                                )}
-                                            >
-                                                <span
-                                                    className={cn(
-                                                        "min-w-0 overflow-hidden whitespace-nowrap pl-2 pointer-events-none transition-opacity duration-300 ease-out",
-                                                        isCompact ? "opacity-0" : "opacity-100 delay-100",
-                                                    )}
-                                                >
-                                                    {titleText}
-                                                </span>
-                                            </div>
+                                            {!isCompact ? (
+                                                <div data-nav-label className="grid grid-cols-[1fr] transition-[grid-template-columns] duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]">
+                                                    <span className="min-w-0 overflow-hidden whitespace-nowrap pointer-events-none opacity-100 delay-100 transition-opacity duration-300 ease-out">{titleText}</span>
+                                                </div>
+                                            ) : null}
                                         </Link>
                                     </Tooltip>
                                 );
@@ -152,38 +147,31 @@ export function AppTopNav() {
 
                         <div className={cn("h-4 w-px bg-stone-300/60 dark:bg-stone-700/60 mx-0.5 transition-colors duration-300", workbench && styles.separator)} />
 
-                        {/* 3. Agent 开关 */}
-                        <Tooltip trigger={["hover", "focus"]} title={isCompact || workbench ? t(panelOpen ? "topNav.closeAgent" : "topNav.openAgent") : undefined} mouseEnterDelay={0.2}>
+                        {/* 3. Agent 开关：已连接显示当前运行时品牌图标与名称 */}
+                        <Tooltip trigger={["hover", "focus"]} title={isCompact || workbench ? (agentBrand ? `${agentBrand.name} · ${t("canvas.agentConnected")}` : t(panelOpen ? "topNav.closeAgent" : "topNav.openAgent")) : undefined} mouseEnterDelay={0.2}>
                             <button
                                 type="button"
                                 onClick={togglePanel}
                                 className={cn(
-                                    "group flex h-8.5 min-w-8.5 items-center justify-center rounded-full px-2.5 text-[13px] font-medium transition-colors duration-300",
+                                    "group flex h-8.5 min-w-8.5 items-center justify-center gap-1.5 rounded-full px-2.5 text-[13px] font-medium transition-colors duration-300",
                                     panelOpen
                                         ? "bg-purple-500/15 text-purple-600 dark:bg-purple-500/25 dark:text-purple-300 font-semibold"
                                         : "text-stone-600 hover:bg-black/[0.04] hover:text-stone-950 dark:text-stone-300 dark:hover:bg-white/[0.08] dark:hover:text-stone-100",
                                 )}
                                 data-nav-item
                                 aria-pressed={panelOpen}
-                                aria-label={t(panelOpen ? "topNav.closeAgent" : "topNav.openAgent")}
+                                aria-label={agentBrand ? `${agentBrand.name} · ${t("canvas.agentConnected")}` : t(panelOpen ? "topNav.closeAgent" : "topNav.openAgent")}
                             >
-                                <Bot className="size-4 shrink-0 transition-transform duration-300 group-hover:scale-110" />
-                                <div
-                                    data-nav-label
-                                    className={cn(
-                                        "grid transition-[grid-template-columns] duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]",
-                                        isCompact ? "grid-cols-[0fr]" : "grid-cols-[1fr]",
-                                    )}
-                                >
-                                    <span
-                                        className={cn(
-                                            "min-w-0 overflow-hidden whitespace-nowrap pl-1.5 pointer-events-none transition-opacity duration-300 ease-out",
-                                            isCompact ? "opacity-0" : "opacity-100 delay-100",
-                                        )}
-                                    >
-                                        Agent
-                                    </span>
-                                </div>
+                                {agentBrand ? (
+                                    <img src={agentBrand.icon} alt="" className="size-4 shrink-0 object-contain" />
+                                ) : (
+                                    <Bot className="size-4 shrink-0 transition-transform duration-300 group-hover:scale-110" />
+                                )}
+                                {!isCompact ? (
+                                    <div data-nav-label className="grid grid-cols-[1fr] transition-[grid-template-columns] duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]">
+                                        <span className="min-w-0 overflow-hidden whitespace-nowrap pointer-events-none opacity-100 delay-100 transition-opacity duration-300 ease-out">{agentBrand?.name || "Agent"}</span>
+                                    </div>
+                                ) : null}
                             </button>
                         </Tooltip>
 
@@ -191,7 +179,7 @@ export function AppTopNav() {
 
                         {/* 4. 状态与快捷操作 */}
                         <div className={workbench ? styles.utilities : undefined}>
-                            <UserStatusActions variant="embedded" showConfig={false} />
+                            <UserStatusActions variant="embedded" />
                         </div>
                     </div>
                 </header>

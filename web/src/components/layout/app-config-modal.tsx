@@ -55,7 +55,6 @@ function createWebdavDomainProgress(): Record<AppSyncDomainKey, WebdavDomainProg
 export function AppConfigPanel({ showDoneButton = false, initialTab = "channels" }: { showDoneButton?: boolean; initialTab?: ConfigTabKey }) {
     const { message } = App.useApp();
     const { i18n, t } = useTranslation();
-    const configInputRef = useRef<HTMLInputElement>(null);
     const [activeTab, setActiveTab] = useState<ConfigTabKey>(initialTab);
     const [editingChannelId, setEditingChannelId] = useState("");
     const [testingWebdav, setTestingWebdav] = useState(false);
@@ -85,17 +84,6 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
         if (!ready) return;
         message.success(t(shouldPromptContinue ? "config.savedContinue" : "config.saved"));
         clearPromptContinue();
-    };
-
-    const loadConfigFile = async (file: File) => {
-        try {
-            await importAppConfig(file);
-            message.success(t("config.imported"));
-        } catch (error) {
-            message.error(error instanceof Error ? error.message : t("config.importFailed"));
-        } finally {
-            if (configInputRef.current) configInputRef.current.value = "";
-        }
     };
 
     const updateChannels = (channels: ModelChannel[]) => saveConfig(withChannels(config, channels));
@@ -170,18 +158,6 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
 
     return (
         <div className={styles.panel}>
-            <div className={`${styles.tools} mb-4 flex shrink-0 flex-wrap items-center justify-between gap-3`}>
-                <div className="min-w-0 text-xs leading-relaxed text-muted-foreground">{NEW_API_ENABLED ? t("account.configFileHint") : t("config.fileSecurity")}</div>
-                <div className="flex shrink-0 gap-1">
-                    <Button type="text" size="small" icon={<Upload className="size-3.5" />} onClick={() => configInputRef.current?.click()}>
-                        {t("config.import")}
-                    </Button>
-                    <Button type="text" size="small" icon={<Download className="size-3.5" />} onClick={exportAppConfig}>
-                        {t("config.export")}
-                    </Button>
-                    <input ref={configInputRef} type="file" accept="application/json,.json" className="hidden" onChange={(event) => event.target.files?.[0] && void loadConfigFile(event.target.files[0])} />
-                </div>
-            </div>
             <Tabs
                 className={styles.tabs}
                 activeKey={activeTab}
@@ -348,20 +324,39 @@ export function AppConfigPanel({ showDoneButton = false, initialTab = "channels"
 }
 
 export function AppConfigModal() {
+    const { message } = App.useApp();
     const { t } = useTranslation();
     const theme = useThemeStore((state) => state.theme);
     const appearance = useMemo(() => getWorkbenchAppearance(theme === "dark"), [theme]);
     const isConfigOpen = useConfigStore((state) => state.isConfigOpen);
     const configTab = useConfigStore((state) => state.configTab);
     const setConfigDialogOpen = useConfigStore((state) => state.setConfigDialogOpen);
+    const configInputRef = useRef<HTMLInputElement>(null);
+    const loadConfigFile = async (file: File) => {
+        try {
+            await importAppConfig(file);
+            message.success(t("config.imported"));
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : t("config.importFailed"));
+        } finally {
+            if (configInputRef.current) configInputRef.current.value = "";
+        }
+    };
     return (
         <ConfigProvider theme={appearance.theme} modal={appearance.configModal} tooltip={appearance.tooltip} popover={appearance.popover} drawer={appearance.drawer}>
             <Modal
                 className={styles.modal}
                 title={
-                    <div className="pr-8">
+                    <div className="flex min-w-0 items-center justify-between gap-2 pr-8">
                         <div className="text-base font-semibold">{t("config.title")}</div>
-                        <div className="mt-1 text-xs font-normal text-muted-foreground">{t("config.modalDescription")}</div>
+                        <div className="flex shrink-0 gap-1">
+                            <Button type="text" size="small" icon={<Upload className="size-3.5" />} onClick={() => configInputRef.current?.click()}>
+                                {t("config.import")}
+                            </Button>
+                            <Button type="text" size="small" icon={<Download className="size-3.5" />} onClick={exportAppConfig}>
+                                {t("config.export")}
+                            </Button>
+                        </div>
                     </div>
                 }
                 open={isConfigOpen}
@@ -371,6 +366,7 @@ export function AppConfigModal() {
                 footer={null}
             >
                 <AppConfigPanel showDoneButton initialTab={configTab} />
+                <input ref={configInputRef} type="file" accept="application/json,.json" className="hidden" onChange={(event) => event.target.files?.[0] && void loadConfigFile(event.target.files[0])} />
             </Modal>
         </ConfigProvider>
     );

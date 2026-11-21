@@ -6,9 +6,13 @@ import { cn } from "@/lib/utils";
 import { modelPriceSummary, resolveModelPricing } from "@/lib/model-pricing";
 import { modelOptionLabel, modelOptionName, type AiConfig } from "@/stores/use-config-store";
 
-/** 视频模型家族收拢：命名规律「名称-版本-具体型号」，三段及以上取前两段为家族（minimax-h3-2k-channel-l、minimax-h3-max、minimax-h3 都归入 minimax-h3）；两段以内家族即自身。 */
+/** 产品线变体词：出现在第三段时视为独立家族（seedance-2.0-fast 与 seedance-2.0 分开），渠道代号（channel-xx/official-x/oa 等）才并入主家族。 */
+const VARIANT_SEGMENTS = new Set(["fast", "mini", "flash", "prime", "pro", "ultra", "lite", "plus", "turbo", "nano"]);
+
+/** 视频模型家族收拢：三段以上取前两段为家族；第三段是变体词（fast/mini/flash…）时取前三段（minimax-h3-2k/max 仍归 minimax-h3，seedance-2.0-fast/mini、seedance-2.5-flash 独立）。 */
 export function modelFamilyOf(name: string) {
     const segments = name.split("-");
+    if (segments.length > 2 && VARIANT_SEGMENTS.has(segments[2].toLowerCase())) return `${segments[0]}-${segments[1]}-${segments[2]}`;
     return segments.length > 2 ? `${segments[0]}-${segments[1]}` : name;
 }
 
@@ -26,10 +30,10 @@ export function groupModelsByFamily(options: string[]): ModelFamilyGroup[] {
     return [...families.entries()].map(([family, members]) => ({ family, members }));
 }
 
-/** 型号明细行的价格摘要：视频模型取各档每秒价（480p: ¥0.29/s；720p: ¥0.44/s），按次/按 token 模型退回标签。 */
+/** 型号明细行的价格摘要：视频模型取各档每秒价（480p: ¥0.29/s · 720p: ¥0.44/s），按次/按 token 模型退回标签。 */
 function memberPriceDetail(config: AiConfig, model: string) {
     const summary = modelPriceSummary(resolveModelPricing(config, model));
-    return summary?.detail && summary.detail !== summary.label ? summary.detail.split("\n")[0] : "";
+    return summary?.detail && summary.detail !== summary.label ? summary.detail.split("\n")[0].replaceAll("；", " · ") : "";
 }
 
 /** 左侧家族列表 + 右侧型号明细的两栏选择面板（视频模型收拢展示，画布与视频工作台共用）。
@@ -48,8 +52,8 @@ export function ModelFamilyPanel({ config, groups, value, onSelect, className }:
     });
     const active = groups.find((group) => group.family === activeFamily && group.members.length > 1);
     return (
-        <div className={cn("flex min-h-40 w-full max-w-full overflow-hidden rounded-lg", className)}>
-            <div className="max-h-72 w-44 shrink-0 overflow-y-auto border-r border-border/60 p-1">
+        <div className={cn("flex w-[36rem] max-w-full flex-col gap-1 overflow-hidden rounded-lg sm:flex-row", className)}>
+            <div className="max-h-72 w-full shrink-0 overflow-y-auto border-border/60 p-1 sm:w-44 sm:border-r">
                 {groups.map((group) => {
                     const single = group.members.length === 1;
                     const isActive = active?.family === group.family;
@@ -68,7 +72,7 @@ export function ModelFamilyPanel({ config, groups, value, onSelect, className }:
                 })}
             </div>
             {active ? (
-                <div className="max-h-72 min-w-40 flex-1 overflow-y-auto p-1">
+                <div className="max-h-72 min-w-0 flex-1 overflow-y-auto p-1">
                     <div className="px-2 pb-1 pt-0.5 text-[11px] text-muted-foreground">{active.family} · {active.members.length}</div>
                     {active.members.map((model) => {
                         const selected = modelOptionName(model) === modelOptionName(value);
@@ -84,7 +88,7 @@ export function ModelFamilyPanel({ config, groups, value, onSelect, className }:
                                 <ModelIcon model={model} />
                                 <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                                     <span className="truncate">{modelOptionLabel(config, model)}</span>
-                                    {price ? <span className="truncate font-mono text-[10px] leading-3 text-muted-foreground">{price}</span> : null}
+                                    {price ? <span className="text-left font-mono text-[10px] leading-4 text-muted-foreground break-words">{price}</span> : null}
                                 </span>
                                 {selected ? <Check className="size-3.5 shrink-0" /> : null}
                             </button>

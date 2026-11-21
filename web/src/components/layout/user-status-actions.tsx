@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { Tooltip } from "antd";
-import { BookOpen, Keyboard, Puzzle, Settings2, UserRound } from "lucide-react";
+import { BookOpen, Keyboard, Puzzle, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
@@ -12,13 +12,12 @@ import { NEW_API_ENABLED } from "@/constant/env";
 import { useNewApiStore } from "@/stores/use-newapi-store";
 
 type UserStatusActionsProps = {
-    showConfig?: boolean;
     variant?: "default" | "canvas" | "embedded";
     onOpenShortcuts?: () => void;
     onOpenPlugins?: () => void;
 };
 
-export function UserStatusActions({ showConfig = true, variant = "default", onOpenShortcuts, onOpenPlugins }: UserStatusActionsProps) {
+export function UserStatusActions({ variant = "default", onOpenShortcuts, onOpenPlugins }: UserStatusActionsProps) {
     const { i18n, t } = useTranslation();
     const theme = useThemeStore((state) => state.theme);
     const setTheme = useThemeStore((state) => state.setTheme);
@@ -42,7 +41,7 @@ export function UserStatusActions({ showConfig = true, variant = "default", onOp
     return (
         <div className={containerClass}>
             {NEW_API_ENABLED ? (
-                <Tooltip trigger={["hover", "focus"]} title={accountName || t("account.signIn")}>
+                <Tooltip trigger={["hover", "focus"]} title={accountName ? t("topNav.configCenter") : t("account.signIn")}>
                     <button type="button" className={naturalIconClass} style={iconStyle} onClick={() => openConfigDialog(false, "channels")} aria-label={accountName ? t("account.accountName", { name: accountName }) : t("account.signIn")}>
                         <UserRound className="size-4" />
                     </button>
@@ -60,13 +59,6 @@ export function UserStatusActions({ showConfig = true, variant = "default", onOp
                     <a href={docsLink} target="_blank" rel="noopener noreferrer" className={naturalIconClass} style={iconStyle} aria-label={t("topNav.docs")}>
                         <BookOpen className="size-4" />
                     </a>
-                </Tooltip>
-            ) : null}
-            {showConfig ? (
-                <Tooltip trigger={["hover", "focus"]} title={t("navigation.config")}>
-                    <button type="button" className={naturalIconClass} style={iconStyle} onClick={() => openConfigDialog(false)} aria-label={t("navigation.config")}>
-                        <Settings2 className="size-4" />
-                    </button>
                 </Tooltip>
             ) : null}
             <Tooltip trigger={["hover", "focus"]} title={languageLabel} mouseEnterDelay={0.2}>

@@ -188,5 +188,5 @@ export function getWorkbenchAppearance(dark: boolean) {
 }
 
 export function isWorkbenchPath(pathname: string) {
-    return ["/image", "/video", "/prompts", "/assets", "/config"].includes(pathname);
+    return ["/image", "/video", "/prompts", "/assets"].includes(pathname);
 }

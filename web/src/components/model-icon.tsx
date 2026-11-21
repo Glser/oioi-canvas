@@ -10,6 +10,7 @@ const MODEL_ICONS = [
     { pattern: /grok/, file: "grok", monochrome: true },
     { pattern: /deepseek/, file: "deepseek" },
     { pattern: /glm/, file: "glm" },
+    { pattern: /qwen|^-?wan-|^-?wan$/, file: "qwen-color" },
     { pattern: /minimax/, file: "minimax-color" },
     { pattern: /kimi|moonshot/, file: "kimi-color" },
     { pattern: /seedance/, file: "bytedance-color" },
