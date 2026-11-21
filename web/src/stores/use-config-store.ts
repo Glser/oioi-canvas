@@ -326,7 +326,7 @@ function buildEffectiveConfig(config: AiConfig, state: NewApiRuntimeState): AiCo
         const category = model.category?.trim().toLowerCase() || "";
         const capability = NEW_API_CATEGORY_CAPABILITIES.get(category);
         if (!capability) return [];
-        if (capability === "video") return [{ name: model.id, capability, apiFormat: "openai" }];
+        if (capability === "video") return [{ name: model.id, capability, apiFormat: "openai", features: model.features, ...(model.pricing ? { pricing: model.pricing } : {}) }];
         const supported = capability === "image" ? ["gemini-image", "image-generation", "gemini"] : capability === "audio" ? ["openai"] : ["openai", "openai-response", "gemini"];
         const endpoint = supported.find((item) => endpoints.includes(item));
         if (!endpoint) return [];

@@ -21,7 +21,7 @@ export function resolveModelPricing(config: AiConfig, model: string): NewApiMode
     return undefined;
 }
 
-type TierPricing = { label: string; perCall?: number; perSecond?: number; inputPerMillion?: number; outputPerMillion?: number };
+type TierPricing = { label: string; perCall?: number; perSecond?: number; inputPerMillion?: number; outputPerMillion?: number; cacheReadPerMillion?: number; cacheWritePerMillion?: number };
 
 /** 提取 `tier("标签", 表达式)` 分档；支持嵌套括号，无 tier 时整体作为单档。 */
 function extractTiers(expr: string): Array<{ label: string; content: string }> {
@@ -58,7 +58,17 @@ function parseTier(content: string): Partial<TierPricing> {
     if (second) return { perSecond: Number(second[1] || second[2]) };
     const input = content.match(/(?:^|[^\w])p\s*\*\s*([\d.]+)/);
     const output = content.match(/(?:^|[^\w])c\s*\*\s*([\d.]+)/);
-    if (input || output) return { inputPerMillion: input ? Number(input[1]) : undefined, outputPerMillion: output ? Number(output[1]) : input ? Number(input[1]) : undefined };
+    const cacheRead = content.match(/(?:^|[^\w])cr\s*\*\s*([\d.]+)/);
+    // 多档缓存写入（cc/cc1h/cc12h）取第一档价格
+    const cacheWrite = content.match(/(?:^|[^\w])cc(?:1h|12h)?\s*\*\s*([\d.]+)/);
+    if (input || output || cacheRead || cacheWrite) {
+        return {
+            inputPerMillion: input ? Number(input[1]) : undefined,
+            outputPerMillion: output ? Number(output[1]) : input ? Number(input[1]) : undefined,
+            cacheReadPerMillion: cacheRead ? Number(cacheRead[1]) : undefined,
+            cacheWritePerMillion: cacheWrite ? Number(cacheWrite[1]) : undefined,
+        };
+    }
     return {};
 }
 
@@ -66,26 +76,32 @@ function formatNumber(value: number) {
     return Number(value.toFixed(4)).toString();
 }
 
-/** 聊天模型的输入/输出基准价乘以各分组系数，得到该分组下的每百万 token 价。 */
-function groupPriceLines(pricing: NewApiModelPricing, tiers: TierPricing[], groupRatios: Record<string, number>): string[] {
-    const groups = (pricing.enableGroups || []).filter((group) => group !== "auto");
-    if (!groups.length) return [];
-    // 取第一个含输入价的档位作为基准（多档如 standard/long_context 显示在明细里，分组行用基准档）。
-    const base = tiers.find((tier) => tier.inputPerMillion != null);
+/** 价格明细使用的分组列表：仅创作台 auto 候选分组与模型分组的交集（autoGroups 为空时回退全部 enable_groups）。 */
+function detailGroups(pricing: NewApiModelPricing, autoGroups?: string[]): string[] {
+    const enabled = (pricing.enableGroups || []).filter((group) => group !== "auto");
+    return autoGroups?.length ? enabled.filter((group) => autoGroups.includes(group)) : enabled;
+}
+
+/** 聊天模型基础价乘以各分组系数，得到该分组下的每百万 token 价（输入/输出/缓存读取/缓存写入）。 */
+function groupPriceLines(base: TierPricing | undefined, groups: string[], groupRatios: Record<string, number>): string[] {
     if (!base || base.inputPerMillion == null) return [];
     const lines: string[] = [];
     for (const group of groups) {
         const ratio = groupRatios[group];
         if (ratio == null) continue;
-        const input = base.inputPerMillion * ratio;
-        const output = (base.outputPerMillion ?? base.inputPerMillion) * ratio;
-        lines.push(`${group}(×${formatNumber(ratio)}): ${i18n.t("account.pricePerMillion", { input: formatNumber(input), output: formatNumber(output) })}`);
+        const parts = [
+            i18n.t("account.priceInput", { price: formatNumber(base.inputPerMillion * ratio) }),
+            i18n.t("account.priceOutput", { price: formatNumber((base.outputPerMillion ?? base.inputPerMillion) * ratio) }),
+        ];
+        if (base.cacheReadPerMillion != null) parts.push(i18n.t("account.priceCacheRead", { price: formatNumber(base.cacheReadPerMillion * ratio) }));
+        if (base.cacheWritePerMillion != null) parts.push(i18n.t("account.priceCacheWrite", { price: formatNumber(base.cacheWritePerMillion * ratio) }));
+        lines.push(`${group}(×${formatNumber(ratio)}): ${parts.join(" / ")} / M`);
     }
     return lines;
 }
 
 /** 把网关的计费声明转成一行价格标签；识别不了的退回 model_price / model_ratio 字段。 */
-export function modelPriceSummary(pricing: NewApiModelPricing | undefined, groupRatios: Record<string, number> = {}): ModelPriceSummary | null {
+export function modelPriceSummary(pricing: NewApiModelPricing | undefined, groupRatios: Record<string, number> = {}, autoGroups?: string[]): ModelPriceSummary | null {
     if (!pricing) return null;
     const tiers = extractTiers(pricing.billingExpr || "")
         .map((tier) => ({ label: tier.label, ...parseTier(tier.content) }))
@@ -102,19 +118,20 @@ export function modelPriceSummary(pricing: NewApiModelPricing | undefined, group
             };
         }
         const first = tiers[0];
+        const tokenBase = tiers.find((tier) => tier.inputPerMillion != null);
         if (first.perCall != null) {
-            const groupLines = groupPriceLines(pricing, tiers, groupRatios);
             return {
                 label: i18n.t("account.pricePerCall", { price: formatNumber(first.perCall) }),
-                detail: [tiers.map((tier) => `${tier.label}: ¥${formatNumber(tier.perCall ?? 0)}`).join("；"), ...groupLines].filter(Boolean).join("\n"),
+                detail: [tiers.map((tier) => `${tier.label}: ¥${formatNumber(tier.perCall ?? 0)}`).join("；"), ...groupPriceLines(tokenBase, detailGroups(pricing, autoGroups), groupRatios)].filter(Boolean).join("\n"),
             };
         }
         if (first.inputPerMillion != null) {
-            const groupLines = groupPriceLines(pricing, tiers, groupRatios);
+            const groups = detailGroups(pricing, autoGroups);
+            const groupLines = groupPriceLines(tokenBase, groups, groupRatios);
             return {
                 label: i18n.t("account.pricePerMillionShort", { input: formatNumber(first.inputPerMillion), output: formatNumber(first.outputPerMillion ?? first.inputPerMillion) }),
                 detail: groupLines.join("\n"),
-                groups: (pricing.enableGroups || []).filter((group) => group !== "auto"),
+                groups,
             };
         }
     }

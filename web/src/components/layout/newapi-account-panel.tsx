@@ -9,6 +9,10 @@ import { startNewApiLogin } from "@/services/api/newapi";
 import { useNewApiStore } from "@/stores/use-newapi-store";
 import { modelPriceSummary } from "@/lib/model-pricing";
 
+function formatQuota(quota: number, perUnit: number) {
+    return (quota / perUnit).toFixed(2);
+}
+
 export function NewApiAccountPanel() {
     const { message, modal } = App.useApp();
     const { t } = useTranslation();
@@ -18,6 +22,9 @@ export function NewApiAccountPanel() {
     const token = useNewApiStore((state) => state.token);
     const models = useNewApiStore((state) => state.models);
     const groupRatios = useNewApiStore((state) => state.groupRatios);
+    const autoGroups = useNewApiStore((state) => state.autoGroups);
+    const userQuota = useNewApiStore((state) => state.userQuota);
+    const quotaPerUnit = useNewApiStore((state) => state.quotaPerUnit);
     const connect = useNewApiStore((state) => state.connect);
     const logout = useNewApiStore((state) => state.logout);
     const [query, setQuery] = useState("");
@@ -47,13 +54,18 @@ export function NewApiAccountPanel() {
         <div className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="min-w-0">
-                    <h2 className="text-base font-semibold">{session ? session.user.display_name || session.user.username : t("account.connectTitle")}</h2>
-                    <p className="mt-1 text-sm text-muted-foreground">{session ? t("account.signedInHint") : t("account.anonymousHint")}</p>
+                    <h2 className="text-base font-semibold">{session ? session.user.username : t("account.connectTitle")}</h2>
+                    {session && userQuota ? (
+                        <p className="mt-1 flex items-baseline gap-3 text-sm text-muted-foreground">
+                            <span className="font-medium text-foreground">{t("account.balance", { amount: formatQuota(userQuota.quota, quotaPerUnit) })}</span>
+                            <span>{t("account.usedQuota", { amount: formatQuota(userQuota.usedQuota, quotaPerUnit) })}</span>
+                        </p>
+                    ) : null}
                 </div>
                 <div className="flex flex-wrap gap-2">
                     {session ? <Button icon={<LogOut className="size-4" />} loading={loggingOut} disabled={loading} onClick={signOut}>{t("account.signOut")}</Button> : <Button type="primary" icon={<LogIn className="size-4" />} disabled={loading} onClick={startNewApiLogin}>{t("account.signIn")}</Button>}
                     <Button icon={<RefreshCw className="size-4" />} disabled={loading || loggingOut} onClick={() => void connect({ refreshModels: true }).catch(() => {})}>{t("account.refresh")}</Button>
-                    <Button type="text" href={`${NEW_API_BASE_URL}/dashboard`} target="_blank" rel="noopener noreferrer">{t("account.dashboard")}</Button>
+                    <Button type="text" href={`${NEW_API_BASE_URL}/console/topup`} target="_blank" rel="noopener noreferrer">{t("account.wallet")}</Button>
                 </div>
             </div>
             {loading ? <Skeleton active title={false} paragraph={{ rows: 2 }} /> : null}
@@ -65,7 +77,7 @@ export function NewApiAccountPanel() {
                     {visibleModels.length ? (
                         <ul className="max-h-80 divide-y divide-border overflow-y-auto">
                             {visibleModels.map((model) => {
-                                const price = modelPriceSummary(model.pricing, groupRatios);
+                                const price = modelPriceSummary(model.pricing, groupRatios, autoGroups);
                                 return (
                                     <li key={model.id} className="flex items-center gap-2 py-3 text-sm">
                                         <ModelIcon model={model.id} />

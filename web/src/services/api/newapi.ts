@@ -180,8 +180,18 @@ export async function fetchNewApiModels(apiKey: string, session: NewApiSession, 
     return { models, groupRatios };
 }
 
+export type NewApiUserQuota = { quota: number; usedQuota: number };
+
+/** 当前登录用户的余额与历史使用额度（quota/500000 = 金额 ¥，500000 为 New API 默认额度单位）。 */
+export function fetchNewApiUserQuota(session: NewApiSession, signal: AbortSignal) {
+    return request<{ quota?: number; used_quota?: number }>("/api/user/self", authOptions(session.access_token, signal)).then((data): NewApiUserQuota => ({
+        quota: typeof data.quota === "number" ? data.quota : 0,
+        usedQuota: typeof data.used_quota === "number" ? data.used_quota : 0,
+    }));
+}
+
 export function fetchNewApiStatus(signal?: AbortSignal) {
-    return request<{ docs_link?: string }>("/api/status", { signal });
+    return request<{ docs_link?: string; quota_per_unit?: number }>("/api/status", { signal });
 }
 
 export function normalizeNewApiDocsLink(value: string | undefined) {
