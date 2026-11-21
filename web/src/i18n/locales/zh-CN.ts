@@ -174,6 +174,7 @@ export default {
         priceOutput: "输出 ¥{{price}}",
         priceCacheRead: "缓存读取 ¥{{price}}",
         priceCacheWrite: "缓存写入 ¥{{price}}",
+        priceGroupsHint: "价格已按分组倍率计算",
         noModelsShort: "暂无可选生图模型，查看账户连接",
         errors: { autoTokenMissing: "未取得可用的 auto 令牌，请重新获取", sessionInvalid: "登录会话格式异常，请检查 New API 版本", loginExpired: "登录已失效，请重新登录", connectFailed: "账户连接失败，请重试", loginRequired: "请先登录账户", logoutFailed: "退出失败，请重试", modelNotInAccount: "该模型不在当前账户的可用列表中，请重新选择", loginStateChanged: "登录状态已变化，请重新选择模型后再试", modelUnavailable: "该模型当前不可用，请重新选择", modelCapabilityMismatch: "所选模型不支持当前生成类型，请重新选择", serviceUnreachable: "无法连接账户服务，请检查网络及 API 跨域配置后重试", nonJsonResponse: "账户服务返回了非 JSON 响应，请检查 API 地址与反向代理", badResponseShape: "账户服务响应格式异常，请检查 New API 版本", requestFailed: "账户服务请求失败", tokenListInvalid: "令牌列表格式异常，请检查 New API 版本", tokenListEmpty: "令牌列表分页异常，请重新获取", noAutoGroups: "当前账户尚未开放 auto 候选分组，请联系管理员配置后重试", tokenKeyMasked: "未取得完整调用令牌，请重新获取", modelCatalogFailed: "模型分类读取失败，请检查网关 /api/pricing 的访问权限与跨域配置，然后重新获取模型", modelListInvalid: "模型列表格式异常，请检查 New API 版本", callbackExpired: "登录回调已失效，请返回首页重新登录" },
     },

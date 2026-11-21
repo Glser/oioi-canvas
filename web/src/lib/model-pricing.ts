@@ -2,7 +2,7 @@ import i18n from "@/i18n";
 import type { NewApiModelPricing } from "@/services/api/newapi";
 import type { AiConfig } from "@/stores/use-config-store";
 
-export type ModelPriceSummary = { label: string; detail: string; groups?: string[] };
+export type ModelPriceSummary = { label: string; detail: string; groups?: string[]; inlineLines?: string[] };
 
 /** 估算价最多保留 2 位小数，去掉尾零。 */
 export function formatEstimatedPrice(value: number) {
@@ -82,22 +82,31 @@ function detailGroups(pricing: NewApiModelPricing, autoGroups?: string[]): strin
     return autoGroups?.length ? enabled.filter((group) => autoGroups.includes(group)) : enabled;
 }
 
-/** 聊天模型基础价乘以各分组系数，得到该分组下的每百万 token 价（输入/输出/缓存读取/缓存写入）。 */
-function groupPriceLines(base: TierPricing | undefined, groups: string[], groupRatios: Record<string, number>): string[] {
-    if (!base || base.inputPerMillion == null) return [];
-    const lines: string[] = [];
+/** 单个分组下四项每百万 token 价，格式：输入 ¥x 输出 ¥x 缓存读取 ¥x 缓存写入 ¥x / M（未声明的项省略）。 */
+function formatGroupPrices(base: TierPricing | undefined, ratio: number): string {
+    if (!base || base.inputPerMillion == null) return "";
+    const parts = [
+        i18n.t("account.priceInput", { price: formatNumber(base.inputPerMillion * ratio) }),
+        i18n.t("account.priceOutput", { price: formatNumber((base.outputPerMillion ?? base.inputPerMillion) * ratio) }),
+    ];
+    if (base.cacheReadPerMillion != null) parts.push(i18n.t("account.priceCacheRead", { price: formatNumber(base.cacheReadPerMillion * ratio) }));
+    if (base.cacheWritePerMillion != null) parts.push(i18n.t("account.priceCacheWrite", { price: formatNumber(base.cacheWritePerMillion * ratio) }));
+    return `${parts.join(" ")} / M`;
+}
+
+/** 聊天模型基础价乘以各分组系数；行内单组直接展示价格行，多组带分组名前缀，悬停明细同格式。 */
+function groupPriceLines(base: TierPricing | undefined, groups: string[], groupRatios: Record<string, number>): { detail: string[]; inline: string[] } {
+    const detail: string[] = [];
+    const inline: string[] = [];
     for (const group of groups) {
         const ratio = groupRatios[group];
         if (ratio == null) continue;
-        const parts = [
-            i18n.t("account.priceInput", { price: formatNumber(base.inputPerMillion * ratio) }),
-            i18n.t("account.priceOutput", { price: formatNumber((base.outputPerMillion ?? base.inputPerMillion) * ratio) }),
-        ];
-        if (base.cacheReadPerMillion != null) parts.push(i18n.t("account.priceCacheRead", { price: formatNumber(base.cacheReadPerMillion * ratio) }));
-        if (base.cacheWritePerMillion != null) parts.push(i18n.t("account.priceCacheWrite", { price: formatNumber(base.cacheWritePerMillion * ratio) }));
-        lines.push(`${group}(×${formatNumber(ratio)}): ${parts.join(" / ")} / M`);
+        const line = formatGroupPrices(base, ratio);
+        if (!line) continue;
+        detail.push(`${group}(×${formatNumber(ratio)}): ${line}`);
+        inline.push(groups.length > 1 ? `${group}: ${line}` : line);
     }
-    return lines;
+    return { detail, inline };
 }
 
 /** 把网关的计费声明转成一行价格标签；识别不了的退回 model_price / model_ratio 字段。 */
@@ -120,17 +129,19 @@ export function modelPriceSummary(pricing: NewApiModelPricing | undefined, group
         const first = tiers[0];
         const tokenBase = tiers.find((tier) => tier.inputPerMillion != null);
         if (first.perCall != null) {
+            const { detail } = groupPriceLines(tokenBase, detailGroups(pricing, autoGroups), groupRatios);
             return {
                 label: i18n.t("account.pricePerCall", { price: formatNumber(first.perCall) }),
-                detail: [tiers.map((tier) => `${tier.label}: ¥${formatNumber(tier.perCall ?? 0)}`).join("；"), ...groupPriceLines(tokenBase, detailGroups(pricing, autoGroups), groupRatios)].filter(Boolean).join("\n"),
+                detail: [tiers.map((tier) => `${tier.label}: ¥${formatNumber(tier.perCall ?? 0)}`).join("；"), ...detail].filter(Boolean).join("\n"),
             };
         }
         if (first.inputPerMillion != null) {
             const groups = detailGroups(pricing, autoGroups);
-            const groupLines = groupPriceLines(tokenBase, groups, groupRatios);
+            const { detail, inline } = groupPriceLines(tokenBase, groups, groupRatios);
             return {
-                label: i18n.t("account.pricePerMillionShort", { input: formatNumber(first.inputPerMillion), output: formatNumber(first.outputPerMillion ?? first.inputPerMillion) }),
-                detail: groupLines.join("\n"),
+                label: inline[0] || i18n.t("account.pricePerMillionShort", { input: formatNumber(first.inputPerMillion), output: formatNumber(first.outputPerMillion ?? first.inputPerMillion) }),
+                detail: [detail.join("\n"), detail.length > 1 ? i18n.t("account.priceGroupsHint") : ""].filter(Boolean).join("\n"),
+                inlineLines: inline,
                 groups,
             };
         }
