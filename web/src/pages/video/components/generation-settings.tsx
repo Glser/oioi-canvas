@@ -3,10 +3,11 @@ import { Button, Popover, Slider, Switch } from "antd";
 import { Segmented, Select } from "@/components/themed-controls";
 import { ChevronDown, SlidersHorizontal } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { ModelIcon } from "@/components/model-icon";
 import { AspectIcon } from "@/components/image-settings-panel";
 import { videoSecondsLabel, videoSizeLabel } from "@/components/video-settings-panel";
 import { clampVideoSeconds, computeVideoSize, inferVideoRatio, parseAspectRatio, videoRatioOptions, VIDEO_SECONDS_MIN, VIDEO_SECONDS_MAX } from "@/lib/media-size";
-import { normalizeVideoMode, normalizeVideoOutputSelection, resolutionLabel, resolutionToken, videoDurations, videoFeatureModes, videoRatios, videoResolutions } from "@/lib/model-features";
+import { normalizeVideoMode, normalizeVideoOutputSelection, resolutionLabel, resolutionToken, durationStep, videoDurations, videoFeatureModes, videoRatios, videoResolutions } from "@/lib/model-features";
 import { getWorkbenchAppearance } from "@/lib/app-theme";
 import { useThemeStore } from "@/stores/use-theme-store";
 import { resolveModelFeatures, boolConfig, useConfigStore, useEffectiveConfig, modelOptionLabel, selectableModelsByCapability } from "@/stores/use-config-store";
@@ -91,7 +92,7 @@ export function VideoGenerationSettings() {
                 showSearch={false}
                 value={config.videoModel || undefined}
                 placeholder={t("settingsPanels.model.select")}
-                options={selectableModelsByCapability(config, "video").map((value) => ({ value, label: modelOptionLabel(config, value) }))}
+                options={selectableModelsByCapability(config, "video").map((value) => ({ value, label: <span className="flex min-w-0 items-center gap-2"><ModelIcon model={value} /><span className="truncate">{modelOptionLabel(config, value)}</span></span> }))}
                 onChange={(value) => updateConfig("videoModel", value)}
                 notFoundContent={
                     <Button block type="text" className="!justify-start" onClick={() => openConfigDialog(false)}>
@@ -147,24 +148,28 @@ export function VideoGenerationSettings() {
                                 {t("settingsPanels.video.duration")}
                                 <span className={styles.fieldValue}>{videoSecondsLabel(selection.durationSeconds)}</span>
                             </legend>
-                            {durations.length > 1 ? (
-                                <div className={styles.durationOptions}>
-                                    {durations.map((value) => (
-                                        <Button
-                                            key={value}
-                                            className={styles.durationOption}
-                                            aria-pressed={selection.durationSeconds === String(value)}
-                                            onClick={() => updateConfig("videoSeconds", String(value))}
-                                        >
-                                            {value}s
-                                        </Button>
-                                    ))}
-                                </div>
-                            ) : durations.length === 1 ? (
-                                <span className={styles.fieldValue}>{videoSecondsLabel(String(durations[0]))}</span>
-                            ) : (
-                                <Slider min={VIDEO_SECONDS_MIN} max={VIDEO_SECONDS_MAX} step={1} value={Number(selection.durationSeconds)} onChange={(value) => updateConfig("videoSeconds", String(value))} />
-                            )}
+                            {(() => {
+                                const step = durationStep(durations);
+                                if (durations.length > 1 && step > 0) return <Slider min={Math.min(...durations)} max={Math.max(...durations)} step={step} value={Number(selection.durationSeconds)} onChange={(value) => updateConfig("videoSeconds", String(value))} />;
+                                if (durations.length > 1) {
+                                    return (
+                                        <div className={styles.durationOptions}>
+                                            {durations.map((value) => (
+                                                <Button
+                                                    key={value}
+                                                    className={styles.durationOption}
+                                                    aria-pressed={selection.durationSeconds === String(value)}
+                                                    onClick={() => updateConfig("videoSeconds", String(value))}
+                                                >
+                                                    {value}s
+                                                </Button>
+                                            ))}
+                                        </div>
+                                    );
+                                }
+                                if (durations.length === 1) return <span className={styles.fieldValue}>{videoSecondsLabel(String(durations[0]))}</span>;
+                                return <Slider min={VIDEO_SECONDS_MIN} max={VIDEO_SECONDS_MAX} step={1} value={Number(selection.durationSeconds)} onChange={(value) => updateConfig("videoSeconds", String(value))} />;
+                            })()}
                         </fieldset>
                         {modes.length > 1 && (
                             <fieldset className={styles.field}>

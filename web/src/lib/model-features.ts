@@ -135,6 +135,15 @@ export function videoDurations(video: VideoFeatures | undefined, resolution: str
     return values?.length ? values.filter((value) => Number.isFinite(value)) : [];
 }
 
+/** 连续等差时长（如 5..30 逐秒）渲染为滑杆；稀疏枚举（如 5/10/15）保留按钮。 */
+export function durationStep(values: number[]): number {
+    if (values.length < 3) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    const step = sorted[1] - sorted[0];
+    if (step <= 0) return 0;
+    return sorted.every((value, index) => index === 0 || value - sorted[index - 1] === step) ? step : 0;
+}
+
 export function normalizeVideoOutputSelection(
     video: VideoFeatures | undefined,
     current: { resolution: string; ratio: string; durationSeconds: string },

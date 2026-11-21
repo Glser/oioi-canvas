@@ -5,6 +5,7 @@ import { ChevronDown, Info, SlidersHorizontal, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { AspectIcon, imageCountOptions, imageQualityOptions, imageResolutionOptions, normalizeImageQuality, normalizeImageResolution, resolveImageSize } from "@/components/image-settings-panel";
+import { ModelIcon } from "@/components/model-icon";
 import { getGenerationCount } from "@/lib/canvas/canvas-generation-helpers";
 import { imageModelSettings } from "@/lib/image-model-settings";
 import { inferMediaRatio, mediaRatioOptions, parseAspectRatio } from "@/lib/media-size";
@@ -54,7 +55,7 @@ export function GenerationSettings() {
                     showSearch={false}
                     value={model || undefined}
                     placeholder={t("settingsPanels.model.select")}
-                    options={Array.from(new Set(models)).map((value) => ({ value, label: modelOptionLabel(config, value) }))}
+                    options={Array.from(new Set(models)).map((value) => ({ value, label: <span className="flex min-w-0 items-center gap-2"><ModelIcon model={value} /><span className="truncate">{modelOptionLabel(config, value)}</span></span> }))}
                     onChange={(value) => updateConfig("imageModel", value)}
                     notFoundContent={<Button type="text" block className="!justify-start" onClick={() => { setModelOpen(false); openConfigDialog(false); }}>{config.newApiUserId ? t("account.noModelsShort") : t("imageWorkbench.configureModels")}</Button>}
                 />

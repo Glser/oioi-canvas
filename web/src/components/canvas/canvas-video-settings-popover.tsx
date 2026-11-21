@@ -9,7 +9,7 @@ import { useThemeStore } from "@/stores/use-theme-store";
 import type { AiConfig } from "@/stores/use-config-store";
 import { boolConfig, resolveModelFeatures } from "@/stores/use-config-store";
 import type { VideoFeatures } from "@/lib/model-features";
-import { normalizeVideoMode, normalizeVideoOutputSelection, resolutionLabel, resolutionToken, videoDurations, videoFeatureModes, videoRatios, videoResolutions } from "@/lib/model-features";
+import { normalizeVideoMode, normalizeVideoOutputSelection, resolutionLabel, resolutionToken, durationStep, videoDurations, videoFeatureModes, videoRatios, videoResolutions } from "@/lib/model-features";
 import { clampVideoSeconds, computeVideoSize, inferVideoRatio, parseAspectRatio, videoRatioOptions, VIDEO_SECONDS_MAX, VIDEO_SECONDS_MIN } from "@/lib/media-size";
 import { videoModeLabel, videoResolutionLabel, videoSecondsLabel, videoSizeLabel } from "@/components/video-settings-panel";
 
@@ -273,27 +273,34 @@ function VideoSettingsDropdown({
                             <span className="font-mono text-[10px] opacity-80">{seconds}s</span>
                         </div>
                         <div className="flex items-center gap-2 px-0.5" onMouseDown={(e) => e.stopPropagation()}>
-                            {durations.length > 1 ? (
-                                <div className="flex min-w-0 flex-1 gap-1">
-                                    {durations.map((value) => {
-                                        const isSelected = seconds === value;
-                                        return (
-                                            <button
-                                                key={value}
-                                                type="button"
-                                                onClick={() => onConfigChange("videoSeconds", String(value))}
-                                                className={`min-w-0 flex-1 cursor-pointer rounded-lg px-1 py-1.5 text-xs transition-all ${
-                                                    isSelected ? "bg-white font-semibold text-stone-900 shadow-xs dark:bg-stone-800 dark:text-white" : "font-normal text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200"
-                                                }`}
-                                            >
-                                                {value}s
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                <Slider className="min-w-0 flex-1 my-1 mx-2.5" min={VIDEO_SECONDS_MIN} max={VIDEO_SECONDS_MAX} step={1} value={seconds} onChange={(value) => onConfigChange("videoSeconds", String(Array.isArray(value) ? value[0] : value))} />
-                            )}
+                            {(() => {
+                                const step = durationStep(durations);
+                                if (durations.length > 1 && step > 0) {
+                                    return <Slider className="min-w-0 flex-1 my-1 mx-2.5" min={Math.min(...durations)} max={Math.max(...durations)} step={step} value={seconds} onChange={(value) => onConfigChange("videoSeconds", String(Array.isArray(value) ? value[0] : value))} />;
+                                }
+                                if (durations.length > 1) {
+                                    return (
+                                        <div className="flex min-w-0 flex-1 gap-1">
+                                            {durations.map((value) => {
+                                                const isSelected = seconds === value;
+                                                return (
+                                                    <button
+                                                        key={value}
+                                                        type="button"
+                                                        onClick={() => onConfigChange("videoSeconds", String(value))}
+                                                        className={`min-w-0 flex-1 cursor-pointer rounded-lg px-1 py-1.5 text-xs transition-all ${
+                                                            isSelected ? "bg-white font-semibold text-stone-900 shadow-xs dark:bg-stone-800 dark:text-white" : "font-normal text-stone-600 hover:text-stone-900 dark:text-stone-400 dark:hover:text-stone-200"
+                                                        }`}
+                                                    >
+                                                        {value}s
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                }
+                                return <Slider className="min-w-0 flex-1 my-1 mx-2.5" min={VIDEO_SECONDS_MIN} max={VIDEO_SECONDS_MAX} step={1} value={seconds} onChange={(value) => onConfigChange("videoSeconds", String(Array.isArray(value) ? value[0] : value))} />;
+                            })()}
                         </div>
                     </div>
 
