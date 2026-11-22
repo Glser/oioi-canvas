@@ -13,7 +13,7 @@ import { runModelPlugin } from "./model-plugin";
 import type { ReferenceImage } from "@/types/image";
 import type { ReferenceAudio, ReferenceVideo } from "@/types/media";
 
-type VideoResponse = { id: string; status?: string; error?: { message?: string }; url?: string; result_url?: string; video_url?: string; content?: { video_url?: string; url?: string } | null };
+type VideoResponse = { id: string; status?: string; progress?: number; error?: { message?: string }; url?: string; result_url?: string; video_url?: string; content?: { video_url?: string; url?: string } | null };
 type ApiVideoResponse = VideoResponse | { code?: number | string; data?: VideoResponse | null; msg?: string; message?: string; error?: { message?: string } };
 type ApiEnvelope<T> = T | { code?: number | string; data?: T | null; msg?: string; message?: string; error?: { message?: string } };
 type RequestOptions = { signal?: AbortSignal };
@@ -31,7 +31,7 @@ type GeminiVideoOperation = {
     error?: { message?: string };
     response?: { generateVideoResponse?: { generatedSamples?: Array<{ video?: { uri?: string } }> } };
 };
-export type VideoGenerationTaskState = { status: "pending" } | { status: "completed"; result: VideoGenerationResult } | { status: "failed"; error: string };
+export type VideoGenerationTaskState = ({ status: "pending"; progress?: number } | { status: "completed"; result: VideoGenerationResult } | { status: "failed"; error: string });
 
 /** Results for scripted (plugin) video models, which run their own create+poll in one shot at task creation. */
 const pluginVideoResults = new Map<string, VideoGenerationResult>();
@@ -51,24 +51,30 @@ export async function requestVideoGeneration(config: AiConfig, prompt: string, r
     return waitForVideoGenerationTask(config, await createVideoGenerationTask(config, prompt, references, options), options);
 }
 
-export async function waitForVideoGenerationTask(config: AiConfig, task: VideoGenerationTask, options?: RequestOptions): Promise<VideoGenerationResult> {
+// 与网关任务轮询周期（15s）对齐，避免前端高频打网关但进度不变。
+const VIDEO_POLL_INTERVAL_MS = 15_000;
+
+export async function waitForVideoGenerationTask(config: AiConfig, task: VideoGenerationTask, options?: RequestOptions & { onProgress?: (progress: number | undefined) => void }): Promise<VideoGenerationResult> {
     for (let attempt = 0; attempt < 120; attempt += 1) {
         if (options?.signal?.aborted) throw new DOMException("Aborted", "AbortError");
         // 单次轮询超时/网络抖动不终止等待：跳过本轮，下个间隔重试，由总次数上限兜底。
         const state = await pollVideoGenerationTask(config, task, options).catch((error: unknown) => {
             if (error instanceof DOMException && error.name === "AbortError") throw error;
             if (options?.signal?.aborted) throw error;
+            // 上游明确报错时立即终止轮询并抛出，不当作网络抖动重试。
+            if (isVideoTaskFailed(error)) throw error;
             return null;
         });
         if (!state) {
             if (attempt === 119) throw new Error(apiText("videoTimeout", { provider: "" }));
-            await delay(2500, options?.signal);
+            await delay(VIDEO_POLL_INTERVAL_MS, options?.signal);
             continue;
         }
         if (state.status === "completed") return state.result;
         if (state.status === "failed") throw videoTaskFailed(state.error);
+        options?.onProgress?.(state.progress);
         if (attempt === 119) throw new Error(apiText("videoTimeout", { provider: "" }));
-        await delay(2500, options?.signal);
+        await delay(VIDEO_POLL_INTERVAL_MS, options?.signal);
     }
     throw new Error(apiText("videoTimeout", { provider: "" }));
 }
@@ -247,8 +253,11 @@ async function pollOpenAIVideoTask(config: AiConfig, task: VideoGenerationTask, 
             return { status: "completed", result: { blob: content.data } };
         }
         if (video.status === "failed" || video.status === "cancelled") return { status: "failed", error: readApiErrorMessage(video.error?.message) || apiText("videoGenerationFailed") };
-        return { status: "pending" };
+        return { status: "pending", progress: typeof video.progress === "number" ? video.progress : undefined };
     } catch (error) {
+        // 上游明确返回错误（拿到 HTTP 响应或业务错误信封）时立即失败并回显信息，不再轮询到总超时；纯网络抖动仍由外层重试。
+        if (isVideoTaskFailed(error)) throw error;
+        if (axios.isAxiosError(error) && error.response) throw videoTaskFailed(readAxiosError(error, apiText("videoTaskQueryFailed")));
         throw new Error(readAxiosError(error, apiText("videoTaskQueryFailed")));
     }
 }
@@ -315,6 +324,9 @@ async function pollGeminiVideoTask(config: AiConfig, task: VideoGenerationTask, 
         const url = uri.includes("key=") ? uri : `${uri}${uri.includes("?") ? "&" : "?"}key=${config.apiKey}`;
         return { status: "completed", result: await videoResultFromUrl(url, options) };
     } catch (error) {
+        // 与 OpenAI 轮询一致：上游明确报错立即终止，网络抖动仍由外层重试。
+        if (isVideoTaskFailed(error)) throw error;
+        if (axios.isAxiosError(error) && error.response) throw videoTaskFailed(readAxiosError(error, apiText("videoTaskQueryFailed")));
         throw new Error(readAxiosError(error, apiText("videoTaskQueryFailed")));
     }
 }
@@ -407,7 +419,8 @@ function unwrapVideoResponse(payload: ApiVideoResponse) {
 function unwrapEnvelope<T>(payload: ApiEnvelope<T>, emptyMessage: string): T {
     if (!payload) throw new Error(emptyMessage);
     if (typeof payload === "object" && "code" in payload && payload.code !== undefined) {
-        if (payload.code !== 0 && payload.code !== "0") throw new Error(readApiErrorMessage(payload) || apiText("requestFailed"));
+        // 网关业务错误信封（code != 0）视为明确报错，等待循环里立即终止。
+        if (payload.code !== 0 && payload.code !== "0") throw videoTaskFailed(readApiErrorMessage(payload) || apiText("requestFailed"));
         if (!payload.data) throw new Error(emptyMessage);
         return payload.data;
     }

@@ -396,7 +396,8 @@ export default function VideoPage() {
                 }
                 if (state.status === "failed") throw new Error(state.error);
                 if (attempt === 119) throw new Error(t("videoWorkbench.timeout"));
-                await delay(2500);
+                // 与网关任务轮询周期（15s）对齐，避免高频轮询只打到本地缓存状态。
+                await delay(15000);
             }
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : t("workbench.generationFailed");

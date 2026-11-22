@@ -56,6 +56,9 @@ function parseTier(content: string): Partial<TierPricing> {
     if (fixed) return { perCall: Number(fixed[1]) };
     const second = content.match(/u\("seconds"\)\s*\*\s*([\d.]+)|([\d.]+)\s*\*\s*u\("seconds"\)/);
     if (second) return { perSecond: Number(second[1] || second[2]) };
+    // 按次计费的视频模型：u("calls") * N（一次生成 = 一次调用）
+    const call = content.match(/u\("calls"\)\s*\*\s*([\d.]+)|([\d.]+)\s*\*\s*u\("calls"\)/);
+    if (call) return { perCall: Number(call[1] || call[2]) };
     const input = content.match(/(?:^|[^\w])p\s*\*\s*([\d.]+)/);
     const output = content.match(/(?:^|[^\w])c\s*\*\s*([\d.]+)/);
     const cacheRead = content.match(/(?:^|[^\w])cr\s*\*\s*([\d.]+)/);
@@ -156,9 +159,28 @@ export function modelPriceSummary(pricing: NewApiModelPricing | undefined, group
     return null;
 }
 
+/** 视频分档计价的档位匹配：无条件单档直接取；条件式按选中分辨率 token 匹配（条件数比档位少 1 时末档为 else 兜底，带后缀 token 按前缀匹配限定档）。 */
+function matchVideoTierRate(rates: number[], expr: string, resolution: string): number | null {
+    const conditions = [...expr.matchAll(/u\("resolution"\)\s*==\s*"([^"]+)"/g)].map((match) => match[1]);
+    if (!conditions.length) return rates.length === 1 ? rates[0] : null;
+    const rateByResolution = new Map(conditions.map((token, index) => [token, rates[index]]));
+    const fallback = conditions.length === rates.length - 1 ? rates[rates.length - 1] : undefined;
+    const base = resolution.replace(/_.*$/, "");
+    let rate = rateByResolution.get(resolution);
+    if (rate == null && fallback != null && resolution === base) rate = fallback;
+    if (rate == null && resolution !== base) for (const [condition, conditionRate] of rateByResolution) {
+        if (conditionRate != null && condition.startsWith(base) && condition !== base) {
+            rate = conditionRate;
+            break;
+        }
+    }
+    return rate ?? null;
+}
+
 /**
  * 按当前所选参数估算一次生成的价格（¥）。
  * 视频：`u("resolution") == "token" ? tier(档, u("seconds") * N) : ...` 按选中分辨率取每秒价 × 秒数，
+ *       按次计费（`u("calls") * N`）取该档单价（一次生成 = 一次调用）；
  *       无条件单档（如 tier("720p", u("seconds") * 0.1)）直接用该档；无法定位档位时返回 null。
  * 图片：fixed(N) × 张数；无 billing_expr 时退回 model_price × 张数。
  */
@@ -171,24 +193,12 @@ export function estimateGenerationPrice(
     const tiers = extractTiers(expr).map((tier) => ({ label: tier.label, ...parseTier(tier.content) }));
 
     if (params.kind === "video") {
+        // 按次计费（u("calls") * N）的视频模型：一次生成 = 一次调用，价格与时长无关
+        const calls = tiers.filter((tier) => tier.perCall != null);
+        if (calls.length && expr.includes('u("calls")')) return matchVideoTierRate(calls.map((tier) => tier.perCall!), expr, params.resolution || "");
         const perSecond = tiers.filter((tier) => tier.perSecond != null);
         if (!perSecond.length) return null;
-        const conditions = [...expr.matchAll(/u\("resolution"\)\s*==\s*"([^"]+)"/g)].map((match) => match[1]);
-        if (!conditions.length) return perSecond.length === 1 ? perSecond[0].perSecond! * params.seconds : null;
-        const rateByResolution = new Map(conditions.map((token, index) => [token, perSecond[index]?.perSecond]));
-        // 条件数比档位少 1 时最后一个是 else 兜底档（如 720p 原画）
-        const fallback = conditions.length === perSecond.length - 1 ? perSecond[perSecond.length - 1].perSecond! : undefined;
-        const token = params.resolution || "";
-        const base = token.replace(/_.*$/, "");
-        let rate = rateByResolution.get(token);
-        // 裸分辨率（720p）命中 else 兜底档（原画），带后缀（720p_upscaled）按前缀匹配限定档（如 720p超分）
-        if (rate == null && fallback != null && token === base) rate = fallback;
-        if (rate == null && token !== base) for (const [condition, conditionRate] of rateByResolution) {
-            if (conditionRate != null && condition.startsWith(base) && condition !== base) {
-                rate = conditionRate;
-                break;
-            }
-        }
+        const rate = matchVideoTierRate(perSecond.map((tier) => tier.perSecond!), expr, params.resolution || "");
         return rate != null ? rate * params.seconds : null;
     }
 
