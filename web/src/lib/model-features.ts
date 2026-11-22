@@ -149,7 +149,7 @@ export function normalizeVideoOutputSelection(
     current: { resolution: string; ratio: string; durationSeconds: string },
     fallback: { resolution: string; ratio: string; durationSeconds: string; size?: (resolution: string, ratio: string) => string },
 ): { resolution: string; ratio: string; durationSeconds: string; size: string } {
-    // 未声明分辨率的模型用标准档位 + 传入兜底档，不把 current 并入列表——否则换模型后残留的非常规格（如 2k）会被永久保留，按钮列表里也点不掉。
+    // 声明分辨率的模型按声明列表；未声明的用标准档位 + 调用方兜底档，不把 current 并入——否则从声明 2K 的模型切到未声明模型后，残留的 2k 会被永久保留且按钮列表点不掉。
     const resolutions = videoResolutions(video, Array.from(new Set([resolutionToken(fallback.resolution), "480p", "720p", "1080p"])));
     const currentResolution = resolutionToken(current.resolution);
     const defaultResolution = video?.output?.defaults?.resolution ? resolutionToken(video.output.defaults.resolution) : "";

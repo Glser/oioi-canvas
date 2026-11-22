@@ -48,7 +48,8 @@ export function CanvasVideoSettingsPopover({ config, onConfigChange, buttonClass
         };
     }, [open]);
 
-    const features = resolveModelFeatures(config, config.videoModel)?.video;
+    // 节点当前选择的模型（buildNodeConfig 已按模式解析到 config.model）；读 videoModel 会拿到全局默认模型而非节点所选
+    const features = resolveModelFeatures(config, config.model)?.video;
     const normalizedMode = normalizeVideoMode(features, config.videoMode);
     const currentResolution = resolutionToken(config.vquality);
     const normalizedSelection = normalizeVideoOutputSelection(
