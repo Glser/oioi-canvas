@@ -76,7 +76,11 @@ export function LocalAgentPanel({ embedded }: { embedded?: boolean }) {
     const autoConnectRef = useRef(false);
     const autoAttemptRef = useRef("");
     const manualDisconnect = useAgentStore((state) => state.manualDisconnect);
-    const { status: serviceStatus } = useAgentServiceProbe(url, AGENT_PROTOCOL_VERSION);
+    const panelOpen = useAgentStore((state) => state.panelOpen);
+    // 已连接时 SSE 自带活性感知（hello 校验协议、断线原生重连），无需探测；
+    // 仅面板打开（状态徽标可见）或持有 Token 等待本机服务恢复（静默自动重连）时才轮询。
+    const probeActive = !connected && (panelOpen || (Boolean(token.trim()) && !manualDisconnect));
+    const { status: serviceStatus } = useAgentServiceProbe(url, AGENT_PROTOCOL_VERSION, probeActive);
     const connectedRef = useRef(false);
     const errorLoggedRef = useRef(false);
     const clientIdRef = useRef("");

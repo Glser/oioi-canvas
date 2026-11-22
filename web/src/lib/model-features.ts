@@ -100,10 +100,20 @@ export function videoUploadLimits(video: VideoFeatures | undefined, activeMode?:
 
 const MEDIA_TYPE_LABEL_KEYS: Record<VideoMediaType, string> = { image: "videoWorkbench.references", video: "videoWorkbench.videoReferences", audio: "videoWorkbench.audioReferences" };
 
-/** 画布发起视频生成前检查参考数量是否超出模型约束，超出时返回提示文案。 */
+/** 画布发起视频生成前检查参考数量是否超出模型约束，超出时返回提示文案。
+ *  模式由实际携带的参考驱动：有参考时按 reference 校验（无 frames 的 text+reference 模型不会误判为 text 归零上限）。 */
 export function checkVideoReferenceOverflow(video: VideoFeatures, imageCount: number, videoCount: number, audioCount: number) {
-    const mode = normalizeVideoMode(video, undefined, imageCount);
-    const effectiveMode = mode === "frames" && (videoCount > 0 || audioCount > 0) && videoFeatureModes(video).includes("reference") ? "reference" : mode;
+    const modes = videoFeatureModes(video);
+    const hasReference = imageCount > 0 || videoCount > 0 || audioCount > 0;
+    let effectiveMode: VideoInputMode;
+    if (hasReference) {
+        effectiveMode = modes.includes("reference") ? "reference" : "frames";
+    } else {
+        const normalized = normalizeVideoMode(video, undefined, 0);
+        effectiveMode = normalized === "frames" && modes.includes("reference") && !modes.includes("text") ? "reference" : normalized;
+    }
+    // frames 模式装不下视频/音频参考时升级为 reference
+    if (effectiveMode === "frames" && (videoCount > 0 || audioCount > 0) && modes.includes("reference")) effectiveMode = "reference";
     const media: Array<[VideoMediaType, number]> = [
         ["image", imageCount],
         ["video", videoCount],

@@ -92,8 +92,13 @@ function videoTaskFailed(message: string) {
 function prepareVideoFeatureConfig(config: AiConfig, imageCount: number, videoCount: number, audioCount: number): AiConfig {
     const features = config.modelFeatures?.video;
     if (!features) return { ...config, videoMode: config.videoMode === "reference" || imageCount > 2 || videoCount > 0 || audioCount > 0 ? "reference" : "frames" };
-    let mode = normalizeVideoMode(features, config.videoMode, imageCount);
-    if (mode === "frames" && (videoCount > 0 || audioCount > 0) && videoFeatureModes(features).includes("reference")) mode = "reference";
+    // 模式由实际参考驱动：有参考时按 reference（无 frames 的 text+reference 模型不会因残留 frames 配置被归到 text 零上限）
+    const hasReference = imageCount > 0 || videoCount > 0 || audioCount > 0;
+    const modes = videoFeatureModes(features);
+    let mode: "text" | "frames" | "reference" = hasReference
+        ? modes.includes("reference") ? "reference" : "frames"
+        : normalizeVideoMode(features, config.videoMode, 0);
+    if (mode === "frames" && (videoCount > 0 || audioCount > 0) && modes.includes("reference")) mode = "reference";
     const media: Array<["image" | "video" | "audio", number]> = [
         ["image", imageCount],
         ["video", videoCount],
@@ -172,7 +177,7 @@ async function createPluginVideoTask(config: AiConfig, model: string, script: st
             params: {
                 seconds: normalizeVideoSeconds(config.videoSeconds),
                 size: normalizeVideoSize(config.size, config.vquality),
-                resolution: normalizeVideoResolution(config.vquality),
+                resolution: normalizeVideoResolution(config.vquality, config.modelFeatures?.video?.output?.resolutions),
                 ratio: videoAspectRatio(config.size),
                 generateAudio: boolConfig(config.videoGenerateAudio, true),
                 watermark: boolConfig(config.videoWatermark, false),
@@ -220,7 +225,7 @@ async function createOpenAIVideoTask(config: AiConfig, model: string, prompt: st
     body.append("prompt", prompt);
     body.append("seconds", normalizeVideoSeconds(config.videoSeconds));
     body.append("size", normalizeVideoSize(config.size, config.vquality) || "1280x720");
-    body.append("resolution_name", normalizeVideoResolution(config.vquality));
+    body.append("resolution_name", normalizeVideoResolution(config.vquality, config.modelFeatures?.video?.output?.resolutions));
     body.append("generate_audio", String(boolConfig(config.videoGenerateAudio, true)));
     body.append("watermark", String(boolConfig(config.videoWatermark, false)));
     body.append("mode", mode);
@@ -297,7 +302,7 @@ async function createGeminiVideoTask(config: AiConfig, model: string, prompt: st
                         parameters: {
                             aspectRatio: videoAspectRatio(config.size),
                             durationSeconds: Number(normalizeVideoSeconds(config.videoSeconds)) || 8,
-                            resolution: normalizeVideoResolution(config.vquality).replace(/_.*$/, ""),
+                            resolution: normalizeVideoResolution(config.vquality, config.modelFeatures?.video?.output?.resolutions).replace(/_.*$/, ""),
                             generateAudio: boolConfig(config.videoGenerateAudio, true),
                             addWatermark: boolConfig(config.videoWatermark, false),
                         },
@@ -403,13 +408,17 @@ function normalizeVideoSize(value: string, resolution?: string) {
     return computeVideoSize((resolution || "720").replace(/p.*$/i, "") || "720", ratio);
 }
 
-function normalizeVideoResolution(value: string) {
+function normalizeVideoResolution(value: string, declared?: string[]) {
     if (value === "low") return "480p";
     if (value === "auto" || value === "high" || value === "medium") return "720p";
+    // 模型声明了分辨率枚举（网关 usage schema 按声明原文校验、区分大小写，如 "2K"）时按声明规范写法回传
+    const normalized = value.trim().toLowerCase();
+    const declaredMatch = declared?.find((item) => item.trim().toLowerCase() === normalized);
+    if (declaredMatch) return declaredMatch;
     // 已是 `720p` / `720p_upscaled` 这类 token 时原样传给接口
     if (/^\d+p(_\w+)?$/i.test(value || "")) return value;
-    const resolution = value.replace(/p$/i, "") || "720";
-    return `${resolution}p`;
+    const digits = value.match(/\d+/)?.[0];
+    return digits ? (value.toUpperCase().includes("K") ? `${digits}K` : `${digits}p`) : "720p";
 }
 
 function unwrapVideoResponse(payload: ApiVideoResponse) {

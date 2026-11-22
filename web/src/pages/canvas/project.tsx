@@ -402,7 +402,8 @@ function InfiniteCanvasPage() {
     const stopGenerationByRunningId = useCallback((runningId: string) => {
         const affectedNodeIds = new Set<string>();
         generationRequestsRef.current.forEach((request) => {
-            if (request.runningNodeId !== runningId) return;
+            // 悬停的目标节点可能是发起节点（runningNodeId）也可能是生成中新建的结果节点（targetNodeId），两者都能停止
+            if (request.runningNodeId !== runningId && request.targetNodeId !== runningId) return;
             request.controller.abort();
             generationRequestsRef.current.delete(request.targetNodeId);
             affectedNodeIds.add(request.targetNodeId);
@@ -2570,6 +2571,8 @@ function InfiniteCanvasPage() {
                         const referenceExceeded = checkVideoReferenceOverflow(videoFeature, generationContext.referenceImages.length, generationContext.referenceVideos.length, generationContext.referenceAudios.length);
                         if (referenceExceeded) {
                             message.warning(referenceExceeded);
+                            // 前置校验失败：撤销已标记的 LOADING 态，否则节点永远卡在生成中
+                            setNodes((prev) => prev.map((node) => (node.id === nodeId ? { ...node, metadata: { ...node.metadata, status: NODE_STATUS_IDLE, errorDetails: undefined } } : node)));
                             return;
                         }
                     }
@@ -3409,6 +3412,7 @@ function InfiniteCanvasPage() {
                     onReversePrompt={createImageReversePromptNodes}
                     onRetry={(node) => void handleRetryNode(node)}
                     onToggleFreeResize={(node) => toggleNodeFreeResize(node.id)}
+                    onStopGeneration={(node) => confirmStopGeneration(node.id)}
                     onDelete={(node) => deleteNodes(new Set([node.id]))}
                     onUngroup={(node) => ungroupSelection(new Set([node.id]))}
                 />
